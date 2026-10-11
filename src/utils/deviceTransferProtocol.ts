@@ -125,7 +125,7 @@ export class TransferFrameParser {
       if (line.trim()) {
         const value: unknown = JSON.parse(line);
         if (!isTransferFrame(value)) {
-          throw new Error('Transfer message is invalid.');
+          throw new Error(describeBadFrame(value));
         }
         frames.push(value);
       }
@@ -206,4 +206,29 @@ export function getTransferResumeBytes(fileSizeBytes: number, nextChunk: number)
     throw new Error('The transfer resume position is invalid.');
   }
   return Math.min(fileSizeBytes, nextChunk * TRANSFER_CHUNK_BYTES);
+}
+
+function describeBadFrame(value: unknown): string {
+  const type = typeof value === 'object' && value !== null && 'type' in value ? String((value as { type: unknown }).type) : 'unknown';
+  let detail = '';
+  if (type === 'batchOffer' && typeof value === 'object' && value !== null && Array.isArray((value as { items?: unknown }).items)) {
+    for (const raw of (value as { items: unknown[] }).items) {
+      const item = (raw ?? {}) as { contentId?: unknown; title?: unknown; fileSizeBytes?: unknown };
+      if (typeof item.contentId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(item.contentId)) {
+        detail = ', bad content id: ' + String(item.contentId).slice(0, 40);
+        break;
+      }
+      if (typeof item.title !== 'string' || !item.title.trim() || item.title.length > 200) {
+        detail = ', bad title';
+        break;
+      }
+      if (!Number.isSafeInteger(item.fileSizeBytes) || Number(item.fileSizeBytes) <= 0 || Number(item.fileSizeBytes) > MAX_TRANSFER_FILE_BYTES) {
+        detail = ', bad file size: ' + String(item.fileSizeBytes).slice(0, 20);
+        break;
+      }
+    }
+  } else if (type === 'hello') {
+    detail = ', bad session or permit field';
+  }
+  return `Transfer message is invalid (${type}${detail}).`;
 }
