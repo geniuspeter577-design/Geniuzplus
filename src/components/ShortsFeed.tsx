@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as Clipboard from 'expo-clipboard';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -38,6 +39,7 @@ import {
   addToPlaylist,
   updateReel,
 } from '../services/ReelsRepository';
+import { createBoostCheckout } from '../services/MembershipClient';
 import { theme } from '../theme';
 
 type ShortsFeedProps = {
@@ -244,6 +246,36 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
     setCommentText('');
   });
 
+  const startBoost = (days: number, priceLabel: string) => {
+    const dayText = days === 1 ? '1 day' : `${days} days`;
+    Alert.alert(
+      `Boost for ${dayText}?`,
+      `You will pay ${priceLabel} on the secure Flutterwave page. Your reel will be shown to more people for ${dayText}. This increases reach but does not guarantee views.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: () => void runAction(async () => {
+            const checkout = await createBoostCheckout(item.id, days);
+            const url = new URL(checkout.authorizationUrl);
+            const okHost = url.hostname === 'flutterwave.com' || url.hostname.endsWith('.flutterwave.com') || url.hostname.endsWith('.flutterwave.com.ng');
+            if (url.protocol !== 'https:' || !okHost) {
+              throw new Error(`Invalid payment link: ${url.hostname}`);
+            }
+            await WebBrowser.openBrowserAsync(url.toString());
+            Alert.alert('Boost', 'If your payment went through, your reel will show as boosted within a minute or two.');
+          }),
+        },
+      ],
+    );
+  };
+
+  const openBoostPlans = () => setMenuActions([
+    { text: '1 day - NGN 500', onPress: () => startBoost(1, 'NGN 500') },
+    { text: '3 days - NGN 1,000', onPress: () => startBoost(3, 'NGN 1,000') },
+    { text: '7 days - NGN 2,000', onPress: () => startBoost(7, 'NGN 2,000') },
+  ]);
+
   const openMore = () => {
     const actions = [
       { text: 'Interested', onPress: () => void runAction(() => setReelInterest(item.id, true)) },
@@ -252,6 +284,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
       { text: 'Copy link', onPress: () => void Clipboard.setStringAsync(Linking.createURL('shorts', { queryParams: { reelId: item.id } })).then(() => Alert.alert('Reels', 'Link copied.')) },
       ...(!isLegacy ? [{ text: 'Report', onPress: () => void runAction(() => reportReel(item.id, 'Reported by user')) }] : []),
       ...(currentItem.isOwner ? [
+        { text: 'Boost reel', onPress: openBoostPlans },
         { text: 'Edit caption', onPress: () => { setCaptionDraft(currentItem.caption); setEditingCaption(true); } },
         { text: currentItem.allowComments ? 'Turn comments off' : 'Turn comments on', onPress: () => void runAction(async () => { await updateReel(item.id, { allow_comments: !currentItem.allowComments }); setCurrentItem((value) => ({ ...value, allowComments: !value.allowComments })); }) },
         { text: 'Delete Reel', style: 'destructive' as const, onPress: () => Alert.alert('Delete Reel?', 'This removes the video and its engagement data.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void runAction(() => deleteReel(item.id)).then(() => onHide(item.id)) }]) },

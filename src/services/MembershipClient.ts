@@ -32,7 +32,7 @@ function getApiBaseUrl() {
   return value;
 }
 
-async function request<T>(path: string, options: { method?: 'GET' | 'POST'; authenticated?: boolean } = {}): Promise<T> {
+async function request<T>(path: string, options: { method?: 'GET' | 'POST'; authenticated?: boolean; body?: Record<string, unknown> } = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (options.method === 'POST') {
     headers['Content-Type'] = 'application/json';
@@ -53,7 +53,7 @@ async function request<T>(path: string, options: { method?: 'GET' | 'POST'; auth
     response = await fetch(`${getApiBaseUrl()}${path}`, {
       method: options.method ?? 'GET',
       headers,
-      ...(options.method === 'POST' ? { body: '{}' } : {}),
+      ...(options.method === 'POST' ? { body: JSON.stringify(options.body ?? {}) } : {}),
       signal: AbortSignal.timeout(20_000),
     });
   } catch {
@@ -102,4 +102,14 @@ export function createMemberCheckout() {
     amountKobo: number;
     currency: 'NGN';
   }>('/api/membership/create-checkout', { method: 'POST', authenticated: true });
+}
+
+export function createBoostCheckout(reelId: string, days: number) {
+  return request<{
+    authorizationUrl: string;
+    accessCode: string;
+    reference: string;
+    amountKobo: number;
+    currency: 'NGN';
+  }>('/api/reels/boost-checkout', { method: 'POST', authenticated: true, body: { reelId, days } });
 }
