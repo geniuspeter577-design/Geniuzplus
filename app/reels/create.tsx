@@ -24,9 +24,9 @@ type AudioPick = { uri: string; name: string; mimeType: string };
 const STICKERS = ['😀', '😂', '😍', '🔥', '👏', '💯', '🎉', '❤️', '😎', '🙏', '👍', '✨', '🎬', '🍿', '⭐', '😭', '🤣', '😮', '🥳', '💪', '🌍', '🎶', '👑', '🙌'];
 const COLORS = ['#FFFFFF', '#72F06A', '#FFD34D', '#FF5C7A', '#4DA3FF', '#000000'];
 const SOON_ROWS: { icon: IconName; title: string; reason: string }[] = [
-  { icon: 'arrow-redo', title: 'Share to groups', reason: 'Groups do not exist in Geniuz+ yet.' },
-  { icon: 'list', title: 'Add to playlist', reason: 'Playlists do not exist in Geniuz+ yet.' },
-  { icon: 'book-outline', title: 'Share to your story', reason: 'Stories do not exist in Geniuz+ yet.' },
+  { icon: 'arrow-redo', title: 'Share to groups', reason: 'Groups do not exist in Geniuzplus yet.' },
+  { icon: 'list', title: 'Add to playlist', reason: 'Playlists do not exist in Geniuzplus yet.' },
+  { icon: 'book-outline', title: 'Share to your story', reason: 'Stories do not exist in Geniuzplus yet.' },
   { icon: 'logo-instagram', title: 'Instagram', reason: 'It needs an Instagram business connection.' },
   { icon: 'bag-handle-outline', title: 'Add product', reason: 'It needs a shop and payments to be set up.' },
   { icon: 'flask-outline', title: 'A/B tests', reason: 'It needs enough viewers and an analytics backend.' },
@@ -315,7 +315,7 @@ export default function CreateReelScreen() {
     setTrim({ start, end });
   };
 
-  const saveInfo = () => Alert.alert('Save', 'Your video is already on your phone. Your edits are applied inside Geniuz+ when people watch.');
+  const saveInfo = () => Alert.alert('Save', 'Your video is already on your phone. Your edits are applied inside Geniuzplus when people watch.');
   const notAvailable = (title: string, reason?: string) => Alert.alert(title, `Not available yet. ${reason ?? ''}`.trim());
 
   const menuActions: { icon: IconName; title: string; run: () => void }[] = [

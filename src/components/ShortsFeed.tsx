@@ -45,7 +45,8 @@ type ShortsFeedProps = {
   initialReelId?: string;
 };
 
-function ShortVideo({ item, height, isActive, onHide }: {
+function ShortVideo({ item, height, isActive, onHide, onFinished }: {
+  onFinished?: () => void;
   item: ReelFeedItem;
   height: number;
   isActive: boolean;
@@ -66,6 +67,31 @@ function ShortVideo({ item, height, isActive, onHide }: {
   const [busy, setBusy] = useState(false);
   const lastReportedInterval = useRef(0);
   const lastTapRef = useRef(0);
+  const finishedRef = useRef(onFinished);
+  finishedRef.current = onFinished;
+  useEffect(() => {
+    if (!isActive) {
+      return undefined;
+    }
+    let loops = 0;
+    let last = 0;
+    try {
+      if (!player.timeUpdateEventInterval) {
+        player.timeUpdateEventInterval = 0.25;
+      }
+    } catch { /* player already released */ }
+    const loopSub = player.addListener('timeUpdate', ({ currentTime }) => {
+      if (last - currentTime > 0.5) {
+        loops += 1;
+        if (loops >= 2) {
+          loops = 0;
+          finishedRef.current?.();
+        }
+      }
+      last = currentTime;
+    });
+    return () => safeRemove(loopSub);
+  }, [isActive, item.id, player]);
   const audioPlayer = useVideoPlayer(null, (audioInstance) => {
     audioInstance.loop = true;
   });
@@ -334,8 +360,12 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
     }
   }, []);
   const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 80 }), []);
+  const listRef = useRef<FlatList>(null);
+  const goNext = () => {
+    listRef.current?.scrollToOffset({ offset: (activeIndex + 1) * height, animated: true });
+  };
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<ReelFeedItem>) => (
-    <ShortVideo item={item} height={height} isActive={index === activeIndex} onHide={(id) => setHiddenIds((current) => [...current, id])} />
+    <ShortVideo item={item} height={height} isActive={index === activeIndex} onFinished={goNext} onHide={(id) => setHiddenIds((current) => [...current, id])} />
   ), [activeIndex, height]);
 
   return (
@@ -346,6 +376,7 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         pagingEnabled
+        ref={listRef}
         snapToInterval={height}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}

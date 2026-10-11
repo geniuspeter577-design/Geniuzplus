@@ -34,7 +34,7 @@ export function UpdatePrompt() {
       <View style={styles.overlay}>
         <View style={styles.card}>
           <Text style={styles.title}>Update available</Text>
-          <Text style={styles.body}>A new version of Geniuz+ is ready with improvements. Update now to get it.</Text>
+          <Text style={styles.body}>A new version of Geniuzplus is ready with improvements. Update now to get it.</Text>
           <Pressable accessibilityRole="button" onPress={() => void Updates.reloadAsync()} style={styles.primary}>
             <Text style={styles.primaryText}>Update now</Text>
           </Pressable>
