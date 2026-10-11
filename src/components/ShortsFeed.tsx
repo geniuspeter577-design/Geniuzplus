@@ -15,6 +15,7 @@ import {
   Animated,
   KeyboardAvoidingView,
   Pressable,
+  ScrollView,
   Share,
   StyleSheet,
   Text,
@@ -64,6 +65,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   const [commentOpen, setCommentOpen] = useState(false);
   const [comments, setComments] = useState<{ id: string; displayName: string; body: string }[]>([]);
   const [editingCaption, setEditingCaption] = useState(false);
+  const [menuActions, setMenuActions] = useState<{ text: string; style?: string | undefined; onPress?: (() => void) | undefined }[] | null>(null);
   const [captionDraft, setCaptionDraft] = useState(item.caption);
   const [busy, setBusy] = useState(false);
   const lastReportedInterval = useRef(0);
@@ -256,7 +258,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
       ] : []),
       { text: 'Cancel', style: 'cancel' as const },
     ];
-    Alert.alert('Reel options', undefined, actions);
+    setMenuActions(actions.filter((action) => action.style !== 'cancel'));
   };
 
   const handleVideoTap = () => {
@@ -347,6 +349,27 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
         ) : null}
       </View>
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
+      <Modal visible={menuActions !== null} transparent animationType="fade" onRequestClose={() => setMenuActions(null)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }} onPress={() => setMenuActions(null)}>
+          <View style={{ backgroundColor: theme.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '70%', paddingBottom: 16 }}>
+            <ScrollView>
+              {(menuActions ?? []).map((action) => (
+                <Pressable
+                  key={action.text}
+                  accessibilityRole="button"
+                  onPress={() => { setMenuActions(null); action.onPress?.(); }}
+                  style={{ paddingHorizontal: 20, paddingVertical: 14 }}
+                >
+                  <Text style={{ color: action.style === 'destructive' ? '#FF5C5C' : theme.text, fontSize: 16, fontWeight: '600' }}>{action.text}</Text>
+                </Pressable>
+              ))}
+              <Pressable accessibilityRole="button" onPress={() => setMenuActions(null)} style={{ paddingHorizontal: 20, paddingVertical: 14 }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600' }}>Cancel</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
       <Modal visible={commentOpen || editingCaption} transparent animationType="slide" onRequestClose={() => { setCommentOpen(false); setEditingCaption(false); }}>
         <KeyboardAvoidingView behavior="padding" style={styles.modalShade}>
           <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
