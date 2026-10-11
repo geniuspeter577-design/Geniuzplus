@@ -229,6 +229,15 @@ export function DeviceTransferPanel() {
     ? Math.min(100, Math.floor(((progress.completedBytes ?? 0) + progress.current) / progress.totalBytes * 100))
     : progressPercent;
   const transferDisabled = !hasMemberAccess || membership.isLoading;
+  const toMb = (bytes: number) => (bytes / 1048576).toFixed(1);
+  const progressBar = progress ? (
+    <View style={styles.progress}>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+      </View>
+      <Text style={styles.muted}>{`${progress.title ? progress.title + ' · ' : ''}${progressPercent}% · ${toMb(progress.current)} of ${toMb(progress.total)} MB`}</Text>
+    </View>
+  ) : null;
 
   return (
     <View style={styles.card}>
@@ -266,6 +275,7 @@ export function DeviceTransferPanel() {
         {isReceiving ? (
           <>
             <Text selectable style={styles.code}>{receiveCode}</Text>
+            {progressBar}
             <Text style={styles.muted}>
               Session expires {new Date(receiveExpiresAt).toLocaleTimeString()}.
             </Text>
@@ -344,6 +354,7 @@ export function DeviceTransferPanel() {
           style={styles.input}
           value={sendCode}
         />
+        {isSending ? progressBar : null}
         {isSending ? (
           <Pressable
             onPress={() => senderController.current?.abort()}
