@@ -61,7 +61,7 @@ export class FlutterwaveService {
         currency: 'NGN',
         redirect_url: this.redirectUrl,
         customer: { email: input.email },
-        customizations: { title: 'Geniuz+ Member' },
+        customizations: { title: 'Geniuzplus Member' },
       }),
     });
     if (!isRecord(data) || typeof data.link !== 'string') {

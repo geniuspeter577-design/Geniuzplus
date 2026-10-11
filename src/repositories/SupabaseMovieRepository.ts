@@ -12,13 +12,13 @@ import type { SubtitleFormat } from '../utils/subtitles';
 const MOVIE_BUCKET = 'movie-assets';
 const PUBLISHED_CATALOG_PAGE_SIZE = 500;
 const MOVIE_COLUMNS =
-  'id,title,description,release_year,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status';
+  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status';
 const LEGACY_MOVIE_COLUMNS =
-  'id,title,description,release_year,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_content_type';
+  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_content_type';
 const MOVIE_COLUMNS_WITH_CREATED_AT =
-  'id,title,description,release_year,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status,created_at';
+  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status,created_at';
 const LEGACY_MOVIE_COLUMNS_WITH_CREATED_AT =
-  'id,title,description,release_year,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,created_at';
+  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,created_at';
 type MovieColumnList =
   | typeof MOVIE_COLUMNS
   | typeof LEGACY_MOVIE_COLUMNS
@@ -34,6 +34,7 @@ type MovieRecord = {
   title: string;
   description: string | null;
   release_year: number | null;
+  release_date?: string | null;
   genres: string[] | null;
   categories?: string[] | null;
   poster_url: string | null;
@@ -99,6 +100,7 @@ export type NewMovie = {
   title: string;
   description: string;
   releaseYear?: number;
+  releaseDate?: string;
   genres: string[];
   categories: string[];
   posterUrl?: string;
@@ -122,6 +124,7 @@ export type AdminTitleUpdate = {
   title: string;
   description: string;
   releaseYear?: number;
+  releaseDate?: string;
   categories: string[];
   contentRating?: string;
   posterUrl?: string;
@@ -162,7 +165,7 @@ type PublishMovieOptions = {
 };
 
 export type PublishedTitlesFilter =
-  | { kind: 'trending' | 'movies' | 'series' | 'shorts' }
+  | { kind: 'trending' | 'movies' | 'series' | 'shorts' | 'upcoming' }
   | { kind: 'category' | 'genre'; value: string };
 
 export type PublishedTitlesPage = {
@@ -204,6 +207,7 @@ function toContentItem(movie: MovieRecord): ContentItem {
     ...(movie.created_at ? { createdAt: movie.created_at } : {}),
     type: isSeries ? 'series' : movie.content_type === 'short' ? 'short' : 'movie',
     ...(movie.release_year === null ? {} : { year: movie.release_year }),
+    ...(movie.release_date ? { releaseDate: movie.release_date } : {}),
     genres: movie.genres ?? [],
     categories: movie.categories ?? [],
     ...(movie.poster_url ? { posterUrl: movie.poster_url } : {}),
@@ -225,7 +229,7 @@ function toContentItem(movie: MovieRecord): ContentItem {
       : { trailerDurationSeconds: Number(movie.trailer_duration_seconds) }),
     ...(movie.trailer_content_type ? { trailerContentType: movie.trailer_content_type } : {}),
     availability: {
-      discoverable: movie.published && (isSeries || hasVideo),
+      discoverable: movie.published && (isSeries || hasVideo || Boolean(movie.release_date && movie.release_date > new Date().toISOString().slice(0, 10))),
       stream: movie.published && !isSeries && hasVideo,
       download: movie.allow_download && !isSeries && hasVideo,
       premium: false,
@@ -416,6 +420,29 @@ export class SupabaseMovieRepository {
     return this.getPublishedTitlesByType('movie');
   }
 
+  async getUpcomingMovies() {
+    const today = new Date().toISOString().slice(0, 10);
+    const records = await loadAllPages(async (offset, pageSize) => {
+      const { data, error } = await queryMovieRows((columns) => this.client
+        .from('movies')
+        .select(columns as typeof MOVIE_COLUMNS)
+        .eq('published', true)
+        .eq('content_type', 'movie')
+        .gt('release_date', today)
+        .order('release_date', { ascending: true })
+        .range(offset, offset + pageSize - 1), true);
+      if (error) {
+        logSupabaseError('[SupabaseMovieRepository] Could not load upcoming movies.', error, {
+          table: 'movies',
+          columns: `${MOVIE_COLUMNS},created_at`,
+        });
+        throw new Error('Could not load upcoming movies.', { cause: error });
+      }
+      return (data ?? []) as MovieRecord[];
+    }, PUBLISHED_CATALOG_PAGE_SIZE);
+    return records.map(toContentItem);
+  }
+
   async getPublishedSeries() {
     return this.getPublishedTitlesByType('series');
   }
@@ -501,6 +528,8 @@ export class SupabaseMovieRepository {
         query = query.eq('content_type', 'series');
       } else if (filter.kind === 'shorts') {
         query = query.eq('content_type', 'short').or('video_path.not.is.null,storage_key.not.is.null');
+      } else if (filter.kind === 'upcoming') {
+        query = query.eq('content_type', 'movie').gt('release_date', new Date().toISOString().slice(0, 10));
       } else if (filter.kind === 'category') {
         query = query.contains('categories', [filter.value]);
       } else if (filter.kind === 'genre') {
@@ -514,7 +543,7 @@ export class SupabaseMovieRepository {
       }
 
       return query
-        .order('created_at', { ascending: false })
+        .order(filter.kind === 'upcoming' ? 'release_date' : 'created_at', { ascending: filter.kind === 'upcoming' })
         .order('id', { ascending: false })
         .range(start, start + size);
     }, true);
@@ -612,6 +641,7 @@ export class SupabaseMovieRepository {
         title: title.title.trim(),
         description: title.description.trim() || null,
         release_year: title.releaseYear ?? null,
+        release_date: title.releaseDate ?? null,
         categories: title.categories,
         content_rating: title.contentRating?.trim() || null,
         poster_url: title.posterUrl?.trim() || null,
@@ -718,6 +748,7 @@ export class SupabaseMovieRepository {
       title: movie.title.trim(),
       description: movie.description.trim() || null,
       release_year: movie.releaseYear ?? null,
+      release_date: movie.releaseDate ?? null,
       genres: movie.genres,
       categories: movie.categories,
       poster_url: movie.posterUrl?.trim() || null,
@@ -897,6 +928,7 @@ export class SupabaseMovieRepository {
         title: movie.title.trim(),
         description: movie.description.trim() || null,
         release_year: movie.releaseYear ?? null,
+        release_date: movie.releaseDate ?? null,
         genres: movie.genres,
         categories: movie.categories,
         poster_url: movie.posterUrl?.trim() || null,

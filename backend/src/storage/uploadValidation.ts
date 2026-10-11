@@ -42,7 +42,7 @@ export function validateUploadInput(value: unknown): UploadInput {
     fileSize <= 0 ||
     fileSize > (kind === 'trailer' ? MAX_TRAILER_FILE_SIZE_BYTES : MAX_VIDEO_FILE_SIZE_BYTES)
   ) {
-    throw new HttpError(400, 'INVALID_FILE_SIZE', 'The video size must be between 1 byte and 1 GiB.');
+    throw new HttpError(400, 'INVALID_FILE_SIZE', 'The video size must be between 1 byte and 1 GB.');
   }
   if (!(contentType.startsWith('video/') || contentType === 'application/octet-stream')) {
     throw new HttpError(400, 'INVALID_CONTENT_TYPE', 'Choose a video with a valid video content type.');

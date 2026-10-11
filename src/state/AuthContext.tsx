@@ -18,7 +18,8 @@ import {
   signOutOfAccount,
   type AccountAuthClient,
 } from '../utils/accountAuth';
-import { SignInToContinueSheet, type SignInSheetMode } from '../components/auth/SignInToContinueSheet';
+import { SignInToContinueModal, type SignInSheetMode } from '../components/auth/SignInToContinueModal';
+import { registerPushNotifications, removePushNotifications } from '../services/PushNotificationRegistration';
 
 type AuthContextValue = {
   session: Session | null;
@@ -119,6 +120,21 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       subscription.unsubscribe();
     };
   }, [loadProfile]);
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      return;
+    }
+    let active = true;
+    void registerPushNotifications(session.user.id).catch((error: unknown) => {
+      if (active) {
+        console.warn('[Notifications] Push registration was not completed.', error);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [session?.user.id]);
 
   const signUp = useCallback((email: string, password: string, displayName: string, dateOfBirth: string) => {
     if (!authClient) {
@@ -226,8 +242,13 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     if (!authClient) {
       throw new Error('Account service is not configured.');
     }
+    if (session?.user.id) {
+      await removePushNotifications(session.user.id).catch((error: unknown) => {
+        console.warn('[Notifications] Push token cleanup failed during sign-out.', error);
+      });
+    }
     await signOutOfAccount(authClient);
-  }, []);
+  }, [session]);
 
   const resetPassword = useCallback(async (email: string) => {
     if (!authClient) {
@@ -290,11 +311,17 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <SignInToContinueSheet
+      <SignInToContinueModal
         key={signInSheetMode ?? 'closed'}
         visible={signInSheetMode !== null}
         initialMode={signInSheetMode ?? 'sign-in'}
         onClose={closeSignInSheet}
+        signIn={signIn}
+        signUp={signUp}
+        signInWithGoogle={signInWithGoogle}
+        completeDateOfBirth={completeDateOfBirth}
+        resetPassword={resetPassword}
+        resendConfirmation={resendConfirmationForEmail}
       />
     </AuthContext.Provider>
   );

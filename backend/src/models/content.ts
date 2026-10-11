@@ -15,6 +15,7 @@ export type ContentItem = {
   id: string;
   source: 'tmdb' | 'anilist' | 'geniuz' | 'other';
   sourceId: string;
+  tmdbId?: number;
   title: string;
   type: ContentType;
   year?: number;

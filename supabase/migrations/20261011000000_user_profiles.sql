@@ -1,6 +1,6 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  display_name text not null default 'Geniuz+ user' check (char_length(trim(display_name)) between 1 and 80),
+  display_name text not null default 'Geniuzplus user' check (char_length(trim(display_name)) between 1 and 80),
   avatar_color text not null default '#72F06A' check (avatar_color ~ '^#[0-9A-Fa-f]{6}$'),
   public_id text not null unique check (public_id ~ '^[0-9]{8}$'),
   created_at timestamptz not null default now()
@@ -37,7 +37,7 @@ begin
     return;
   end if;
 
-  normalized_name := left(coalesce(nullif(trim(p_display_name), ''), 'Geniuz+ user'), 80);
+  normalized_name := left(coalesce(nullif(trim(p_display_name), ''), 'Geniuzplus user'), 80);
   loop
     candidate_id := lpad(floor(random() * 100000000)::bigint::text, 8, '0');
     insert into public.profiles (id, display_name, avatar_color, public_id)

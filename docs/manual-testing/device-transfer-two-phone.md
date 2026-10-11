@@ -1,6 +1,6 @@
 # Device transfer: two-phone manual test
 
-Device transfer requires a Geniuz+ EAS development build on two iOS or Android
+Device transfer requires a Geniuzplus EAS development build on two iOS or Android
 phones. It does not work in Expo Go. Do not treat the automated protocol harness
 as a real-device test.
 

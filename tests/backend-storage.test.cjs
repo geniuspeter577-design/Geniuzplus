@@ -282,11 +282,11 @@ test('media conversion prints a reviewable SQL update using the real movie size 
   );
 });
 
-test('file-size formatting uses one binary-unit helper across application and scripts', () => {
+test('file-size formatting uses one KB/MB/GB helper across application and scripts', () => {
   assert.equal(formatFileSize(0), '0 B');
-  assert.equal(formatFileSize(1024), '1 KiB');
-  assert.equal(formatFileSize(1024 ** 2), '1.0 MiB');
-  assert.equal(formatFileSize(1024 ** 3), '1.00 GiB');
+  assert.equal(formatFileSize(1024), '1 KB');
+  assert.equal(formatFileSize(1024 ** 2), '1.0 MB');
+  assert.equal(formatFileSize(1024 ** 3), '1.00 GB');
 });
 
 test('media conversion warns only when output exceeds source size', async () => {
@@ -811,7 +811,7 @@ test('B2 log redaction removes credential-shaped values, URLs, and query strings
   assert.match(redacted, /REDACTED_URL/);
 });
 
-test('upload validation enforces names, video content types, and the shared 1 GiB limit', () => {
+test('upload validation enforces names, video content types, and the shared 1 GB limit', () => {
   assert.deepEqual(
     validateUploadInput({
       fileName: 'movie.mkv',
@@ -880,7 +880,7 @@ test('object keys are unique, scoped to movies, and preserve safe extensions', (
   );
 });
 
-test('trailer uploads accept kind trailer up to 300 MB while preserving the 1 GiB video limit', () => {
+test('trailer uploads accept kind trailer up to 300 MB while preserving the 1 GB video limit', () => {
   const input = {
     fileName: 'preview.mp4',
     fileSize: 300 * 1024 * 1024,

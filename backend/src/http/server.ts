@@ -75,6 +75,19 @@ function writeJson(response: ServerResponse, status: number, data: unknown) {
   response.end(body);
 }
 
+function writeLegalPage(response: ServerResponse, title: string, body: string) {
+  const page = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} | Geniuzplus</title><style>body{margin:0;background:#0E1014;color:#F3F7F5;font:16px/1.65 system-ui,sans-serif}main{max-width:760px;margin:auto;padding:32px 22px 64px}h1,h2{line-height:1.2}h1{color:#72F06A}a{color:#72F06A}</style></head><body><main><h1>${title}</h1><p>Geniuzplus</p>${body}</main></body></html>`;
+  response.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Length': Buffer.byteLength(page),
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'no-referrer',
+    'Cache-Control': 'public, max-age=300',
+  });
+  response.end(page);
+}
+
 function sanitizeUrl(rawUrl: string) {
   try {
     const url = new URL(rawUrl, 'http://localhost');
@@ -351,9 +364,34 @@ async function handleRequest(
   }
 
   if (pathname === '/payment-complete') {
-    const page = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment received</title></head><body style="background:#0E1014;color:#fff;font-family:sans-serif;text-align:center;padding:48px 24px"><h2 style="color:#72F06A">Payment received</h2><p>Go back to the Geniuz+ app. Your Member status updates after the payment is confirmed.</p></body></html>';
+    const page = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Payment received</title></head><body style="background:#0E1014;color:#fff;font-family:sans-serif;text-align:center;padding:48px 24px"><h2 style="color:#72F06A">Payment received</h2><p>Go back to the Geniuzplus app. Your Member status updates after the payment is confirmed.</p></body></html>';
     response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'X-Content-Type-Options': 'nosniff' });
     response.end(page);
+    return;
+  }
+
+  if (request.method === 'GET' && pathname === '/legal/terms') {
+    writeLegalPage(response, 'Terms of Use', `
+      <p>These Terms govern your use of Geniuzplus. Replace each bracketed item before launch.</p>
+      <h2>Eligibility and accounts</h2><p>You must be at least [MINIMUM AGE] and provide accurate account information. Keep your sign-in credentials secure and notify us at [SUPPORT EMAIL] if you believe your account was accessed without permission.</p>
+      <h2>Content and community</h2><p>You may upload Reels only when you have the rights and permissions needed to share the video, audio, caption, and other material. You retain ownership of your content and grant Geniuzplus permission to host, process, display, and distribute it as needed to operate the service and according to your visibility settings. Do not upload unlawful, infringing, abusive, or otherwise prohibited content. We may remove content that violates these Terms.</p>
+      <h2>Membership and refunds</h2><p>Membership benefits, price, and billing terms are shown in the app before purchase. Membership does not guarantee creator approval, views, earnings, or income. Refunds are handled under [REFUND RULE] and any rights that cannot legally be excluded.</p>
+      <h2>Creator earnings</h2><p>Creator earnings are available only when the program is enabled and eligibility requirements are met. Earnings are calculated and recorded by Geniuzplus systems. Payout methods, timing, minimums, verification, and applicable taxes will be shown when a payout provider is available. Do not treat displayed estimates as a guarantee of future income.</p>
+      <h2>Notifications</h2><p>Geniuzplus may send account, security, title-release, and service notifications. You can manage device push permissions in your operating-system settings. Transactional account messages may still be sent when necessary to operate your account.</p>
+      <h2>Availability and changes</h2><p>Features may change or be unavailable for maintenance. We may update these Terms and will provide notice when required by law. Continued use after an effective update means the updated Terms apply.</p>
+      <h2>Contact</h2><p>Contact [SUPPORT EMAIL] with questions about these Terms.</p>`);
+    return;
+  }
+
+  if (request.method === 'GET' && pathname === '/legal/privacy') {
+    writeLegalPage(response, 'Privacy Policy', `
+      <p>This Privacy Policy explains how Geniuzplus handles information when you use the app.</p>
+      <h2>Information we use</h2><p>We process account and profile details, date-of-birth information where provided, membership and payment references, content you upload, captions and visibility settings, likes, comments, follows, saves, reports, watch activity, support messages, and device push tokens when you grant permission.</p>
+      <h2>How information is used</h2><p>Information is used to authenticate accounts, provide playback and downloads, operate Reels and creator tools, determine server-recorded membership and earnings status, deliver notifications, prevent abuse, and maintain service reliability.</p>
+      <h2>Storage and service providers</h2><p>Information is stored and processed by Geniuzplus infrastructure providers, including database, media storage, hosting, analytics necessary for service operation, and payment providers. Payment credentials are handled by the payment provider and are not stored as raw card details by Geniuzplus.</p>
+      <h2>Sharing and visibility</h2><p>Public Reels and public profile details may be visible to other users. Follower-only content is governed by its selected visibility. We do not sell personal information. Information may be disclosed when required by law or to protect users and the service.</p>
+      <h2>Retention and choices</h2><p>Information is kept for as long as needed to provide the service, meet legal obligations, resolve disputes, and enforce agreements. You can manage push permissions in your device settings and use the account controls in the app to update or request deletion of profile information.</p>
+      <h2>Children and contact</h2><p>The service is intended for people at least [MINIMUM AGE]. Contact [SUPPORT EMAIL] for privacy questions or requests.</p>`);
     return;
   }
 
@@ -1265,6 +1303,20 @@ async function handleRequest(
 
   if (pathname === '/api/genres') {
     writeJson(response, 200, { genres: await content.getGenres() });
+    return;
+  }
+
+  if (pathname === '/api/content/upcoming-releases') {
+    if (!config.tmdbApiKey || !config.tmdbCommercialUseAuthorized) {
+      writeJson(response, 200, { items: [] });
+      return;
+    }
+    try {
+      writeJson(response, 200, { items: await content.getUpcomingReleases() });
+    } catch (error) {
+      console.warn('[TMDB] Upcoming releases unavailable.', error instanceof Error ? error.name : 'UNKNOWN');
+      writeJson(response, 200, { items: [] });
+    }
     return;
   }
 

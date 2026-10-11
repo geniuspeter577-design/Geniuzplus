@@ -213,7 +213,7 @@ export default function ContentDetailsScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ContentNotice message={content.error} tone="error" actionLabel="Retry" onAction={content.retry} />
         <Pressable style={styles.homeButton} onPress={() => router.replace('/')}>
-          <Text style={styles.homeButtonText}>Back to Geniuz+</Text>
+          <Text style={styles.homeButtonText}>Back to Geniuzplus</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -234,7 +234,7 @@ export default function ContentDetailsScreen() {
       <SafeAreaView style={styles.safeArea}>
         <ContentNotice message="This title could not be found in the available catalog." />
         <Pressable style={styles.homeButton} onPress={() => router.replace('/')}>
-          <Text style={styles.homeButtonText}>Back to Geniuz+</Text>
+          <Text style={styles.homeButtonText}>Back to Geniuzplus</Text>
         </Pressable>
       </SafeAreaView>
     );

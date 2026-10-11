@@ -39,7 +39,7 @@ begin
     return;
   end if;
 
-  normalized_name := left(coalesce(nullif(trim(p_display_name), ''), 'Geniuz+ user'), 80);
+  normalized_name := left(coalesce(nullif(trim(p_display_name), ''), 'Geniuzplus user'), 80);
   loop
     candidate_id := lpad(floor(random() * 100000000)::bigint::text, 8, '0');
     insert into public.profiles (id, display_name, avatar_color, public_id, username)

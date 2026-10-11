@@ -250,7 +250,7 @@ test('tapping Home resets the selected category to Trending and scrolls to the t
   assert.equal(scrollPosition, 0);
 });
 
-test('tapping Home on Trending only scrolls, while returning to Home preserves its view', () => {
+test('tapping Home on Trending scrolls without changing category and refreshes unread notifications on focus', () => {
   let categoryUpdates = 0;
   let scrollPosition = 640;
   resetHomeToTrending(
@@ -262,7 +262,9 @@ test('tapping Home on Trending only scrolls, while returning to Home preserves i
   assert.equal(scrollPosition, 0);
 
   const homeRoute = fs.readFileSync('app/(tabs)/index.tsx', 'utf8');
-  assert.doesNotMatch(homeRoute, /useFocusEffect|useIsFocused/);
+  assert.match(homeRoute, /useFocusEffect/);
+  assert.doesNotMatch(homeRoute, /useIsFocused/);
+  assert.match(homeRoute, /loadNotifications\(\)[\s\S]*?setUnreadCount/);
   assert.match(homeRoute, /navigation\.addListener\('tabPress', resetHomeView\)/);
 });
 

@@ -5,6 +5,7 @@ export interface ContentRepository {
   getPopular(page: number): Promise<ContentPage>;
   getUpcoming(page: number): Promise<ContentPage>;
   getNowPlaying(page: number): Promise<ContentPage>;
+  getUpcomingReleases?(): Promise<ContentItem[]>;
   getMovies(page: number): Promise<ContentPage>;
   getSeries(page: number): Promise<ContentPage>;
   getAnime(page: number): Promise<ContentPage>;

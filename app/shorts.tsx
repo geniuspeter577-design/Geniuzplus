@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,8 +10,10 @@ import { useNetwork } from '../src/state/NetworkContext';
 import { theme } from '../src/theme';
 import { useContentQuery } from '../src/hooks/useContentQuery';
 import { backOrReplace } from '../src/utils/navigation';
+import { loadReelsFeed } from '../src/services/ReelsRepository';
 
 export default function ShortsScreen() {
+  const { reelId } = useLocalSearchParams<{ reelId?: string }>();
   const { isOnline } = useNetwork();
   const insets = useSafeAreaInsets();
   const dimensions = useWindowDimensions();
@@ -19,7 +21,8 @@ export default function ShortsScreen() {
     if (!supabaseMovieRepository) {
       throw new Error('Short videos are not configured.');
     }
-    return { data: await supabaseMovieRepository.getPublishedShorts(), source: 'supabase' as const };
+    const shorts = await supabaseMovieRepository.getPublishedShorts();
+    return { data: await loadReelsFeed(shorts), source: 'supabase' as const };
   }, []);
   const query = useContentQuery('shorts-feed', loadShorts, isOnline);
   const height = Math.max(1, dimensions.height - insets.top - insets.bottom);
@@ -47,7 +50,7 @@ export default function ShortsScreen() {
           </Pressable>
         </View>
       ) : query.data?.length ? (
-        <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} />
+        <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} initialReelId={reelId} />
       ) : (
         <View style={styles.messageState}>
           <ContentNotice message="No Shorts are available yet." />

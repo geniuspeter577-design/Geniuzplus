@@ -18,9 +18,10 @@ type PosterCardProps = {
   fillContainer?: boolean;
   rank?: number;
   progress?: number;
+  showReleaseDate?: boolean;
 };
 
-export function PosterCard({ item, onPress, compact = false, grid = false, fillContainer = false, rank, progress }: PosterCardProps) {
+export function PosterCard({ item, onPress, compact = false, grid = false, fillContainer = false, rank, progress, showReleaseDate = false }: PosterCardProps) {
   const { records, download, cancel } = useDownloads();
   const downloadRecord = records.find((record) => record.item.id === item.id);
   const isDownloading = downloadRecord?.status === 'downloading';
@@ -64,7 +65,9 @@ export function PosterCard({ item, onPress, compact = false, grid = false, fillC
             {item.title}
           </Text>
           <Text style={styles.meta}>
-            {item.year ?? '—'} • {formatRuntime(item)}
+            {showReleaseDate && item.releaseDate
+              ? `Coming ${new Date(`${item.releaseDate}T00:00:00Z`).toLocaleDateString()}`
+              : `${item.year ?? '—'} • ${formatRuntime(item)}`}
           </Text>
         </LinearGradient>
         {typeof progress === 'number' ? (

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useNavigation } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -95,6 +95,13 @@ export default function HomeScreen() {
     return { data: { ...catalog, showingDemo: false }, source: 'supabase' as const };
   }, []);
   const catalogQuery = useContentQuery('home-supabase-catalog', loadCatalog, isOnline);
+  const loadUpcomingMovies = useCallback(async () => {
+    if (!supabaseMovieRepository) {
+      throw new Error('Supabase catalog is not configured.');
+    }
+    return { data: await supabaseMovieRepository.getUpcomingMovies(), source: 'supabase' as const };
+  }, []);
+  const upcomingQuery = useContentQuery('home-upcoming-movies', loadUpcomingMovies, isOnline);
   const { continueWatching, isInWatchlist, toggleWatchlist } = useLibrary();
   const movies = catalogQuery.data?.movies ?? EMPTY_CONTENT_ITEMS;
   const series = catalogQuery.data?.series ?? EMPTY_CONTENT_ITEMS;
@@ -273,7 +280,7 @@ export default function HomeScreen() {
     retryCatalog();
   }, [retryCatalog, shuffleSeed]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
     void loadNotifications().then((items) => {
       if (active) {
@@ -285,7 +292,7 @@ export default function HomeScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, []));
 
   if (!isOnline) {
     return (
@@ -306,13 +313,23 @@ export default function HomeScreen() {
             />
           }
         >
-          <View style={styles.brandGroup}>
-            <Image
-              source={require('../../assets/branding/logo-mark.png')}
-              style={styles.brandMark}
-              resizeMode="contain"
-            />
-            <Text style={styles.brand}>Geniuz+</Text>
+          <View style={styles.headerRow}>
+            <View style={styles.brandGroup}>
+              <Image
+                source={require('../../assets/new-logo/logo-full-cropped.png')}
+                style={styles.brandLogo}
+                resizeMode="contain"
+              />
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
+              style={styles.iconButton}
+              onPress={() => router.push('/notifications')}
+            >
+              <Ionicons name="notifications-outline" size={22} color={theme.text} />
+              {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
+            </Pressable>
           </View>
           {selectedCategory === 'Football' ? (
             <FootballMatchesPanel
@@ -352,11 +369,10 @@ export default function HomeScreen() {
         <View style={styles.headerRow}>
           <View style={styles.brandGroup}>
             <Image
-              source={require('../../assets/branding/logo-mark.png')}
-              style={styles.brandMark}
+              source={require('../../assets/new-logo/logo-full-cropped.png')}
+              style={styles.brandLogo}
               resizeMode="contain"
             />
-            <Text style={styles.brand}>Geniuz+</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -441,6 +457,18 @@ export default function HomeScreen() {
           />
         ) : null}
         {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
+        {selectedCategory === 'Trending' ? (
+          <ContentRail
+            title="Upcoming"
+            items={upcomingQuery.data ?? EMPTY_CONTENT_ITEMS}
+            isLoading={upcomingQuery.isLoading}
+            error={upcomingQuery.error}
+            retry={upcomingQuery.retry}
+            emptyMessage="No upcoming movies have been announced."
+            showReleaseDate
+            onSeeAll={() => router.push({ pathname: '/home-list', params: { kind: 'upcoming', title: 'Upcoming' } })}
+          />
+        ) : null}
         {noTitles && selectedCategory !== 'Football' ? <Text style={styles.emptyText}>Nothing here yet</Text> : null}
         {!catalogQuery.isLoading && !catalogQuery.data?.hasFailures && selectedCategory !== 'Trending' && selectedCategory !== 'Football' && activeCategoryItems.length === 0 ? (
           <Text style={styles.emptyText}>Nothing here yet</Text>
@@ -518,12 +546,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexShrink: 1,
   },
-  brandMark: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
+  brandLogo: {
+    width: 68,
+    height: 32,
+    marginLeft: 0,
+    backgroundColor: 'transparent',
   },
-  brand: { fontSize: 28, color: theme.text, fontWeight: '800', letterSpacing: -0.8 },
   iconButton: {
     width: 40,
     height: 40,

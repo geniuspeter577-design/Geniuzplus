@@ -14,6 +14,7 @@ export const REQUIRED_BACKEND_ENV_VARS = [
 export type Config = {
   port: number;
   tmdbApiKey: string | undefined;
+  tmdbCommercialUseAuthorized: boolean;
   footballDataApiKey?: string;
   paystackSecretKey?: string;
   flutterwaveSecretKey?: string;
@@ -95,6 +96,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): Config
   return {
     port,
     tmdbApiKey: environment.TMDB_API_KEY?.trim() || undefined,
+    tmdbCommercialUseAuthorized: (environment.TMDB_COMMERCIAL_USE_AUTHORIZED ?? 'false').trim().toLowerCase() === 'true',
     footballDataApiKey: environment.FOOTBALL_DATA_API_KEY?.trim() || undefined,
     paystackSecretKey: environment.PAYSTACK_SECRET_KEY?.trim() || undefined,
     flutterwaveSecretKey: environment.FLUTTERWAVE_SECRET_KEY?.trim() || undefined,

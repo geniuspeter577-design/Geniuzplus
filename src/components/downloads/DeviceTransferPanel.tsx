@@ -6,7 +6,9 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../../state/AuthContext';
 import { useDownloads } from '../../state/DownloadsContext';
 import { useNetwork } from '../../state/NetworkContext';
+import { useMembership } from '../../hooks/useMembership';
 import { supabase } from '../../services/supabase';
+import { addTransferHistoryEntry } from '../../services/TransferHistoryStore';
 import {
   deviceTransferService,
   parseTransferConnectionCode,
@@ -17,10 +19,12 @@ export function DeviceTransferPanel() {
   const auth = useAuth();
   const downloads = useDownloads();
   const { isOnline } = useNetwork();
+  const membership = useMembership();
+  const hasMemberAccess = membership.status?.status === 'active' || membership.status?.status === 'grace';
   const [receiveCode, setReceiveCode] = useState('');
   const [receiveExpiresAt, setReceiveExpiresAt] = useState('');
   const [sendCode, setSendCode] = useState('');
-  const [selectedId, setSelectedId] = useState<string>();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ current: number; total: number }>();
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -31,7 +35,8 @@ export function DeviceTransferPanel() {
     () => downloads.records.filter((record) => record.status === 'downloaded'),
     [downloads.records],
   );
-  const selectedRecord = receiveAvailable.find((record) => record.item.id === selectedId);
+  const selectedRecords = receiveAvailable.filter((record) => selectedIds.includes(record.item.id));
+  const selectedRecord = selectedRecords.length === 1 ? selectedRecords[0] : undefined;
 
   const getAccessToken = useCallback(async () => {
     if (!auth.session || !supabase) {
@@ -67,8 +72,7 @@ export function DeviceTransferPanel() {
   const startReceiving = async () => {
     setError(undefined);
     setNotice(undefined);
-    if (!auth.session) {
-      router.push('/membership');
+    if (!hasMemberAccess) {
       return;
     }
     if (!isOnline) {
@@ -82,7 +86,10 @@ export function DeviceTransferPanel() {
           (record) => record.item.id === contentId && record.status === 'downloaded',
         ),
         onProgress: (current, total) => setProgress({ current, total }),
-        onReceived: downloads.registerReceived,
+        onReceived: async (item, filePath, size) => {
+          await downloads.registerReceived(item, filePath, size);
+          await addTransferHistoryEntry({ title: item.title, size, direction: 'received' });
+        },
         onComplete: (title) => {
           setReceiveCode('');
           setReceiveExpiresAt('');
@@ -118,8 +125,7 @@ export function DeviceTransferPanel() {
   const sendFile = async () => {
     setError(undefined);
     setNotice(undefined);
-    if (!auth.session) {
-      router.push('/membership');
+    if (!hasMemberAccess) {
       return;
     }
     if (!isOnline) {
@@ -150,6 +156,7 @@ export function DeviceTransferPanel() {
         signal: controller.signal,
         onProgress: (current, total) => setProgress({ current, total }),
       });
+      await addTransferHistoryEntry({ title: selectedRecord.item.title, size: selectedRecord.size, direction: 'sent' });
       setNotice(`${selectedRecord.item.title} was sent and verified by the receiving device.`);
     } catch (sendError) {
       handleTransferError(sendError);
@@ -163,30 +170,41 @@ export function DeviceTransferPanel() {
   const progressPercent = progress?.total
     ? Math.min(100, Math.floor((progress.current / progress.total) * 100))
     : 0;
-  const openMemberOptions = () => {
-    router.push('/membership');
-  };
+  const transferDisabled = !hasMemberAccess || membership.isLoading;
 
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Device-to-device transfer</Text>
       <Text style={styles.description}>
-        Both sending and receiving require active Member access, verified by the server.
+        Both sending and receiving require active Member access, verified by the platform.
       </Text>
-      <View style={styles.memberNotice}>
-        <Text style={styles.memberNoticeTitle}>Transfer is for Members</Text>
-        <Pressable onPress={openMemberOptions} style={styles.action}>
-          <Text style={styles.actionText}>{auth.session ? 'View Member card' : 'Sign in'}</Text>
+      {hasMemberAccess ? (
+        <View style={styles.memberNotice}>
+          <Text style={styles.memberNoticeTitle}>You are a member</Text>
+        </View>
+      ) : membership.status ? (
+        <Pressable accessibilityRole="button" onPress={() => router.push('/membership')} style={styles.memberNotice}>
+          <Text style={styles.memberNoticeTitle}>Transfer is for Members</Text>
+          <Text style={styles.muted}>Upgrade to send and receive downloads.</Text>
+          <Text style={styles.actionText}>View Membership</Text>
         </Pressable>
-      </View>
+      ) : (
+        <View style={styles.memberNotice}>
+          <Text style={styles.memberNoticeTitle}>Membership status unavailable</Text>
+          <Text style={styles.muted}>{membership.error ?? 'Checking membership status…'}</Text>
+        </View>
+      )}
       {!isOnline ? (
         <Text style={styles.muted}>
           Internet access is needed to authorize the transfer. Devices must also share a Wi-Fi network or hotspot.
         </Text>
       ) : null}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Receive</Text>
-        <Text style={styles.muted}>Start a temporary receive session, then share its code with the sender.</Text>
+      <View style={[styles.section, transferDisabled && styles.gatedSection]}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>Receive</Text>
+          {transferDisabled ? <Text style={styles.lockLabel}>LOCKED</Text> : null}
+        </View>
+        <Text style={styles.muted}>Start a temporary receive session, then share its code with the sender. One file is received at a time; batch selection is Coming soon.</Text>
         {isReceiving ? (
           <>
             <Text selectable style={styles.code}>{receiveCode}</Text>
@@ -198,36 +216,53 @@ export function DeviceTransferPanel() {
             </Pressable>
           </>
         ) : (
-          <Pressable onPress={() => void startReceiving()} style={styles.action}>
+            <Pressable disabled={transferDisabled} onPress={() => void startReceiving()} style={[styles.action, transferDisabled && styles.disabled]}>
             <Ionicons name="radio-outline" size={18} color={theme.background} />
             <Text style={styles.actionText}>Start receiving</Text>
           </Pressable>
         )}
       </View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Send</Text>
-        <Text style={styles.muted}>Choose a verified download and enter the receiver’s code.</Text>
+      <View style={[styles.section, transferDisabled && styles.gatedSection]}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>Send</Text>
+          {transferDisabled ? <Text style={styles.lockLabel}>LOCKED</Text> : null}
+        </View>
+        <Text style={styles.muted}>Choose a verified download and enter the receiver’s code. One file is sent at a time; batch transfer is Coming soon.</Text>
         {receiveAvailable.length === 0 ? (
           <Text style={styles.muted}>Download a title to this device before sending.</Text>
         ) : (
+          <>
+          <View style={styles.choiceControls}>
+            <Pressable disabled={transferDisabled} onPress={() => setSelectedIds(receiveAvailable.map((record) => record.item.id))}>
+              <Text style={styles.choiceControlText}>Select all</Text>
+            </Pressable>
+            <Pressable disabled={transferDisabled} onPress={() => setSelectedIds([])}>
+              <Text style={styles.choiceControlText}>Clear</Text>
+            </Pressable>
+          </View>
           <View style={styles.choices}>
             {receiveAvailable.map((record) => (
               <Pressable
                 key={record.item.id}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selectedId === record.item.id }}
-                onPress={() => setSelectedId(record.item.id)}
-                style={[styles.choice, selectedId === record.item.id && styles.choiceSelected]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selectedIds.includes(record.item.id), disabled: transferDisabled }}
+                disabled={transferDisabled}
+                onPress={() => setSelectedIds((current) => current.includes(record.item.id)
+                  ? current.filter((id) => id !== record.item.id)
+                  : [...current, record.item.id])}
+                style={[styles.choice, selectedIds.includes(record.item.id) && styles.choiceSelected, transferDisabled && styles.disabled]}
               >
+                <Ionicons name={selectedIds.includes(record.item.id) ? 'checkbox' : 'square-outline'} size={18} color={selectedIds.includes(record.item.id) ? theme.accent : theme.secondaryText} />
                 <Text numberOfLines={1} style={styles.choiceText}>{record.item.title}</Text>
               </Pressable>
             ))}
           </View>
+          </>
         )}
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          editable={!isSending}
+          editable={!isSending && !transferDisabled}
           onChangeText={setSendCode}
           placeholder="Paste receive code"
           placeholderTextColor={theme.secondaryText}
@@ -243,12 +278,12 @@ export function DeviceTransferPanel() {
           </Pressable>
         ) : (
           <Pressable
-            disabled={!selectedRecord || receiveAvailable.length === 0}
+            disabled={transferDisabled || !selectedRecord || receiveAvailable.length === 0}
             onPress={() => void sendFile()}
-            style={[styles.action, (!selectedRecord || receiveAvailable.length === 0) && styles.disabled]}
+            style={[styles.action, (transferDisabled || !selectedRecord || receiveAvailable.length === 0) && styles.disabled]}
           >
             <Ionicons name="send-outline" size={17} color={theme.background} />
-            <Text style={styles.actionText}>Send file</Text>
+            <Text style={styles.actionText}>{selectedRecords.length > 1 ? 'Send one file at a time' : 'Send file'}</Text>
           </Pressable>
         )}
       </View>
@@ -262,7 +297,7 @@ export function DeviceTransferPanel() {
       ) : null}
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-      <Text style={styles.footnote}>Device transfer requires a Geniuz+ development build. It is not available in Expo Go.</Text>
+      <Text style={styles.footnote}>Device transfer requires a Geniuzplus development build. It is not available in Expo Go.</Text>
     </View>
   );
 }
@@ -287,6 +322,9 @@ const styles = StyleSheet.create({
   },
   memberNoticeTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
   section: { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth, gap: 10, paddingTop: 14 },
+  sectionHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  lockLabel: { color: theme.warning, fontSize: 10, fontWeight: '800' },
+  gatedSection: { opacity: 0.4 },
   sectionTitle: { color: theme.text, fontSize: 15, fontWeight: '700' },
   muted: { color: theme.secondaryText, fontSize: 12, lineHeight: 17 },
   action: {
@@ -318,7 +356,9 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   choices: { gap: 8 },
-  choice: { borderColor: theme.border, borderRadius: 10, borderWidth: 1, padding: 10 },
+  choiceControls: { flexDirection: 'row', gap: 16 },
+  choiceControlText: { color: theme.accent, fontSize: 12, fontWeight: '700' },
+  choice: { alignItems: 'center', borderColor: theme.border, borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 9, padding: 10 },
   choiceSelected: { borderColor: theme.accent },
   choiceText: { color: theme.text, fontSize: 13 },
   input: {

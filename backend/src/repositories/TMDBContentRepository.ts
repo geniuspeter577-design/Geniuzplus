@@ -102,6 +102,7 @@ export function mapTMDBToContentItem(
 
 export class TMDBContentRepository implements ContentRepository {
   private readonly cache: MemoryCache;
+  private readonly upcomingReleasesCache = new MemoryCache(6 * 60 * 60 * 1000);
 
   constructor(
     private readonly provider: TMDBProvider,
@@ -144,6 +145,25 @@ export class TMDBContentRepository implements ContentRepository {
       () => this.provider.getNowPlaying(page),
       (record, genres) => toContentItem(record, 'movie', genres),
     );
+  }
+
+  getUpcomingReleases() {
+    return this.upcomingReleasesCache.getOrLoad('upcoming-releases:NG', async () => {
+      const [upcoming, nowPlaying] = await Promise.all([
+        this.provider.getUpcoming(1, 'NG'),
+        this.provider.getNowPlaying(1, 'NG'),
+      ]);
+      const unique = new Map<number, ContentItem>();
+      for (const record of [...(upcoming.results ?? []), ...(nowPlaying.results ?? [])]) {
+        if (typeof record.id !== 'number') continue;
+        const item = toContentItem(record, 'movie');
+        if (!item?.releaseDate) continue;
+        unique.set(record.id, { ...item, tmdbId: record.id });
+      }
+      return [...unique.values()].sort((first, second) =>
+        (first.releaseDate ?? '').localeCompare(second.releaseDate ?? ''),
+      );
+    });
   }
 
   getMovies(page: number) {

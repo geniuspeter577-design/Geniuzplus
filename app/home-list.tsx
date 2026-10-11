@@ -26,7 +26,7 @@ import { getRankedHomeListItems } from '../src/utils/homeList';
 const PAGE_SIZE = 24;
 
 function getPublishedFilter(kind: string | undefined, value: string | undefined) {
-  if (kind === 'trending' || kind === 'movies' || kind === 'series' || kind === 'shorts') {
+  if (kind === 'trending' || kind === 'movies' || kind === 'series' || kind === 'shorts' || kind === 'upcoming') {
     return { kind } satisfies PublishedTitlesFilter;
   }
   if ((kind === 'category' || kind === 'genre') && value?.trim()) {

@@ -13,8 +13,11 @@ import { DownloadsProvider } from '../src/state/DownloadsContext';
 import { LibraryProvider } from '../src/state/LibraryContext';
 import { NetworkProvider } from '../src/state/NetworkContext';
 import { FootballMatchesProvider } from '../src/state/FootballMatchesContext';
+import { useGlobalAndroidBackNavigation } from '../src/utils/navigation';
 
 export default function RootLayout() {
+  useGlobalAndroidBackNavigation();
+
   useEffect(() => {
     prewarmContentApi();
     const subscription = AppState.addEventListener('change', (state) => {

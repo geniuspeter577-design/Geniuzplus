@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+import { File } from 'expo-file-system';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -21,11 +23,18 @@ import { useLibrary } from '../../src/state/LibraryContext';
 import { useNetwork } from '../../src/state/NetworkContext';
 import { theme } from '../../src/theme';
 import { getMeScreenData } from '../../src/utils/meScreen';
+import { formatFileSize } from '../../src/utils/formatFileSize.cjs';
 
 type DownloadTab = 'geniuz' | 'local' | 'received';
+type LocalVideo = { id: string; title: string; duration: number; size: number; thumbnail?: string };
+
+function formatDuration(durationMs: number) {
+  const totalSeconds = Math.floor(durationMs / 1000);
+  return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, '0')}`;
+}
 
 const tabs: { id: DownloadTab; title: string }[] = [
-  { id: 'geniuz', title: 'Geniuz+ downloads' },
+  { id: 'geniuz', title: 'Geniuzplus downloads' },
   { id: 'local', title: 'Local files' },
   { id: 'received', title: 'Received' },
 ];
@@ -68,6 +77,10 @@ export default function DownloadsScreen() {
     remove,
     refresh,
   } = useDownloads();
+  const [localVideos, setLocalVideos] = useState<LocalVideo[]>([]);
+  const [localVideosLoading, setLocalVideosLoading] = useState(false);
+  const [localVideosPermission, setLocalVideosPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [localVideosError, setLocalVideosError] = useState<string>();
   const selectedTab: DownloadTab = tab === 'local' || tab === 'received' ? tab : 'geniuz';
   const watchHistory = useMemo(
     () => getMeScreenData({ watchlist: [], continueWatching: library.continueWatching }, []).watchHistory,
@@ -76,6 +89,71 @@ export default function DownloadsScreen() {
   const storageUsed = records
     .filter((record) => record.status === 'downloaded')
     .reduce((total, record) => total + record.size, 0);
+
+  const loadLocalVideos = useCallback(async () => {
+    setLocalVideosLoading(true);
+    setLocalVideosError(undefined);
+
+    const isExpoGo = Constants.executionEnvironment === 'storeClient';
+    if (isExpoGo) {
+      setLocalVideosPermission('denied');
+      setLocalVideos([]);
+      setLocalVideosError('Needs the full Geniuzplus app to read videos on this phone');
+      setLocalVideosLoading(false);
+      return;
+    }
+
+    try {
+      const mediaLibrary = await import('expo-media-library');
+      const thumbnails = await import('expo-video-thumbnails');
+      const permission = await mediaLibrary.requestPermissionsAsync(false, ['video']);
+      if (!permission.granted) {
+        setLocalVideosPermission('denied');
+        setLocalVideos([]);
+        return;
+      }
+      setLocalVideosPermission('granted');
+      const assets = await new mediaLibrary.Query()
+        .eq(mediaLibrary.AssetField.MEDIA_TYPE, mediaLibrary.MediaType.VIDEO)
+        .orderBy(mediaLibrary.AssetField.CREATION_TIME)
+        .limit(100)
+        .exe();
+      const videos = await Promise.all(assets.map(async (asset) => {
+        const [filename, duration, uri] = await Promise.all([
+          asset.getFilename(),
+          asset.getDuration(),
+          asset.getUri(),
+        ]);
+        let thumbnail: string | undefined;
+        try {
+          thumbnail = (await thumbnails.getThumbnailAsync(uri, { time: 0 })).uri;
+        } catch {
+          thumbnail = undefined;
+        }
+        const size = new File(uri).size;
+        return {
+          id: asset.id,
+          title: filename.replace(/\.[^.]+$/, ''),
+          duration: duration ?? 0,
+          size: Number.isFinite(size) ? size : 0,
+          ...(thumbnail ? { thumbnail } : {}),
+        };
+      }));
+      setLocalVideos(videos);
+    } catch (loadError) {
+      setLocalVideosError(loadError instanceof Error ? loadError.message : 'Device videos could not be loaded.');
+    } finally {
+      setLocalVideosLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedTab === 'local' && localVideosPermission === 'unknown') {
+      const timer = setTimeout(() => void loadLocalVideos(), 0);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [loadLocalVideos, localVideosPermission, selectedTab]);
 
   const runAction = (action: () => Promise<void>, title: string, fallback: string) => {
     void action().catch((actionError: unknown) =>
@@ -157,7 +235,14 @@ export default function DownloadsScreen() {
               {availableSpaceBytes === null ? 'Unavailable' : formatBytes(availableSpaceBytes)}
             </Text>
           </View>
-          <Text style={styles.storageUnit}>Binary units: KiB, MiB, GiB (base 1024)</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/transfer-history')}
+            style={styles.historyLink}
+          >
+            <Ionicons name="time-outline" size={16} color={theme.accent} />
+            <Text style={styles.historyLinkText}>Transfer history</Text>
+          </Pressable>
         </View>
 
         <View style={styles.tabs} accessibilityRole="tablist">
@@ -180,10 +265,41 @@ export default function DownloadsScreen() {
         {isLoading ? <ContentNotice message="Loading your downloads…" /> : null}
 
         {selectedTab === 'local' ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="time-outline" size={34} color={theme.secondaryText} />
-            <Text style={styles.emptyTitle}>Coming soon</Text>
-            <Text style={styles.emptyText}>Browsing local video files is not available yet.</Text>
+          <View>
+            {localVideosLoading ? <ContentNotice message="Loading device videos…" /> : null}
+            {localVideosError ? <ContentNotice message={localVideosError} tone="error" actionLabel="Retry" onAction={() => void loadLocalVideos()} /> : null}
+            {localVideosPermission === 'denied' ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="videocam-off-outline" size={34} color={theme.secondaryText} />
+                <Text style={styles.emptyTitle}>Video access is off</Text>
+                <Text style={styles.emptyText}>Allow Geniuzplus to access videos in your device settings, then try again.</Text>
+                <Pressable accessibilityRole="button" onPress={() => void loadLocalVideos()} style={styles.permissionButton}>
+                  <Text style={styles.permissionButtonText}>Request access</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {!localVideosLoading && localVideosPermission === 'granted' && localVideos.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="videocam-outline" size={34} color={theme.secondaryText} />
+                <Text style={styles.emptyTitle}>No videos found</Text>
+                <Text style={styles.emptyText}>Videos saved on this device will appear here.</Text>
+              </View>
+            ) : null}
+            {localVideos.map((video) => (
+              <View key={video.id} style={styles.downloadCard}>
+                {video.thumbnail ? (
+                  <Image source={{ uri: video.thumbnail }} style={styles.poster} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.poster, styles.localPosterPlaceholder]}>
+                    <Ionicons name="videocam-outline" size={24} color={theme.secondaryText} />
+                  </View>
+                )}
+                <View style={styles.titleInfo}>
+                  <Text style={styles.movieTitle} numberOfLines={2}>{video.title}</Text>
+                  <Text style={styles.movieMeta}>{formatDuration(video.duration)} · {formatFileSize(video.size)}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         ) : null}
 
@@ -344,12 +460,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 5,
   },
-  storageUnit: {
-    color: theme.secondaryText,
-    fontSize: 10,
-    marginTop: 13,
-    width: '100%',
-  },
+  historyLink: { alignItems: 'center', flexDirection: 'row', gap: 7, marginTop: 14, width: '100%' },
+  historyLinkText: { color: theme.accent, fontSize: 12, fontWeight: '700' },
   tabs: {
     backgroundColor: theme.surface,
     borderRadius: 13,
@@ -422,6 +534,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: theme.surfaceSoft,
   },
+  localPosterPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  permissionButton: { backgroundColor: theme.accent, borderRadius: 10, marginTop: 14, paddingHorizontal: 16, paddingVertical: 11 },
+  permissionButtonText: { color: theme.background, fontSize: 13, fontWeight: '800' },
   titleInfo: {
     flex: 1,
     marginLeft: 12,

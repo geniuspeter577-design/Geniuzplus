@@ -26,6 +26,7 @@ export interface ContentItem {
   id: string;
   source: ContentSource;
   sourceId?: string;
+  tmdbId?: number;
   title: string;
   type: ContentType;
   year?: number;

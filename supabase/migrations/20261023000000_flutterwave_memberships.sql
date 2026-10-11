@@ -101,7 +101,7 @@ begin
 
   insert into public.notifications(user_id, type, title, body, content_id)
   values (payment_row.user_id, 'personal', 'Welcome, Member',
-    'Your Geniuz+ membership is active until ' || to_char(period_end_value at time zone 'UTC', 'YYYY-MM-DD') || '.',
+    'Your Geniuzplus membership is active until ' || to_char(period_end_value at time zone 'UTC', 'YYYY-MM-DD') || '.',
     'membership:welcome:' || p_reference);
   update public.webhook_events set result = 'activated', processed_at = now() where event_id = p_event_id;
   return 'activated';

@@ -12,14 +12,16 @@
       "expo-status-bar",
       "expo-font",
       "expo-video",
+      "expo-notifications",
       [
         "expo-image-picker",
         {
-          "photosPermission": "Geniuz+ uses your selected photo for your profile picture.",
+          "photosPermission": "Geniuzplus uses your selected photo for your profile picture.",
           "cameraPermission": false,
           "microphonePermission": false
         }
       ],
+      "expo-media-library",
       [
         "expo-splash-screen",
         {
@@ -40,7 +42,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.geniuz.entertainment",
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "Geniuz+ uses your local network to send and receive videos between your devices."
+        "NSLocalNetworkUsageDescription": "Geniuzplus uses your local network to send and receive videos between your devices."
       }
     },
     "android": {
@@ -50,7 +52,7 @@
         "backgroundColor": "#020807",
         "foregroundImage": "./assets/new-logo/adaptive-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": true
     },
     "androidStatusBar": {
       "translucent": false

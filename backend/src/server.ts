@@ -4,6 +4,7 @@ import { TMDBContentRepository } from './repositories/TMDBContentRepository';
 import { HttpTMDBProvider } from './providers/TMDBProvider';
 import { ContentService } from './services/ContentService';
 import { MembershipService } from './services/MembershipService';
+import { ExpoPushNotificationService } from './services/ExpoPushNotificationService';
 
 ensureRequiredBackendEnv(process.env);
 
@@ -16,6 +17,8 @@ const contentRepository = new TMDBContentRepository(
 const contentService = new ContentService(contentRepository, config.cacheTtlSeconds * 1_000);
 const membershipService = new MembershipService(config);
 const server = createApiServer(config, contentService, { membershipService });
+const pushService = config.supabaseServiceRoleKey ? new ExpoPushNotificationService(config) : undefined;
+pushService?.start();
 
 let membershipMaintenanceTimer: NodeJS.Timeout | undefined;
 if (config.paystackSecretKey?.startsWith('sk_test_') && config.supabaseServiceRoleKey) {
@@ -36,6 +39,7 @@ server.listen(config.port, '0.0.0.0', () => {
 });
 
 function shutdown() {
+  pushService?.stop();
   if (membershipMaintenanceTimer) {
     clearInterval(membershipMaintenanceTimer);
   }

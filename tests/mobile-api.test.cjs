@@ -208,12 +208,15 @@ test('football pin snaps to nearest corner and its corner persists in per-user a
   assert.match(root, /<FootballMatchesProvider>[\s\S]*?<FootballScorePin\s*\/>[\s\S]*?<\/FootballMatchesProvider>/);
 });
 
-test('transfer panel explains Member access and routes visitors to sign-in or the existing Member card', () => {
+test('transfer panel gates visitors with the existing membership upgrade card', () => {
   const panel = fs.readFileSync('src/components/downloads/DeviceTransferPanel.tsx', 'utf8');
   const memberPage = fs.readFileSync('app/membership.tsx', 'utf8');
   const profile = fs.readFileSync('app/(tabs)/profile.tsx', 'utf8');
   assert.match(panel, /Transfer is for Members/);
-  assert.match(panel, /router\.push\('\/membership'\)/);
+  assert.match(panel, /onPress=\{\(\) => router\.push\('\/membership'\)\}/);
+  assert.match(panel, /You are a member/);
+  assert.match(panel, /LOCKED/);
+  assert.match(panel, /gatedSection: \{ opacity: 0\.4/);
   assert.match(panel, /Both sending and receiving require active Member access/);
   assert.match(memberPage, /Become a Member/);
   assert.match(memberPage, /loadMemberPlan|useMembership/);
@@ -221,7 +224,8 @@ test('transfer panel explains Member access and routes visitors to sign-in or th
   assert.match(memberPage, /createMemberCheckout/);
   assert.match(memberPage, /Continue payment/);
   assert.match(memberPage, /You are a Member until/);
-  assert.match(memberPage, /Post REELS and Earn in Dollars/);
+  assert.match(memberPage, /Eligible members may earn USD from Reels/);
+  assert.match(memberPage, /Membership does not guarantee income/);
   assert.doesNotMatch(memberPage, /NGN\s+900/);
   assert.match(profile, /useMembership\(\)/);
   assert.match(profile, /Member until \$\{formatMembershipDate/);

@@ -65,6 +65,7 @@ function parseContentItem(value: unknown): ContentItem {
       (field) => value[field] !== undefined && typeof value[field] !== 'string',
     ) ||
     (value.year !== undefined && typeof value.year !== 'number') ||
+    (value.tmdbId !== undefined && !Number.isSafeInteger(value.tmdbId)) ||
     (value.rating !== undefined && typeof value.rating !== 'number') ||
     (value.runtimeMinutes !== undefined && typeof value.runtimeMinutes !== 'number')
   ) {
@@ -75,6 +76,7 @@ function parseContentItem(value: unknown): ContentItem {
     id: value.id,
     source: value.source as ContentItem['source'],
     ...(typeof value.sourceId === 'string' ? { sourceId: value.sourceId } : {}),
+    ...(typeof value.tmdbId === 'number' ? { tmdbId: value.tmdbId } : {}),
     title: value.title,
     type: value.type as ContentType,
     ...(typeof value.year === 'number' ? { year: value.year } : {}),
@@ -191,6 +193,14 @@ export class GeniuzContentRepository implements ContentRepository {
 
   getNowPlaying() {
     return this.getItems('/api/content/now-playing');
+  }
+
+  async getUpcomingReleases() {
+    const response = await this.apiClient.get<{ items: unknown[] }>('/api/content/upcoming-releases');
+    if (!Array.isArray(response.items)) {
+      throw new ApiError('Geniuz API returned an invalid upcoming release list.');
+    }
+    return response.items.map(parseContentItem);
   }
 
   getMovies() {

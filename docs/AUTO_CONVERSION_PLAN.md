@@ -13,9 +13,9 @@ Status: planning document only. No conversion worker or migration is included in
 
 The conversion-enabled movie flow should accept MP4, MKV, MOV, WEBM, and AVI. The current picker and backend accept more formats than this target set, so the admin picker and server-side upload validation must agree on the supported set. Do not rely on a filename extension alone; ffprobe must confirm the content is readable.
 
-Use a configurable maximum with a default of 1 GB (currently 1 GiB / 1,073,741,824 bytes). Proposed environment variable name: `MAX_VIDEO_UPLOAD_SIZE_BYTES`. The backend is authoritative; the admin should obtain the effective limit from backend configuration instead of maintaining a second hard-coded limit. The current multipart cap is also 64 parts of 16 MiB each, so changing the limit requires coordinating the part-count and part-size constraints.
+Use a configurable maximum with a default of 1 GB (1,073,741,824 bytes). Proposed environment variable name: `MAX_VIDEO_UPLOAD_SIZE_BYTES`. The backend is authoritative; the admin should obtain the effective limit from backend configuration instead of maintaining a second hard-coded limit. The current multipart cap is also 64 parts of 16 MB each, so changing the limit requires coordinating the part-count and part-size constraints.
 
-Trailers currently have a separate 300 MiB cap. Keep that policy separate unless Genius explicitly chooses to include trailers in the conversion rollout.
+Trailers currently have a separate 300 MB cap. Keep that policy separate unless Geniuzplus explicitly chooses to include trailers in the conversion rollout.
 
 ## 3. Shared Conversion Profile
 

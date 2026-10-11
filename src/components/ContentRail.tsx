@@ -17,6 +17,7 @@ type ContentRailProps = {
   onSeeAll: () => void;
   compact?: boolean;
   emptyMessage: string;
+  showReleaseDate?: boolean;
 };
 
 export function ContentRail({
@@ -28,6 +29,7 @@ export function ContentRail({
   onSeeAll,
   compact,
   emptyMessage,
+  showReleaseDate = false,
 }: ContentRailProps) {
   return (
     <>
@@ -51,6 +53,7 @@ export function ContentRail({
             key={item.id}
             item={item}
             compact={compact}
+            showReleaseDate={showReleaseDate}
             onPress={() => router.push({ pathname: '/content/[id]', params: { id: item.id } })}
           />
         ))}

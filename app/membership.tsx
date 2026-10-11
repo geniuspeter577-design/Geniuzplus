@@ -106,6 +106,19 @@ export default function MembershipScreen() {
   const membershipUntil = membership.status?.status === 'grace'
     ? membership.status.graceUntil
     : membership.status?.currentPeriodEnd;
+  const openLegalPage = async (url: string | undefined, title: string) => {
+    if (!url) {
+      setCheckoutError(`${title} is Coming soon.`);
+      return;
+    }
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      setCheckoutError(`${title} could not be opened.`);
+    }
+  };
+  const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL?.trim() || (process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '') ? `${process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '')}/legal/terms` : undefined);
+  const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || (process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '') ? `${process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '')}/legal/privacy` : undefined);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -139,11 +152,11 @@ export default function MembershipScreen() {
           <Benefit icon="eye-off-outline" text="Ad-free viewing" />
           <Benefit icon="shield-checkmark-outline" text="Member badge on your profile" />
           <Benefit icon="swap-horizontal-outline" text="Send and receive files between devices" />
-          <Benefit icon="cash-outline" text="Post REELS and earn in dollars" />
+          <Benefit icon="cash-outline" text="Eligible members may earn USD from Reels" />
           <Benefit icon="star-outline" text="Exclusive member status" />
           <Benefit icon="trophy-outline" text="Premium creator recognition" />
           <Benefit icon="lock-closed-outline" text="Access to member-only content" />
-          <Benefit icon="heart-outline" text="Support creators and the Geniuz+ community" />
+          <Benefit icon="heart-outline" text="Support creators and the Geniuzplus community" />
           <Benefit icon="rocket-outline" text="Early access to new features" />
         </View>
       </ScrollView>
@@ -170,7 +183,12 @@ export default function MembershipScreen() {
             {checkoutError}
           </Text>
         ) : null}
-        <Text style={styles.terms}>One-month membership. No automatic card charging. Payment status updates after provider confirmation.</Text>
+        <Text style={styles.terms}>One-month membership. No automatic card charging. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
+        <View style={styles.legalLinks}>
+          <Pressable accessibilityRole="link" onPress={() => void openLegalPage(termsUrl, 'Terms')}><Text style={styles.legalLink}>Terms</Text></Pressable>
+          <Text style={styles.terms}>·</Text>
+          <Pressable accessibilityRole="link" onPress={() => void openLegalPage(privacyUrl, 'Privacy')}><Text style={styles.legalLink}>Privacy</Text></Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -223,4 +241,6 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.55 },
   memberUntil: { color: theme.gold, fontSize: 16, fontWeight: '800', textAlign: 'center', paddingVertical: 10 },
   terms: { color: theme.secondaryText, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  legalLinks: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' },
+  legalLink: { color: theme.accent, fontSize: 11, fontWeight: '700' },
 });

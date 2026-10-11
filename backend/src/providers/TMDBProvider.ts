@@ -46,8 +46,8 @@ export class ProviderError extends Error {
 export interface TMDBProvider {
   getTrending(page: number): Promise<TMDBListResponse>;
   getPopular(kind: TMDBMediaType, page: number): Promise<TMDBListResponse>;
-  getUpcoming(page: number): Promise<TMDBListResponse>;
-  getNowPlaying(page: number): Promise<TMDBListResponse>;
+  getUpcoming(page: number, region?: string): Promise<TMDBListResponse>;
+  getNowPlaying(page: number, region?: string): Promise<TMDBListResponse>;
   getMovies(page: number): Promise<TMDBListResponse>;
   getSeries(page: number): Promise<TMDBListResponse>;
   getAnime(page: number): Promise<TMDBListResponse>;
@@ -75,12 +75,12 @@ export class HttpTMDBProvider implements TMDBProvider {
     return this.getList(`/${kind}/popular`, { page });
   }
 
-  getUpcoming(page: number) {
-    return this.getList('/movie/upcoming', { page });
+  getUpcoming(page: number, region?: string) {
+    return this.getList('/movie/upcoming', { page, ...(region ? { region } : {}) });
   }
 
-  getNowPlaying(page: number) {
-    return this.getList('/movie/now_playing', { page });
+  getNowPlaying(page: number, region?: string) {
+    return this.getList('/movie/now_playing', { page, ...(region ? { region } : {}) });
   }
 
   getMovies(page: number) {

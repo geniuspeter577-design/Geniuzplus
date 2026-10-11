@@ -31,8 +31,9 @@ import { getPlayerSpeedLabel } from '../src/utils/playerControls';
 import { theme } from '../src/theme';
 import { backOrReplace } from '../src/utils/navigation';
 
-const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL?.trim();
-const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL?.trim();
+const apiBaseUrl = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
+const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL?.trim() || (apiBaseUrl ? `${apiBaseUrl}/legal/terms` : undefined);
+const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || (apiBaseUrl ? `${apiBaseUrl}/legal/privacy` : undefined);
 
 type SettingsCardProps = React.PropsWithChildren<{ title: string; icon: keyof typeof Ionicons.glyphMap }>;
 

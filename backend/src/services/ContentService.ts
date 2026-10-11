@@ -33,6 +33,9 @@ export class ContentService {
   getNowPlaying(page: number) {
     return this.repository.getNowPlaying(page);
   }
+  getUpcomingReleases() {
+    return this.repository.getUpcomingReleases?.() ?? Promise.resolve([]);
+  }
   getMovies(page: number) {
     return this.repository.getMovies(page);
   }

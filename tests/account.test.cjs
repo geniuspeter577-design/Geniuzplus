@@ -185,14 +185,14 @@ test('new profile migration protects avatar ownership and adds short categories 
   assert.doesNotMatch(migration, /insert into public\.movies/i);
 });
 
-test('Me screen profile header and site/settings rows have working actions', () => {
+test('Me screen profile header and Settings rows have working actions without an official-site card', () => {
   const screen = fs.readFileSync('app/(tabs)/profile.tsx', 'utf8');
   assert.match(
     screen,
     /const openEditProfile = \(\) => \{[\s\S]*?router\.push\('\/edit-profile'\)/,
   );
   assert.match(screen, /<Ionicons name="chevron-forward" size=\{\d+\}/);
-  assert.match(screen, /EXPO_PUBLIC_OFFICIAL_SITE_URL/);
+  assert.doesNotMatch(screen, /EXPO_PUBLIC_OFFICIAL_SITE_URL|Official site/i);
   assert.match(screen, /accessibilityLabel="Settings"[\s\S]*?router\.push\('\/settings'\)/);
   assert.match(screen, /auth\.openSignInSheet\('sign-in'\)/);
   assert.match(fs.readFileSync('app/(tabs)/_layout.tsx', 'utf8'), /name="profile" options=\{\{ title: 'Me' \}\}/);

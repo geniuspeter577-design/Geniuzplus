@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { FootballMatch, FootballTeam } from '../models/football';
 import { useFootballMatches } from '../state/FootballMatchesContext';
 import { theme } from '../theme';
-import { formatWestAfricaKickoff } from '../utils/footballScores';
+import { formatWestAfricaKickoff, getNextFootballDates } from '../utils/footballScores';
 import type { GoalBallCounts } from '../utils/footballPin';
 import { ContentNotice } from './ContentNotice';
 import { FootballGoalBalls } from './FootballGoalBalls';
-import { CelebrationLogo, LiveClock, goalMinuteLabel, type Celebration } from './FootballHomeCard';
+import { CelebrationLogo, LiveClock } from './FootballHomeCard';
+import { useFootballGoalCelebration } from '../hooks/useFootballGoalCelebration';
 
 function TeamMark({ team }: { team: FootballTeam }) {
   return team.logoUrl ? (
@@ -49,6 +50,7 @@ function groupByStatus(matches: FootballMatch[]) {
   const statuses = [
     { title: 'Live', matches: matches.filter((match) => match.status === 'live') },
     { title: 'Upcoming', matches: matches.filter((match) => match.status === 'scheduled') },
+    { title: 'Results', matches: matches.filter((match) => match.status === 'finished') },
   ];
   return statuses
     .filter(({ matches: groupedMatches }) => groupedMatches.length > 0)
@@ -60,55 +62,9 @@ function groupByStatus(matches: FootballMatch[]) {
 
 // Same goal celebration as the Home card, shown over a live match row.
 function GoalOverlay({ match, goal }: { match: FootballMatch; goal?: GoalBallCounts & { createdAt?: number } }) {
-  const [celebration, setCelebration] = useState<Celebration | null>(null);
-  const handled = useRef<number | null>(null);
-  const primed = useRef(false);
-  const token = goal?.createdAt;
-  const celebrationKey = celebration ? `${celebration.matchId}-${celebration.token}` : null;
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!primed.current) {
-        primed.current = true;
-        handled.current = typeof token === 'number' ? token : null;
-        return;
-      }
-      if (!goal || typeof token !== 'number' || handled.current === token) {
-        return;
-      }
-      handled.current = token;
-      const homeGoals = goal.home ?? 0;
-      const awayGoals = goal.away ?? 0;
-      if (homeGoals <= 0 && awayGoals <= 0) {
-        return;
-      }
-      const team = homeGoals >= awayGoals ? 'home' : 'away';
-      setCelebration({
-        matchId: match.id,
-        team,
-        count: team === 'home' ? homeGoals : awayGoals,
-        token,
-        minute: goalMinuteLabel(match, Date.now()),
-        phase: 'goal',
-      });
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [goal, match, token]);
-
-  useEffect(() => {
-    if (!celebrationKey) {
-      return;
-    }
-    const toScorer = setTimeout(
-      () => setCelebration((current) => (current ? { ...current, phase: 'scorer' } : current)),
-      5000,
-    );
-    const done = setTimeout(() => setCelebration(null), 10000);
-    return () => {
-      clearTimeout(toScorer);
-      clearTimeout(done);
-    };
-  }, [celebrationKey]);
+  const matches = useMemo(() => [match], [match]);
+  const goalSignals = useMemo(() => (goal ? { [match.id]: goal } : {}), [goal, match.id]);
+  const celebration = useFootballGoalCelebration(matches, goalSignals);
 
   if (!celebration) {
     return null;
@@ -128,6 +84,11 @@ function GoalOverlay({ match, goal }: { match: FootballMatch; goal?: GoalBallCou
           </View>
           <Text style={styles.goalText}>GOAL!!!</Text>
         </View>
+      ) : celebration.phase === 'result' ? (
+        <View style={styles.celebrationRow}>
+          <Text style={styles.scorerTeam} numberOfLines={1}>{scoringTeam.name}</Text>
+          <Text style={styles.goalText}>FULL TIME</Text>
+        </View>
       ) : (
         <View style={styles.celebrationRow}>
           <Text style={styles.scorerTeam} numberOfLines={1}>{scoringTeam.name}</Text>
@@ -146,11 +107,16 @@ export function FootballMatchesPanel({
   onRetryConnection: () => void;
 }) {
   const football = useFootballMatches();
-  const query = football.upcoming;
+  const query = football.entries[football.selectedDate] ?? {
+    matches: [],
+    stale: false,
+    isLoading: football.selectedDate === football.today,
+  };
   const matchGroups = useMemo(
     () => groupByStatus(query.matches),
     [query.matches],
   );
+  const days = useMemo(() => getNextFootballDates(new Date(`${football.today}T12:00:00.000Z`)), [football.today]);
 
   return (
     <View style={styles.section}>
@@ -162,6 +128,21 @@ export function FootballMatchesPanel({
           <Ionicons accessibilityLabel="Showing cached scores" name="time-outline" size={18} color={theme.warning} />
         ) : null}
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daySelector}>
+        {days.map((day) => (
+          <Pressable
+            key={day.date}
+            accessibilityRole="button"
+            accessibilityState={{ selected: day.date === football.selectedDate }}
+            onPress={() => football.selectDate(day.date)}
+            style={[styles.dayOption, day.date === football.selectedDate && styles.selectedDayOption]}
+          >
+            <Text style={[styles.dayLabel, day.date === football.selectedDate && styles.selectedDayText]}>{day.label}</Text>
+            <Text style={[styles.dayDate, day.date === football.selectedDate && styles.selectedDayText]}>{day.day}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       {!isOnline ? (
         <ContentNotice
@@ -176,7 +157,7 @@ export function FootballMatchesPanel({
           message="Football scores could not be loaded. Please retry."
           tone="error"
           actionLabel="Retry"
-          onAction={() => football.retryUpcoming()}
+          onAction={() => football.retryDate()}
         />
       ) : null}
       {isOnline && query.stale ? (
@@ -234,7 +215,7 @@ export function FootballMatchesPanel({
                     <Text style={styles.teamName} numberOfLines={2}>{match.awayTeam.name}</Text>
                     <TeamMark team={match.awayTeam} />
                   </View>
-                  {match.status === 'live' ? (
+                  {match.status === 'live' || football.goalSignals[match.id]?.event === 'result' ? (
                     <GoalOverlay match={match} goal={football.goalSignals[match.id]} />
                   ) : null}
                 </View>
@@ -321,7 +302,7 @@ const styles = StyleSheet.create({
   pinButton: { alignItems: 'center', flexDirection: 'row', gap: 3, marginTop: 4, paddingVertical: 2 },
   pinText: { color: theme.accent, fontSize: 10, fontWeight: '800' },
   celebration: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     backgroundColor: theme.surface,
     justifyContent: 'center',

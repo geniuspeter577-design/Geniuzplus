@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Linking from 'expo-linking';
 import { router, useFocusEffect } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import React, { useCallback, useState } from 'react';
@@ -15,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
+import { VerifiedBadge } from '../../src/components/VerifiedBadge';
 import type { AppNotification } from '../../src/services/NotificationsStore';
 import { loadNotifications } from '../../src/services/NotificationsStore';
 import { useAuth } from '../../src/state/AuthContext';
@@ -24,8 +24,6 @@ import { theme } from '../../src/theme';
 import { getProfileInitial } from '../../src/utils/accountAuth';
 import { formatMembershipDate } from '../../src/utils/membership';
 import { getMeScreenData, getShortPublicId } from '../../src/utils/meScreen';
-
-const officialSiteUrl = process.env.EXPO_PUBLIC_OFFICIAL_SITE_URL?.trim();
 
 type MeRowProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -118,28 +116,8 @@ export default function ProfileScreen() {
     }
   };
 
-  const openOfficialSite = async () => {
-    if (!officialSiteUrl) {
-      Alert.alert('Official site', 'Coming soon');
-      return;
-    }
-    try {
-      const parsedUrl = new URL(officialSiteUrl);
-      if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
-        throw new Error('The official site address must use HTTP or HTTPS.');
-      }
-      await Linking.openURL(parsedUrl.toString());
-    } catch (error) {
-      console.error('[Me] Could not open the official site.', error);
-      Alert.alert(
-        'Could not open official site',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
-    }
-  };
-
   const displayName = auth.session
-    ? auth.profile?.display_name || auth.session.user.email || 'Geniuz+ user'
+    ? auth.profile?.display_name || auth.session.user.email || 'Geniuzplus user'
     : 'Sign in';
 
   return (
@@ -176,9 +154,12 @@ export default function ProfileScreen() {
               )}
             </Pressable>
             <View style={styles.userInfo}>
-              <Pressable accessibilityRole="button" onPress={openEditProfile}>
-                <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
-              </Pressable>
+              <View style={styles.nameRow}>
+                <Pressable accessibilityRole="button" onPress={openEditProfile} style={styles.namePressable}>
+                  <Text style={styles.name} numberOfLines={1}>{displayName}</Text>
+                </Pressable>
+                {hasMemberAccess ? <VerifiedBadge /> : null}
+              </View>
               {!auth.session ? (
                 <Text style={styles.profileHint}>Save your list and progress</Text>
               ) : null}
@@ -223,28 +204,19 @@ export default function ProfileScreen() {
           />
         ) : null}
 
-        <View style={styles.section}>
-          <MeRow
-            icon="globe-outline"
-            title="Official site"
-            subtitle={officialSiteUrl ? 'Visit our official site' : 'Coming soon'}
-            onPress={() => void openOfficialSite()}
-          />
-        </View>
-
-        <Pressable
+        {!membership.isLoading && membership.status !== null && !hasMemberAccess ? <Pressable
           accessibilityRole="button"
-          accessibilityLabel={hasMemberAccess ? 'Member status' : 'View membership'}
+          accessibilityLabel="Become a member"
           onPress={() => router.push('/membership')}
-          style={[styles.memberCard, !hasMemberAccess && styles.visitorMemberCard]}
+          style={[styles.memberCard, styles.visitorMemberCard]}
         >
           <View style={styles.memberTopLine}>
-            <Ionicons name={hasMemberAccess ? 'star' : 'person-outline'} size={18} color={hasMemberAccess ? theme.gold : theme.accent} />
-            <Text style={[styles.memberEyebrow, !hasMemberAccess && styles.visitorMemberEyebrow]}>{hasMemberAccess ? 'MEMBER' : 'VISITOR'}</Text>
+            <Ionicons name="person-outline" size={18} color={theme.accent} />
+            <Text style={styles.visitorMemberEyebrow}>MEMBERSHIP</Text>
           </View>
-          <Text style={[styles.memberTitle, !hasMemberAccess && styles.visitorMemberTitle]}>Geniuz+ membership</Text>
+          <Text style={styles.visitorMemberTitle}>Geniuzplus Membership</Text>
           <Text style={styles.memberSubtitle}>{memberCardSubtitle}</Text>
-        </Pressable>
+        </Pressable> : null}
 
         <View style={styles.historySection}>
           <Pressable
@@ -324,6 +296,17 @@ export default function ProfileScreen() {
             onPress={() => router.push({ pathname: '/(tabs)/downloads', params: { tab: 'received' } })}
           />
         </View>
+
+        {auth.session ? (
+          <View style={styles.section}>
+            <MeRow
+              icon="cash-outline"
+              title="Creator earnings"
+              subtitle={hasMemberAccess ? 'Eligibility, earnings and payouts' : 'Become a member to start earning'}
+              onPress={() => router.push('/creator/earnings')}
+            />
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -369,6 +352,8 @@ const styles = StyleSheet.create({
   avatarImage: { width: '100%', height: '100%' },
   avatarText: { color: theme.background, fontWeight: '800', fontSize: 22 },
   userInfo: { flex: 1, minWidth: 0, marginLeft: 13 },
+  nameRow: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+  namePressable: { flexShrink: 1, minWidth: 0 },
   name: { color: theme.text, fontSize: 17, fontWeight: '800' },
   userIdChip: {
     alignSelf: 'flex-start',

@@ -124,7 +124,7 @@ function isManifest(value: unknown): value is TransferManifest {
 function getApiUrl() {
   const value = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim();
   if (!value) {
-    throw new Error('The Geniuz+ API is not configured for device transfer.');
+    throw new Error('The Geniuzplus API is not configured for device transfer.');
   }
   return value.replace(/\/+$/, '');
 }
@@ -141,7 +141,7 @@ async function transferApi(accessToken: string, path: string, body: object): Pro
       body: JSON.stringify(body),
     });
   } catch (error) {
-    throw new Error('Could not reach the Geniuz+ transfer service. Check your connection and retry.', {
+    throw new Error('Could not reach the Geniuzplus transfer service. Check your connection and retry.', {
       cause: error,
     });
   }
@@ -179,7 +179,7 @@ async function loadTcpSocket() {
     return (await import('react-native-tcp-socket')).default;
   } catch (error) {
     throw new Error(
-      'The native TCP service is unavailable. Install a Geniuz+ development build; Expo Go does not include device transfer.',
+      'The native TCP service is unavailable. Install a Geniuzplus development build; Expo Go does not include device transfer.',
       { cause: error },
     );
   }
@@ -372,7 +372,7 @@ export class DeviceTransferService {
       });
     } catch (error) {
       throw new Error(
-        'The native TCP service is unavailable. Install a Geniuz+ development build; Expo Go does not include device transfer.',
+        'The native TCP service is unavailable. Install a Geniuzplus development build; Expo Go does not include device transfer.',
         { cause: error },
       );
     }
@@ -409,7 +409,7 @@ export class DeviceTransferService {
     } catch (error) {
       server.close();
       throw new Error(
-        'Could not start the local transfer server. Use a Geniuz+ development build and check local network permissions.',
+        'Could not start the local transfer server. Use a Geniuzplus development build and check local network permissions.',
         { cause: error },
       );
     }

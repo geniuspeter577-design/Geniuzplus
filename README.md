@@ -1,6 +1,6 @@
-# Geniuz+
+# Geniuzplus
 
-Geniuz+ is an Expo / React Native entertainment app backed by a small TypeScript catalog API. Catalog discovery is not a content license: items from TMDB are always marked non-streamable and non-downloadable.
+Geniuzplus is an Expo / React Native entertainment app backed by a small TypeScript catalog API. Catalog discovery is not a content license: items from TMDB are always marked non-streamable and non-downloadable.
 
 ## Run locally
 
@@ -64,7 +64,7 @@ The app uses Supabase for authentication and movie records, Backblaze B2 for new
 3. Create an account in Supabase Authentication, then set that user's **app metadata** to `{"role":"admin"}` in the Supabase dashboard. Do not use user-editable metadata for the admin role. Sign out and back in after changing the role.
 4. Create a private Backblaze B2 bucket and a bucket-scoped application key with `readFiles` and `writeFiles` capabilities; `deleteFiles` is also needed for the one-off storage diagnostic cleanup. Copy `.env.example` to `.env` for the app and `backend/.env.example` to `backend/.env` for the server. Configure `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY` only in the backend environment. In the app `.env`, set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 5. Start the API with `npm run backend:start`. In Codespaces, run `gh codespace ports visibility 4000:public -c "$CODESPACE_NAME"`, and set the app URL to `https://$CODESPACE_NAME-4000.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN` (no trailing slash). Include both `http://localhost:8081` and `https://$CODESPACE_NAME-8081.$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN` in backend `CORS_ORIGIN`.
-6. Restart Expo with `npm start -- --tunnel`, scan its QR code with Expo Go, and open **Profile → Admin console**. Choose a supported video up to 1 GiB, enter its listing details, confirm distribution rights, and upload. New files upload directly to B2 in 16 MiB parts, with at most three concurrent part uploads. A movie row is created only after storage confirms completion. Check **Allow users to download this title** to enable local downloads. Poster and cover images accept JPG, PNG, or WebP up to 5 MB and are resized/compressed before upload; trailers use the same multipart flow and are limited to 300 MB. The rights confirmation is required for image and trailer additions/replacements too.
+6. Restart Expo with `npm start -- --tunnel`, scan its QR code with Expo Go, and open **Profile → Admin console**. Choose a supported video up to 1 GB, enter its listing details, confirm distribution rights, and upload. New files upload directly to B2 in 16 MB parts, with at most three concurrent part uploads. A movie row is created only after storage confirms completion. Check **Allow users to download this title** to enable local downloads. Poster and cover images accept JPG, PNG, or WebP up to 5 MB and are resized/compressed before upload; trailers use the same multipart flow and are limited to 300 MB. The rights confirmation is required for image and trailer additions/replacements too.
 
 **Profile → Settings → Autoplay trailers** is on by default; title-page trailer previews stream from B2 and use mobile data. In the player, **Rotate screen** enters landscape fullscreen; double-tap either side to seek 10 seconds and vertically swipe the left/right sides for brightness/volume. The volume gesture changes in-app player volume, not the Android system volume.
 
@@ -131,7 +131,7 @@ The server-side TMDB provider supports trending, popular, upcoming, now-playing,
 
 An in-memory TTL cache deduplicates concurrent requests and caches catalog lists and genres by endpoint/page. It can later be replaced behind the repository boundary with a shared cache. Cache is per process and is not persistent.
 
-TMDB supplies discovery metadata, **not Geniuz+ streaming rights**. TMDB results always have `discoverable: true`, `stream: false`, `download: false`, and `premium: false`. No playback URL or download URL is generated. AniList and sports/news provider interfaces are reserved but not connected; no live scores or news are fabricated.
+TMDB supplies discovery metadata, **not Geniuzplus streaming rights**. TMDB results always have `discoverable: true`, `stream: false`, `download: false`, and `premium: false`. No playback URL or download URL is generated. AniList and sports/news provider interfaces are reserved but not connected; no live scores or news are fabricated.
 
 When the mobile API URL is absent, the app uses mock content. If a configured API call fails, the app logs the failure, falls back to sample content, and visibly identifies the fallback. The local watchlist/progress metadata remains device-only and is not synchronized.
 

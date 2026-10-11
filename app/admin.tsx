@@ -194,6 +194,7 @@ const inputFields = [
   { key: 'title', label: 'Movie title', placeholder: 'Enter the movie title' },
   { key: 'description', label: 'Description', placeholder: 'Add a short description', multiline: true },
   { key: 'year', label: 'Release year', placeholder: '2026', keyboardType: 'number-pad' as const },
+  { key: 'releaseDate', label: 'Upcoming release date (optional, YYYY-MM-DD)', placeholder: '2026-12-31' },
   { key: 'genres', label: 'Genres', placeholder: 'Drama, Action, Thriller' },
   { key: 'runtime', label: 'Runtime (minutes)', placeholder: '120', keyboardType: 'number-pad' as const },
   { key: 'rating', label: 'Content rating', placeholder: 'PG-13' },
@@ -211,6 +212,14 @@ function formatFileSize(bytes: number) {
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isValidReleaseDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function AdminTextField({
@@ -319,6 +328,7 @@ export default function AdminScreen() {
   const [contentKind, setContentKind] = useState<'movie' | 'short'>('movie');
   const [description, setDescription] = useState('');
   const [year, setYear] = useState('');
+  const [releaseDate, setReleaseDate] = useState('');
   const [genres, setGenres] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
   const [runtime, setRuntime] = useState('');
@@ -370,6 +380,7 @@ export default function AdminScreen() {
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editYear, setEditYear] = useState('');
+  const [editReleaseDate, setEditReleaseDate] = useState('');
   const [editRating, setEditRating] = useState('');
   const [editPosterUrl, setEditPosterUrl] = useState('');
   const [editCoverUrl, setEditCoverUrl] = useState('');
@@ -800,6 +811,7 @@ export default function AdminScreen() {
     }
 
     const parsedYear = year.trim() ? Number(year) : undefined;
+    const parsedReleaseDate = releaseDate.trim() || undefined;
     const parsedRuntime = runtime.trim() ? Number(runtime) : undefined;
     const parsedTrailerDuration = trailerDuration.trim() ? Number(trailerDuration) : undefined;
     if (
@@ -811,6 +823,10 @@ export default function AdminScreen() {
         (!Number.isInteger(parsedTrailerDuration) || parsedTrailerDuration < 1 || parsedTrailerDuration > 86400))
     ) {
       setFormError('Enter a valid release year and runtime.');
+      return;
+    }
+    if (parsedReleaseDate && !isValidReleaseDate(parsedReleaseDate)) {
+      setFormError('Enter the upcoming release date as YYYY-MM-DD.');
       return;
     }
     if (posterUrl.trim()) {
@@ -896,6 +912,7 @@ export default function AdminScreen() {
           title,
           description,
           ...(parsedYear === undefined ? {} : { releaseYear: parsedYear }),
+          ...(parsedReleaseDate ? { releaseDate: parsedReleaseDate } : {}),
           genres: genres
             .split(',')
             .map((genre) => genre.trim())
@@ -941,6 +958,7 @@ export default function AdminScreen() {
       setTitle('');
       setDescription('');
       setYear('');
+      setReleaseDate('');
       setGenres('');
       setCategories(contentKind === 'short' ? ['Shorts'] : []);
       setRuntime('');
@@ -987,6 +1005,7 @@ export default function AdminScreen() {
     contentKind,
     contentRating,
     description,
+    releaseDate,
     genres,
     categories,
     allowDownload,
@@ -1414,6 +1433,7 @@ export default function AdminScreen() {
     setEditTitle(movie.title);
     setEditDescription(movie.description ?? '');
     setEditYear(movie.year === undefined ? '' : String(movie.year));
+    setEditReleaseDate(movie.releaseDate ?? '');
     setEditRating(movie.contentRating ?? '');
     setEditPosterUrl(movie.posterUrl ?? '');
     setEditCoverUrl(movie.coverUrl ?? '');
@@ -1473,11 +1493,16 @@ export default function AdminScreen() {
       return;
     }
     const parsedYear = editYear.trim() ? Number(editYear) : undefined;
+    const parsedReleaseDate = editReleaseDate.trim() || undefined;
     const parsedTrailerDuration = editTrailerDuration.trim()
       ? Number(editTrailerDuration)
       : undefined;
     if (parsedYear !== undefined && (!Number.isInteger(parsedYear) || parsedYear < 1888 || parsedYear > 2200)) {
       setEditError('Enter a valid release year.');
+      return;
+    }
+    if (parsedReleaseDate && !isValidReleaseDate(parsedReleaseDate)) {
+      setEditError('Enter the upcoming release date as YYYY-MM-DD.');
       return;
     }
     if (
@@ -1548,6 +1573,7 @@ export default function AdminScreen() {
         title: editTitle,
         description: editDescription,
         ...(parsedYear === undefined ? {} : { releaseYear: parsedYear }),
+        ...(parsedReleaseDate ? { releaseDate: parsedReleaseDate } : {}),
         categories: editCategories,
         ...(editRating.trim() ? { contentRating: editRating.trim() } : {}),
         posterUrl: uploadedPosterUrl ?? (editPosterUrl.trim() || undefined),
@@ -1635,6 +1661,7 @@ export default function AdminScreen() {
     editCategories,
     editDescription,
     editPublished,
+    editReleaseDate,
     editPosterImage,
     editPosterUrl,
     editRating,
@@ -1989,7 +2016,7 @@ export default function AdminScreen() {
                 <View style={styles.grow}>
                   <Text style={styles.sectionTitle}>Upload a {contentKind === 'short' ? 'short video' : 'movie'}</Text>
                   <Text style={styles.helper}>
-                    Videos upload directly to private Backblaze storage in 16 MiB parts.
+                    Videos upload directly to private Backblaze storage in 16 MB parts.
                   </Text>
                 </View>
                 <Pressable
@@ -2033,6 +2060,8 @@ export default function AdminScreen() {
                       ? description
                       : field.key === 'year'
                         ? year
+                        : field.key === 'releaseDate'
+                          ? releaseDate
                         : field.key === 'genres'
                           ? genres
                           : field.key === 'runtime'
@@ -2047,6 +2076,8 @@ export default function AdminScreen() {
                       ? setDescription
                       : field.key === 'year'
                         ? setYear
+                        : field.key === 'releaseDate'
+                          ? setReleaseDate
                         : field.key === 'genres'
                           ? setGenres
                           : field.key === 'runtime'
@@ -2384,7 +2415,7 @@ export default function AdminScreen() {
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Add episode</Text>
-              <Text style={styles.helper}>Episode videos upload to private Backblaze storage in 16 MiB parts.</Text>
+              <Text style={styles.helper}>Episode videos upload to private Backblaze storage in 16 MB parts.</Text>
               <Text style={styles.fieldLabel}>Season</Text>
               <View style={styles.choiceList}>
                 {availableSeasons.map((season) => {
@@ -2676,6 +2707,7 @@ export default function AdminScreen() {
                   <AdminTextField label="Title" value={editTitle} onChangeText={setEditTitle} />
                   <AdminTextField label="Description" value={editDescription} onChangeText={setEditDescription} multiline />
                   <AdminTextField label="Release year" value={editYear} onChangeText={setEditYear} keyboardType="number-pad" />
+                  <AdminTextField label="Upcoming release date (optional, YYYY-MM-DD)" value={editReleaseDate} onChangeText={setEditReleaseDate} />
                   <CategoryPicker selected={editCategories} onChange={setEditCategories} disabled={editSaving} />
                   <AdminTextField label="Content rating" value={editRating} onChangeText={setEditRating} />
                   <AdminTextField label="Poster image URL (optional)" value={editPosterUrl} onChangeText={setEditPosterUrl} />

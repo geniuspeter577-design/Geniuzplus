@@ -1,124 +1,232 @@
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
+import * as Clipboard from 'expo-clipboard';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   ActivityIndicator,
   FlatList,
+  Image,
+  Modal,
   Pressable,
+  Share,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type ListRenderItemInfo,
   type ViewToken,
 } from 'react-native';
 
-import type { ContentItem } from '../models/content';
-import { supabaseMovieRepository } from '../repositories/SupabaseMovieRepository';
+import type { ReelFeedItem } from '../models/reel';
+import { VerifiedBadge } from './VerifiedBadge';
+import {
+  addReelComment,
+  deleteReel,
+  loadReelComments,
+  recordReelWatch,
+  reportReel,
+  setReelInterest,
+  toggleReelRelation,
+  updateReel,
+} from '../services/ReelsRepository';
 import { theme } from '../theme';
 
 type ShortsFeedProps = {
-  items: ContentItem[];
+  items: ReelFeedItem[];
   height: number;
   onBack: () => void;
+  initialReelId?: string;
 };
 
-function ShortVideo({ item, height, isActive }: {
-  item: ContentItem;
+function ShortVideo({ item, height, isActive, onHide }: {
+  item: ReelFeedItem;
   height: number;
   isActive: boolean;
+  onHide: (id: string) => void;
 }) {
-  const player = useVideoPlayer(null);
-  const [playbackUrl, setPlaybackUrl] = useState<string>();
+  const player = useVideoPlayer(null, (videoPlayer) => {
+    videoPlayer.timeUpdateEventInterval = 0.25;
+  });
   const [error, setError] = useState<string>();
-  const [retry, setRetry] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [currentItem, setCurrentItem] = useState(item);
+  const [commentText, setCommentText] = useState('');
+  const [commentOpen, setCommentOpen] = useState(false);
+  const [comments, setComments] = useState<{ id: string; displayName: string; body: string }[]>([]);
+  const [editingCaption, setEditingCaption] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState(item.caption);
+  const [busy, setBusy] = useState(false);
+  const lastReportedInterval = useRef(0);
+  const isLegacy = item.id.startsWith('catalog:');
 
   useEffect(() => {
-    let active = true;
     if (!isActive) {
       player.pause();
-      return () => {
-        active = false;
-      };
-    }
-    void Promise.resolve().then(() => {
-      if (!supabaseMovieRepository) {
-        throw new Error('Short videos are not configured.');
-      }
-      return supabaseMovieRepository.getPlaybackUrl(item);
-    }).then((url) => {
-      if (active) {
-        setError(undefined);
-        setPlaybackUrl(url);
-      }
-    }).catch(() => {
-      if (active) {
-        setError('This short could not be loaded. Retry to try again.');
-      }
-    });
-    return () => {
-      active = false;
-      player.pause();
-    };
-  }, [isActive, item, player, retry]);
-
-  useEffect(() => {
-    if (!isActive || !playbackUrl) {
-      player.pause();
-      return;
+      return undefined;
     }
     let active = true;
-    void player.replaceAsync(playbackUrl).then(() => {
+    void player.replaceAsync(item.videoUrl).then(() => {
       if (active) {
+        setError(undefined);
         player.play();
       }
-    }).catch(() => {
-      if (active) {
-        setError('This short could not be played. Retry to try again.');
-      }
-    });
+    }).catch(() => active && setError('This Reel could not be played. Retry to try again.'));
     return () => {
       active = false;
       player.pause();
     };
-  }, [isActive, playbackUrl, player]);
+  }, [isActive, item.id, item.videoUrl, player]);
+
+  useEffect(() => {
+    const timeSubscription = player.addListener('timeUpdate', ({ currentTime }) => {
+      const duration = player.duration;
+      if (duration > 0) {
+        setProgress(Math.min(100, currentTime / duration * 100));
+      }
+      const watchedInterval = Math.floor(currentTime / 20);
+      if (isActive && !isLegacy && watchedInterval > lastReportedInterval.current) {
+        lastReportedInterval.current = watchedInterval;
+        void recordReelWatch(item.id, 20).catch(() => undefined);
+      }
+    });
+    return () => timeSubscription.remove();
+  }, [isActive, isLegacy, item.id, player]);
+
+  const runAction = async (action: () => Promise<void>) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await action();
+    } catch (actionError) {
+      Alert.alert('Reels', actionError instanceof Error ? actionError.message : 'This action could not be completed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleLike = () => isLegacy
+    ? Alert.alert('Like', 'Coming soon')
+    : void runAction(async () => {
+        const next = !currentItem.isLiked;
+        await toggleReelRelation('reel_likes', item.id, next);
+        setCurrentItem((value) => ({ ...value, isLiked: next, likeCount: value.likeCount + (next ? 1 : -1) }));
+      });
+
+  const toggleSave = () => isLegacy
+    ? Alert.alert('Save Reel', 'Coming soon')
+    : void runAction(async () => {
+        const next = !currentItem.isSaved;
+        await toggleReelRelation('reel_saves', item.id, next);
+        setCurrentItem((value) => ({ ...value, isSaved: next }));
+      });
+
+  const toggleFollow = () => isLegacy
+    ? Alert.alert('Follow creator', 'Coming soon')
+    : void runAction(async () => {
+        const next = !currentItem.isFollowing;
+        await toggleReelRelation('reel_follows', item.userId, next);
+        setCurrentItem((value) => ({ ...value, isFollowing: next }));
+      });
+
+  const openComments = () => {
+    if (isLegacy) {
+      Alert.alert('Comments', 'Coming soon');
+      return;
+    }
+    setCommentOpen(true);
+    void loadReelComments(item.id).then(setComments).catch((loadError: unknown) => {
+      Alert.alert('Comments', loadError instanceof Error ? loadError.message : 'Comments could not be loaded.');
+    });
+  };
+
+  const submitComment = () => void runAction(async () => {
+    await addReelComment(item.id, commentText);
+    setComments((current) => [...current, { id: `${Date.now()}`, displayName: 'You', body: commentText.trim() }]);
+    setCurrentItem((value) => ({ ...value, commentCount: value.commentCount + 1 }));
+    setCommentText('');
+  });
+
+  const openMore = () => {
+    const actions = [
+      { text: 'Interested', onPress: () => void runAction(() => setReelInterest(item.id, true)) },
+      { text: 'Not interested', onPress: () => { void runAction(() => setReelInterest(item.id, false)); onHide(item.id); } },
+      { text: currentItem.isSaved ? 'Remove saved Reel' : 'Save Reel', onPress: toggleSave },
+      { text: 'Copy link', onPress: () => void Clipboard.setStringAsync(Linking.createURL('shorts', { queryParams: { reelId: item.id } })).then(() => Alert.alert('Reels', 'Link copied.')) },
+      ...(!isLegacy ? [{ text: 'Report', onPress: () => void runAction(() => reportReel(item.id, 'Reported by user')) }] : []),
+      ...(currentItem.isOwner ? [
+        { text: 'Edit caption', onPress: () => { setCaptionDraft(currentItem.caption); setEditingCaption(true); } },
+        { text: currentItem.allowComments ? 'Turn comments off' : 'Turn comments on', onPress: () => void runAction(async () => { await updateReel(item.id, { allow_comments: !currentItem.allowComments }); setCurrentItem((value) => ({ ...value, allowComments: !value.allowComments })); }) },
+        { text: 'Delete Reel', style: 'destructive' as const, onPress: () => Alert.alert('Delete Reel?', 'This removes the video and its engagement data.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void runAction(() => deleteReel(item.id)).then(() => onHide(item.id)) }]) },
+      ] : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ];
+    Alert.alert('Reel options', undefined, actions);
+  };
 
   return (
     <View style={[styles.videoPage, { height }]}>
-      {playbackUrl ? (
-        <VideoView
-          accessibilityLabel={`Short video: ${item.title}`}
-          player={player}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          surfaceType="textureView"
-          nativeControls={false}
-          allowsPictureInPicture={false}
-        />
-      ) : null}
-      {!playbackUrl && !error ? <ActivityIndicator color={theme.accent} /> : null}
+      <VideoView accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} />
+      {!player.status || player.status === 'loading' ? <ActivityIndicator color={theme.accent} /> : null}
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable accessibilityRole="button" onPress={() => {
-            setPlaybackUrl(undefined);
-            setRetry((value) => value + 1);
-          }} style={styles.retryButton}>
+          <Pressable accessibilityRole="button" onPress={() => void player.replaceAsync(item.videoUrl).then(() => player.play()).catch(() => undefined)} style={styles.retryButton}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       ) : null}
-      <View pointerEvents="none" style={styles.caption}>
-        <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
-        {item.description ? (
-          <Text style={styles.description} numberOfLines={3}>{item.description}</Text>
-        ) : null}
+      <View style={styles.actionColumn}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Like Reel" onPress={toggleLike} style={styles.action}>
+          <Ionicons name={currentItem.isLiked ? 'heart' : 'heart-outline'} size={28} color={currentItem.isLiked ? '#FF5A77' : '#FFFFFF'} />
+          <Text style={styles.actionCount}>{currentItem.likeCount}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Comment on Reel" onPress={openComments} style={styles.action}>
+          <Ionicons name="chatbubble-ellipses-outline" size={26} color="#FFFFFF" />
+          <Text style={styles.actionCount}>{currentItem.commentCount}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Share Reel" onPress={() => void Share.share({ message: `Watch ${currentItem.creatorName}'s Reel on Geniuzplus: ${Linking.createURL('shorts', { queryParams: { reelId: item.id } })}` })} style={styles.action}>
+          <Ionicons name="paper-plane-outline" size={25} color="#FFFFFF" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Save Reel" onPress={toggleSave} style={styles.action}>
+          <Ionicons name={currentItem.isSaved ? 'bookmark' : 'bookmark-outline'} size={25} color="#FFFFFF" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="More Reel options" onPress={openMore} style={styles.action}>
+          <Ionicons name="ellipsis-horizontal" size={27} color="#FFFFFF" />
+        </Pressable>
       </View>
+      <View style={styles.caption}>
+        <View style={styles.creatorRow}>
+          <Pressable accessibilityRole="button" onPress={() => currentItem.userId && router.push({ pathname: '/reels/profile/[id]', params: { id: currentItem.userId } })} style={styles.creatorLink}>
+            <View style={styles.creatorAvatar}>{currentItem.avatarUrl ? <Image source={{ uri: currentItem.avatarUrl }} style={styles.creatorAvatarImage} /> : <Text style={styles.avatarInitial}>{currentItem.creatorName.slice(0, 1).toUpperCase()}</Text>}</View>
+            <Text style={styles.creatorName} numberOfLines={1}>@{currentItem.creatorUsername}</Text>
+            {currentItem.isMember ? <VerifiedBadge /> : null}
+          </Pressable>
+          {!currentItem.isFollowing && !currentItem.isOwner ? <Pressable accessibilityRole="button" onPress={toggleFollow} style={styles.followButton}><Text style={styles.followText}>Follow</Text></Pressable> : null}
+        </View>
+        <Text style={styles.title} numberOfLines={3}>{currentItem.caption || currentItem.creatorName}</Text>
+        {currentItem.hashtags.length ? <Text style={styles.description} numberOfLines={1}>{currentItem.hashtags.map((tag) => `#${tag}`).join(' ')}</Text> : null}
+      </View>
+      <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
+      <Modal visible={commentOpen || editingCaption} transparent animationType="slide" onRequestClose={() => { setCommentOpen(false); setEditingCaption(false); }}>
+        <View style={styles.modalShade}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeading}><Text style={styles.modalTitle}>{editingCaption ? 'Edit caption' : 'Comments'}</Text><Pressable onPress={() => { setCommentOpen(false); setEditingCaption(false); }}><Ionicons name="close" size={22} color={theme.text} /></Pressable></View>
+            {editingCaption ? <TextInput multiline value={captionDraft} onChangeText={setCaptionDraft} style={styles.commentInput} placeholder="Write a caption" placeholderTextColor={theme.secondaryText} /> : <FlatList data={comments} keyExtractor={(entry) => entry.id} renderItem={({ item: entry }) => <Text style={styles.commentLine}><Text style={styles.commentAuthor}>{entry.displayName} </Text>{entry.body}</Text>} ListEmptyComponent={<Text style={styles.modalEmpty}>No comments yet.</Text>} style={styles.commentList} />}
+            <View style={styles.commentComposer}><TextInput value={editingCaption ? captionDraft : commentText} onChangeText={editingCaption ? setCaptionDraft : setCommentText} style={styles.commentInput} placeholder={editingCaption ? 'Write a caption' : 'Add a comment'} placeholderTextColor={theme.secondaryText} /><Pressable disabled={busy || (!editingCaption && !commentText.trim())} onPress={() => editingCaption ? void runAction(async () => { await updateReel(item.id, { caption: captionDraft.trim() }); setCurrentItem((value) => ({ ...value, caption: captionDraft.trim() })); setEditingCaption(false); }) : submitComment()}><Text style={styles.postComment}>{editingCaption ? 'Save' : 'Post'}</Text></Pressable></View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
-export function ShortsFeed({ items, height, onBack }: ShortsFeedProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedProps) {
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [activeIndex, setActiveIndex] = useState(() => Math.max(0, items.findIndex((item) => item.id === initialReelId)));
+  const visibleItems = useMemo(() => items.filter((item) => !hiddenIds.includes(item.id)), [hiddenIds, items]);
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     const visible = viewableItems.find((token) => token.isViewable);
     if (typeof visible?.index === 'number') {
@@ -126,14 +234,15 @@ export function ShortsFeed({ items, height, onBack }: ShortsFeedProps) {
     }
   }, []);
   const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 80 }), []);
-  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<ContentItem>) => (
-    <ShortVideo item={item} height={height} isActive={index === activeIndex} />
+  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<ReelFeedItem>) => (
+    <ShortVideo item={item} height={height} isActive={index === activeIndex} onHide={(id) => setHiddenIds((current) => [...current, id])} />
   ), [activeIndex, height]);
 
   return (
     <View style={styles.container}>
       <FlatList
-        data={items}
+        data={visibleItems}
+        initialScrollIndex={Math.min(activeIndex, Math.max(0, visibleItems.length - 1))}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         pagingEnabled
@@ -156,7 +265,10 @@ export function ShortsFeed({ items, height, onBack }: ShortsFeedProps) {
       >
         <Ionicons name="arrow-back" size={22} color={theme.text} />
       </Pressable>
-      <Text style={styles.counter}>{items.length ? `${activeIndex + 1} / ${items.length}` : ''}</Text>
+      <Text style={styles.counter}>{visibleItems.length ? `${activeIndex + 1} / ${visibleItems.length}` : ''}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Create a Reel" onPress={() => router.push('/reels/create')} style={styles.createButton}>
+        <Ionicons name="add" size={26} color={theme.background} />
+      </Pressable>
     </View>
   );
 }
@@ -176,9 +288,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A1D23CC',
   },
   counter: { position: 'absolute', top: 25, right: 18, color: theme.text, fontSize: 13, fontWeight: '700' },
-  caption: { position: 'absolute', bottom: 26, left: 18, right: 18, gap: 6 },
+  actionColumn: { position: 'absolute', right: 14, bottom: 112, alignItems: 'center', gap: 17 },
+  action: { alignItems: 'center', gap: 3, minWidth: 42 },
+  actionCount: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  caption: { position: 'absolute', bottom: 30, left: 18, right: 78, gap: 8 },
+  creatorRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+  creatorLink: { alignItems: 'center', flexDirection: 'row', flex: 1, gap: 7 },
+  creatorAvatar: { alignItems: 'center', backgroundColor: theme.accent, borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
+  avatarInitial: { color: theme.background, fontSize: 14, fontWeight: '900' },
+  creatorAvatarImage: { height: '100%', width: '100%' },
+  creatorName: { color: '#FFFFFF', flexShrink: 1, fontSize: 13, fontWeight: '800' },
+  followButton: { borderColor: '#FFFFFF', borderRadius: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
+  followText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   title: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
   description: { color: '#FFFFFF', fontSize: 14, lineHeight: 20 },
+  progressTrack: { position: 'absolute', bottom: 0, height: 2, left: 0, right: 0, backgroundColor: '#FFFFFF55' },
+  progressFill: { height: '100%', backgroundColor: theme.accent },
+  createButton: { position: 'absolute', top: 12, right: 14, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accent },
+  modalShade: { backgroundColor: '#00000088', flex: 1, justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: theme.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16, height: '62%', padding: 16 },
+  modalHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  modalTitle: { color: theme.text, fontSize: 17, fontWeight: '800' },
+  commentList: { flex: 1 },
+  commentLine: { color: theme.text, fontSize: 13, lineHeight: 20, paddingVertical: 7 },
+  commentAuthor: { fontWeight: '800' },
+  modalEmpty: { color: theme.secondaryText, paddingVertical: 20 },
+  commentComposer: { alignItems: 'center', borderTopColor: theme.border, borderTopWidth: 1, flexDirection: 'row', gap: 10, paddingTop: 10 },
+  commentInput: { backgroundColor: theme.background, borderColor: theme.border, borderRadius: 10, borderWidth: 1, color: theme.text, flex: 1, maxHeight: 110, minHeight: 42, paddingHorizontal: 12, paddingVertical: 9 },
+  postComment: { color: theme.accent, fontWeight: '800', paddingHorizontal: 6 },
   errorCard: { alignItems: 'center', gap: 14, padding: 24, maxWidth: 320 },
   errorText: { color: theme.text, fontSize: 15, textAlign: 'center' },
   retryButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 8, backgroundColor: theme.accent },

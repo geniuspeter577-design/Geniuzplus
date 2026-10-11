@@ -1,0 +1,399 @@
+import { File } from 'expo-file-system';
+import type { ImagePickerAsset } from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import type { ReelFeedItem, ReelVisibility } from '../models/reel';
+import type { ContentItem } from '../models/content';
+import { supabase } from './supabase';
+
+type ReelRow = {
+  id: string;
+  user_id: string;
+  storage_path: string;
+  caption: string;
+  hashtags: string[];
+  visibility: ReelVisibility;
+  allow_comments: boolean;
+  created_at: string;
+};
+
+type CreatorRow = {
+  id: string;
+  display_name: string;
+  username: string;
+  avatar_url: string | null;
+  is_member: boolean;
+  bio?: string | null;
+};
+
+type RelationRow = { reel_id: string; user_id: string };
+type CommentRow = { reel_id: string };
+
+const REEL_INTEREST_KEY = '@geniuz/reels/interested/v1';
+const REEL_HIDDEN_KEY = '@geniuz/reels/not-interested/v1';
+
+function getBaseUrl() {
+  const value = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, '');
+  if (!value) {
+    throw new Error('Reels are not configured.');
+  }
+  return value;
+}
+
+async function getRequestHeaders(contentType?: string) {
+  const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!key) {
+    throw new Error('Reels are not configured.');
+  }
+  const { data, error } = await supabase?.auth.getSession() ?? { data: { session: null }, error: null };
+  if (error) {
+    throw new Error('Your sign-in session could not be verified.');
+  }
+  return {
+    apikey: key,
+    Authorization: `Bearer ${data.session?.access_token ?? key}`,
+    ...(contentType ? { 'Content-Type': contentType } : {}),
+  };
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = await getRequestHeaders(
+    init.body && typeof init.body === 'string' ? 'application/json' : undefined,
+  );
+  const response = await fetch(`${getBaseUrl()}${path}`, {
+    ...init,
+    headers: { ...headers, ...init.headers },
+  });
+  if (!response.ok) {
+    const details = await response.text();
+    throw new Error(details || 'The Reels service could not complete this request.');
+  }
+  if (response.status === 204) {
+    return undefined as T;
+  }
+  return await response.json() as T;
+}
+
+function inFilter(ids: string[]) {
+  return `in.(${ids.join(',')})`;
+}
+
+export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?: string): Promise<ReelFeedItem[]> {
+  if (!supabase) {
+    return [];
+  }
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  const hiddenIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_HIDDEN_KEY) ?? '[]') as string[]);
+  const interestedIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_INTEREST_KEY) ?? '[]') as string[]);
+  const creatorFilter = creatorId ? `&user_id=eq.${creatorId}` : '';
+  const reels = await request<ReelRow[]>(`/rest/v1/reels?select=id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at&order=created_at.desc&limit=30${creatorFilter}`);
+  const userIds = [...new Set(reels.map((item) => item.user_id))];
+  const reelIds = reels.map((item) => item.id);
+  const [creators, likes, comments, saves, follows] = await Promise.all([
+    userIds.length
+      ? request<CreatorRow[]>(`/rest/v1/reel_creator_profiles?select=id,display_name,username,avatar_url,is_member&id=${inFilter(userIds)}`)
+      : Promise.resolve([]),
+    reelIds.length ? request<RelationRow[]>(`/rest/v1/reel_likes?select=reel_id,user_id&reel_id=${inFilter(reelIds)}`) : Promise.resolve([]),
+    reelIds.length ? request<CommentRow[]>(`/rest/v1/reel_comments?select=reel_id&reel_id=${inFilter(reelIds)}`) : Promise.resolve([]),
+    userId && reelIds.length ? request<RelationRow[]>(`/rest/v1/reel_saves?select=reel_id,user_id&user_id=eq.${userId}&reel_id=${inFilter(reelIds)}`) : Promise.resolve([]),
+    userId && userIds.length ? request<{ creator_id: string }[]>(`/rest/v1/reel_follows?select=creator_id&follower_id=eq.${userId}&creator_id=${inFilter(userIds)}`) : Promise.resolve([]),
+  ]);
+  const creatorById = new Map(creators.map((creator) => [creator.id, creator]));
+  const signed = await Promise.all(reels.map(async (reel) => {
+    const result = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${reel.storage_path}`, {
+      method: 'POST',
+      body: JSON.stringify({ expiresIn: 3600 }),
+    });
+    const creator = creatorById.get(reel.user_id);
+    if (!creator) {
+      return null;
+    }
+    const likeRows = likes.filter((entry) => entry.reel_id === reel.id);
+    return {
+      id: reel.id,
+      userId: reel.user_id,
+      creatorName: creator.display_name,
+      creatorUsername: creator.username,
+      ...(creator.avatar_url ? { avatarUrl: creator.avatar_url } : {}),
+      isMember: creator.is_member,
+      videoUrl: result.signedURL.startsWith('http') ? result.signedURL : `${getBaseUrl()}/storage/v1${result.signedURL}`,
+      caption: reel.caption,
+      hashtags: reel.hashtags ?? [],
+      createdAt: reel.created_at,
+      likeCount: likeRows.length,
+      commentCount: comments.filter((entry) => entry.reel_id === reel.id).length,
+      isLiked: Boolean(userId && likeRows.some((entry) => entry.user_id === userId)),
+      isSaved: saves.some((entry) => entry.reel_id === reel.id),
+      isFollowing: follows.some((entry) => entry.creator_id === reel.user_id),
+      allowComments: reel.allow_comments,
+      isOwner: userId === reel.user_id,
+    } satisfies ReelFeedItem;
+  }));
+  const userItems = signed.filter((item): item is ReelFeedItem => item !== null && (creatorId !== undefined || !hiddenIds.has(item.id)));
+  const legacyItems: ReelFeedItem[] = await Promise.all((creatorId ? [] : legacyShorts).map(async (item) => ({
+    id: `catalog:${item.id}`,
+    userId: '',
+    creatorName: 'Geniuzplus',
+    creatorUsername: 'geniuzplus',
+    isMember: false,
+    videoUrl: await supabaseMoviePlayback(item),
+    caption: item.description ?? item.title,
+    hashtags: [],
+    createdAt: item.createdAt ?? new Date(0).toISOString(),
+    likeCount: 0,
+    commentCount: 0,
+    isLiked: false,
+    isSaved: false,
+    isFollowing: false,
+    allowComments: false,
+    isOwner: false,
+  })));
+  return [...userItems, ...legacyItems].sort((a, b) =>
+    Number(interestedIds.has(b.id)) - Number(interestedIds.has(a.id)) ||
+    b.createdAt.localeCompare(a.createdAt),
+  );
+}
+
+async function supabaseMoviePlayback(item: ContentItem) {
+  const { supabaseMovieRepository } = await import('../repositories/SupabaseMovieRepository');
+  if (!supabaseMovieRepository) {
+    throw new Error('Short videos are not configured.');
+  }
+  return supabaseMovieRepository.getPlaybackUrl(item);
+}
+
+export async function toggleReelRelation(table: 'reel_likes' | 'reel_saves' | 'reel_follows', reelOrCreatorId: string, enabled: boolean) {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const userId = data.session?.user.id;
+  if (!userId) {
+    throw new Error('Sign in to use this Reels action.');
+  }
+  const isFollow = table === 'reel_follows';
+  const row = isFollow
+    ? { follower_id: userId, creator_id: reelOrCreatorId }
+    : { user_id: userId, reel_id: reelOrCreatorId };
+  const filters = isFollow
+    ? `follower_id=eq.${userId}&creator_id=eq.${reelOrCreatorId}`
+    : `user_id=eq.${userId}&reel_id=eq.${reelOrCreatorId}`;
+  if (enabled) {
+    await request(`/rest/v1/${table}?on_conflict=${isFollow ? 'follower_id,creator_id' : 'reel_id,user_id'}`, {
+      method: 'POST',
+      headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+      body: JSON.stringify(row),
+    });
+  } else {
+    await request(`/rest/v1/${table}?${filters}`, { method: 'DELETE' });
+  }
+}
+
+export async function addReelComment(reelId: string, body: string) {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  if (!data.session?.user.id) {
+    throw new Error('Sign in to comment on Reels.');
+  }
+  await request('/rest/v1/reel_comments', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ reel_id: reelId, user_id: data.session.user.id, body: body.trim() }),
+  });
+}
+
+export async function loadReelComments(reelId: string) {
+  const comments = await request<{ id: string; user_id: string; body: string; created_at: string }[]>(
+    `/rest/v1/reel_comments?select=id,user_id,body,created_at&reel_id=eq.${reelId}&order=created_at.asc&limit=100`,
+  );
+  if (!comments.length) {
+    return [];
+  }
+  const creators = await request<CreatorRow[]>(
+    `/rest/v1/reel_creator_profiles?select=id,display_name,username,avatar_url,is_member&id=${inFilter([...new Set(comments.map((comment) => comment.user_id))])}`,
+  );
+  const names = new Map(creators.map((creator) => [creator.id, creator.display_name]));
+  return comments.map((comment) => ({ ...comment, displayName: names.get(comment.user_id) ?? 'Creator' }));
+}
+
+export async function reportReel(reelId: string, reason: string) {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  if (!data.session?.user.id) {
+    throw new Error('Sign in to report a Reel.');
+  }
+  await request('/rest/v1/reel_reports', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+    body: JSON.stringify({ reel_id: reelId, user_id: data.session.user.id, reason }),
+  });
+}
+
+export async function setReelInterest(reelId: string, interested: boolean) {
+  const key = interested ? REEL_INTEREST_KEY : REEL_HIDDEN_KEY;
+  const raw = await AsyncStorage.getItem(key);
+  const current = new Set<string>(raw ? JSON.parse(raw) as string[] : []);
+  if (interested) current.add(reelId);
+  else current.add(reelId);
+  await AsyncStorage.setItem(key, JSON.stringify([...current]));
+}
+
+export async function updateReel(reelId: string, updates: { caption?: string; allow_comments?: boolean; visibility?: ReelVisibility }) {
+  const query = new URLSearchParams({ id: `eq.${reelId}` });
+  await request(`/rest/v1/reels?${query}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(updates),
+  });
+}
+
+export async function deleteReel(reelId: string) {
+  const reel = (await request<ReelRow[]>(`/rest/v1/reels?select=id,storage_path&id=eq.${reelId}&limit=1`))[0];
+  if (!reel) {
+    return;
+  }
+  const headers = await getRequestHeaders('application/json');
+  const deleteResponse = await fetch(`${getBaseUrl()}/storage/v1/object/reels/${reel.storage_path}`, { method: 'DELETE', headers });
+  if (!deleteResponse.ok) {
+    throw new Error('The Reel video could not be deleted.');
+  }
+  await request(`/rest/v1/reels?id=eq.${reelId}`, { method: 'DELETE' });
+}
+
+export async function uploadReel(
+  asset: ImagePickerAsset,
+  input: { caption: string; hashtags: string[]; visibility: ReelVisibility },
+  onProgress: (progress: number) => void,
+) {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const userId = data.session?.user.id;
+  if (!userId) {
+    throw new Error('Sign in to share a Reel.');
+  }
+  const reelId = crypto.randomUUID();
+  const filename = asset.fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || `${reelId}.mp4`;
+  const path = `${userId}/${reelId}/${filename}`;
+  const file = new File(asset.uri);
+  const headers = await getRequestHeaders(asset.mimeType ?? 'video/mp4');
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${getBaseUrl()}/storage/v1/object/reels/${path}`);
+    Object.entries(headers).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+      }
+    };
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300
+      ? resolve()
+      : reject(new Error(xhr.responseText || 'The Reel video could not be uploaded.'));
+    xhr.onerror = () => reject(new Error('The Reel upload was interrupted.'));
+    xhr.send(file);
+  });
+  try {
+    await request('/rest/v1/reels', {
+      method: 'POST',
+      headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        id: reelId,
+        user_id: userId,
+        storage_path: path,
+        caption: input.caption.trim(),
+        hashtags: input.hashtags,
+        visibility: input.visibility,
+      }),
+    });
+  } catch (error) {
+    await fetch(`${getBaseUrl()}/storage/v1/object/reels/${path}`, { method: 'DELETE', headers });
+    throw error;
+  }
+  onProgress(100);
+}
+
+export async function recordReelWatch(reelId: string, watchedSeconds: number) {
+  if (!supabase) {
+    return;
+  }
+  await request('/rest/v1/rpc/record_reel_watch', {
+    method: 'POST',
+    body: JSON.stringify({ p_reel_id: reelId, p_watched_seconds: Math.min(30, Math.max(1, Math.floor(watchedSeconds))) }),
+  });
+}
+
+export async function loadCreatorCounts(userId: string) {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  if (data.session?.user.id !== userId) {
+    throw new Error('Sign in to load creator metrics.');
+  }
+  const rows = await request<{ posts: number; followers: number; following: number; views: number; watched_seconds: number }[]>(
+    '/rest/v1/rpc/get_creator_metrics',
+    { method: 'POST', body: JSON.stringify({ p_user_id: userId }) },
+  );
+  if (!rows.length) {
+    throw new Error('Creator metrics are unavailable.');
+  }
+  return {
+    posts: Number(rows[0].posts),
+    followers: Number(rows[0].followers),
+    following: Number(rows[0].following),
+    views: Number(rows[0].views),
+    watchedSeconds: Number(rows[0].watched_seconds),
+  };
+}
+
+export async function loadCreatorProfile(userId: string) {
+  const rows = await request<CreatorRow[]>(
+    `/rest/v1/reel_creator_profiles?select=id,display_name,username,avatar_url,is_member,bio&id=eq.${userId}&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+export async function loadPublicCreatorCounts(userId: string) {
+  const rows = await request<{ posts: number; followers: number; following: number }[]>(
+    '/rest/v1/rpc/get_public_creator_counts',
+    { method: 'POST', body: JSON.stringify({ p_user_id: userId }) },
+  );
+  if (!rows.length) {
+    throw new Error('Creator counts are unavailable.');
+  }
+  return { posts: Number(rows[0].posts), followers: Number(rows[0].followers), following: Number(rows[0].following) };
+}
+
+export async function isFollowingCreator(creatorId: string) {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const userId = data.session?.user.id;
+  if (!userId) {
+    return false;
+  }
+  const rows = await request<{ creator_id: string }[]>(
+    `/rest/v1/reel_follows?select=creator_id&follower_id=eq.${userId}&creator_id=eq.${creatorId}&limit=1`,
+  );
+  return rows.length > 0;
+}
+
+export type CreatorEarningsRow = {
+  id: string;
+  amount_usd: number;
+  description: string;
+  created_at: string;
+};
+
+export async function loadCreatorEarnings() {
+  return request<CreatorEarningsRow[]>('/rest/v1/creator_earnings?select=id,amount_usd,description,created_at&order=created_at.desc&limit=200');
+}
+
+export async function loadCreatorEarningsSummary() {
+  const rows = await request<{ total_earned_usd: number; available_usd: number }[]>(
+    '/rest/v1/rpc/get_creator_earnings_summary',
+    { method: 'POST', body: '{}' },
+  );
+  if (!rows.length || !Number.isFinite(Number(rows[0].available_usd)) || !Number.isFinite(Number(rows[0].total_earned_usd))) {
+    throw new Error('Creator earnings are unavailable.');
+  }
+  return {
+    totalEarnedUsd: Number(rows[0].total_earned_usd),
+    availableUsd: Number(rows[0].available_usd),
+  };
+}
+
+export async function loadCreatorWithdrawals() {
+  return request<{ id: string; amount_usd: number; status: string; created_at: string }[]>(
+    '/rest/v1/creator_withdrawals?select=id,amount_usd,status,created_at&order=created_at.desc&limit=200',
+  );
+}
