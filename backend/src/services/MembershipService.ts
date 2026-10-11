@@ -8,6 +8,8 @@ import { FlutterwaveGateway } from './PaymentGateway';
 import type { PaymentGateway } from './PaymentGateway';
 import { FlutterwaveService } from './FlutterwaveService';
 
+const BOOST_PRICES_NGN: Record<number, number> = { 1: 500, 3: 1000, 7: 2000 };
+
 type MembershipStatusResponse = {
   status: 'visitor' | 'active' | 'grace' | 'expired' | 'refunded';
   currentPeriodEnd?: string;
@@ -25,6 +27,13 @@ export interface MembershipOperations {
   getPlan(): ReturnType<MembershipService['getPlan']>;
   getStatus(client: SupabaseClient, userId: string): Promise<MembershipStatusResponse>;
   createCheckout(userId: string, email: string): Promise<{
+    authorizationUrl: string;
+    accessCode: string;
+    reference: string;
+    amountKobo: number;
+    currency: string;
+  }>;
+  createBoostCheckout(userId: string, email: string, reelId: string, days: number): Promise<{
     authorizationUrl: string;
     accessCode: string;
     reference: string;
@@ -95,6 +104,7 @@ export class MembershipService implements MembershipOperations {
         .select('reference,created_at')
         .eq('user_id', userId)
         .eq('status', 'pending')
+        .eq('purpose', 'membership')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -128,6 +138,7 @@ export class MembershipService implements MembershipOperations {
       .select('reference,amount_kobo')
       .eq('user_id', userId)
       .eq('status', 'pending')
+      .eq('purpose', 'membership')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -153,6 +164,59 @@ export class MembershipService implements MembershipOperations {
       if (insertError) {
         throw new HttpError(503, 'PAYMENT_RECORD_UNAVAILABLE', 'Could not start checkout. Please retry.');
       }
+    }
+
+    try {
+      const checkout = await this.paystack.initializeTransaction({ email, amountKobo, reference });
+      return { ...checkout, amountKobo, currency: 'NGN' };
+    } catch (error) {
+      await admin.from('payments').update({ status: 'failed', updated_at: this.now().toISOString() }).eq('reference', reference);
+      throw this.mapPaystackError(error);
+    }
+  }
+
+  async createBoostCheckout(userId: string, email: string, reelId: string, days: number) {
+    const admin = this.getAdminClient();
+    if (this.config.paymentProvider !== 'flutterwave') {
+      throw new HttpError(503, 'BOOST_PROVIDER_NOT_READY', 'Boost payments are not available yet.');
+    }
+    this.requireTestPaystack();
+    const priceNgn = BOOST_PRICES_NGN[days];
+    if (!priceNgn) {
+      throw new HttpError(400, 'INVALID_BOOST_PLAN', 'Choose a valid Boost plan.');
+    }
+    const amountKobo = priceNgn * 100;
+
+    const { data: reel, error: reelError } = await admin
+      .from('reels')
+      .select('id,user_id,visibility,publish_at')
+      .eq('id', reelId)
+      .maybeSingle();
+    if (reelError) {
+      throw new HttpError(503, 'REEL_LOOKUP_UNAVAILABLE', 'Could not check this reel. Please retry.');
+    }
+    if (!reel || reel.user_id !== userId) {
+      throw new HttpError(404, 'REEL_NOT_FOUND', 'You can only boost your own reels.');
+    }
+    if (reel.visibility !== 'public') {
+      throw new HttpError(400, 'BOOST_NEEDS_PUBLIC_REEL', 'Only public reels can be boosted.');
+    }
+    if (reel.publish_at && new Date(reel.publish_at).getTime() > this.now().getTime()) {
+      throw new HttpError(400, 'BOOST_REEL_NOT_LIVE', 'Boost this reel after it goes live.');
+    }
+
+    const reference = `geniuz_boost_${this.now().getTime()}_${randomUUID()}`;
+    const { error: insertError } = await admin.from('payments').insert({
+      reference,
+      user_id: userId,
+      amount_kobo: amountKobo,
+      status: 'pending',
+      purpose: 'boost',
+      boost_days: days,
+      reel_id: reelId,
+    });
+    if (insertError) {
+      throw new HttpError(503, 'PAYMENT_RECORD_UNAVAILABLE', 'Could not start checkout. Please retry.');
     }
 
     try {

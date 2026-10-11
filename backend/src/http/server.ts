@@ -1246,6 +1246,27 @@ async function handleRequest(
     return;
   }
 
+  if (pathname === '/api/reels/boost-checkout') {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { userId, email } = await authenticatePlayback(config, request.headers.authorization);
+    if (!userId) {
+      throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in to boost a reel.');
+    }
+    if (!email) {
+      throw new HttpError(400, 'EMAIL_REQUIRED', 'Add an email address to your account before checkout.');
+    }
+    const body = await readJson(request);
+    const reelId = typeof body.reelId === 'string' ? body.reelId.trim() : '';
+    const days = typeof body.days === 'number' ? body.days : Number.NaN;
+    if (!reelId || reelId.length > 64 || !Number.isInteger(days)) {
+      throw new HttpError(400, 'INVALID_BOOST_REQUEST', 'Choose a reel and a Boost plan.');
+    }
+    writeJson(response, 201, await membership.createBoostCheckout(userId, email, reelId, days));
+    return;
+  }
+
   if (pathname === '/webhooks/flutterwave') {
     if (request.method !== 'POST') {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
