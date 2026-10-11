@@ -24,12 +24,8 @@ type AudioPick = { uri: string; name: string; mimeType: string };
 const STICKERS = ['😀', '😂', '😍', '🔥', '👏', '💯', '🎉', '❤️', '😎', '🙏', '👍', '✨', '🎬', '🍿', '⭐', '😭', '🤣', '😮', '🥳', '💪', '🌍', '🎶', '👑', '🙌'];
 const COLORS = ['#FFFFFF', '#72F06A', '#FFD34D', '#FF5C7A', '#4DA3FF', '#000000'];
 const SOON_ROWS: { icon: IconName; title: string; reason: string }[] = [
-  { icon: 'arrow-redo', title: 'Share to groups', reason: 'Groups do not exist in Geniuzplus yet.' },
   { icon: 'list', title: 'Add to playlist', reason: 'Playlists do not exist in Geniuzplus yet.' },
-  { icon: 'book-outline', title: 'Share to your story', reason: 'Stories do not exist in Geniuzplus yet.' },
-  { icon: 'logo-instagram', title: 'Instagram', reason: 'It needs an Instagram business connection.' },
   { icon: 'bag-handle-outline', title: 'Add product', reason: 'It needs a shop and payments to be set up.' },
-  { icon: 'flask-outline', title: 'A/B tests', reason: 'It needs enough viewers and an analytics backend.' },
   { icon: 'megaphone-outline', title: 'Boost reel', reason: 'It needs an advertising and payments system.' },
   { icon: 'time', title: 'Scheduling options', reason: 'It needs a scheduler on the backend.' },
   { icon: 'chatbox-ellipses-outline', title: 'Closed captions', reason: 'It needs a speech-to-text service.' },
