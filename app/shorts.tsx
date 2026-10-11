@@ -1,6 +1,6 @@
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../src/components/ContentNotice';
@@ -28,6 +28,13 @@ export default function ShortsScreen() {
   const { isOnline } = useNetwork();
   const insets = useSafeAreaInsets();
   const dimensions = useWindowDimensions();
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      goHome();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
   const loadShorts = useCallback(async () => {
     if (!supabaseMovieRepository) {
       throw new Error('Reels are not configured.');

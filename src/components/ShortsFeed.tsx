@@ -362,6 +362,12 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
   const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 80 }), []);
   const listRef = useRef<FlatList>(null);
   const goNext = () => {
+    // loop back to the first reel
+    if (activeIndex + 1 >= visibleItems.length) {
+      setActiveIndex(0);
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      return;
+    }
     listRef.current?.scrollToOffset({ offset: (activeIndex + 1) * height, animated: true });
   };
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<ReelFeedItem>) => (
