@@ -23,7 +23,7 @@ export function DeviceTransferPanel() {
   const { isOnline } = useNetwork();
   const membership = useMembership();
   const hasMemberAccess = membership.status?.status === 'active' || membership.status?.status === 'grace';
-  const [receiveCode, setReceiveCode] = useState('');
+  const [receiveCode, setReceiveCode] = useState(deviceTransferService.isReceiving() ? keptReceiveCode : '');
   const [receiveExpiresAt, setReceiveExpiresAt] = useState('');
   const [sendCode, setSendCode] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -87,10 +87,7 @@ export function DeviceTransferPanel() {
   useEffect(() => () => {
     incomingOfferResolver.current?.([]);
     incomingOfferResolver.current = undefined;
-    senderController.current?.abort();
-    void deviceTransferService.stopReceiver().catch((stopError: unknown) => {
-      console.error('[DeviceTransfer] Could not stop the receive server while leaving the screen.', stopError);
-    });
+    // transfers keep running when this screen closes
   }, []);
 
   const startReceiving = async () => {
@@ -127,6 +124,7 @@ export function DeviceTransferPanel() {
         },
         onError: handleTransferError,
       });
+      keptReceiveCode = receiver.code;
       setReceiveCode(receiver.code);
       setReceiveExpiresAt(receiver.expiresAt);
       setIsReceiving(true);
@@ -141,6 +139,7 @@ export function DeviceTransferPanel() {
     resolveIncomingOffer(false);
     try {
       await deviceTransferService.stopReceiver();
+      keptReceiveCode = '';
       setReceiveCode('');
       setReceiveExpiresAt('');
       setIsReceiving(false);
@@ -464,3 +463,5 @@ const styles = StyleSheet.create({
   notice: { color: theme.accent, fontSize: 13, lineHeight: 18 },
   footnote: { color: theme.secondaryText, fontSize: 11, lineHeight: 16 },
 });
+
+let keptReceiveCode = '';

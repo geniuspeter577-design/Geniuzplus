@@ -549,6 +549,10 @@ export class DeviceTransferService {
     };
   }
 
+  isReceiving() {
+    return Boolean(this.receiver);
+  }
+
   async stopReceiver() {
     const receiver = this.receiver;
     if (!receiver) {
