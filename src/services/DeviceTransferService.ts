@@ -188,6 +188,77 @@ async function loadTcpSocket() {
 }
 
 
+const SHORT_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+async function supabaseRpc(accessToken: string, fn: string, args: object): Promise<unknown> {
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!base || !key) {
+    throw new Error('The app is missing its service settings.');
+  }
+  const response = await fetch(`${base}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify(args),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    if (text.includes('MEMBERSHIP_REQUIRED')) {
+      throw new Error('An active membership is required to use device transfer.');
+    }
+    if (text.includes('TOO_MANY_ATTEMPTS')) {
+      throw new Error('Too many wrong codes. Wait 10 minutes and try again.');
+    }
+    throw new Error(`Code service error (${response.status}): ${text.slice(0, 120)}`);
+  }
+  return text ? JSON.parse(text) : null;
+}
+
+async function makeShortCode(): Promise<string> {
+  const bytes = await Crypto.getRandomBytesAsync(5);
+  let code = '';
+  for (let index = 0; index < bytes.length; index += 1) {
+    code += SHORT_CODE_ALPHABET.charAt((bytes[index] ?? 0) % SHORT_CODE_ALPHABET.length);
+  }
+  return code;
+}
+
+async function registerShortCode(accessToken: string, address: TransferAddress): Promise<string> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const code = await makeShortCode();
+    try {
+      await supabaseRpc(accessToken, 'register_transfer_code', {
+        p_code: code,
+        p_session_id: address.sessionId,
+        p_ip: address.ip,
+        p_port: address.port,
+        p_session_token: address.sessionToken,
+      });
+      return code;
+    } catch (registerError) {
+      const message = registerError instanceof Error ? registerError.message : '';
+      if (!/duplicate|23505/i.test(message)) {
+        break;
+      }
+    }
+  }
+  return getConnectionCode(address);
+}
+
+export async function resolveTransferCode(accessToken: string, value: string): Promise<TransferAddress> {
+  const trimmed = value.trim();
+  if (/^[A-Za-z0-9]{5}$/.test(trimmed)) {
+    const rows = (await supabaseRpc(accessToken, 'lookup_transfer_code', { p_code: trimmed.toUpperCase() })) as
+      { ip: string; port: number; session_id: string; session_token: string }[] | null;
+    const row = rows?.[0];
+    if (!row) {
+      throw new Error('That code was not found or has expired. Check it and try again.');
+    }
+    return { ip: row.ip, port: row.port, sessionId: row.session_id, sessionToken: row.session_token };
+  }
+  return parseTransferConnectionCode(value);
+}
+
 function getConnectionCode(address: TransferAddress) {
   return `${address.ip}|${address.port}|${address.sessionId}|${address.sessionToken}`;
 }
@@ -469,9 +540,10 @@ export class DeviceTransferService {
     }
     this.receiver = activeReceiver;
     const connection = { ip, port: address.port, sessionId, sessionToken };
+    const shortCode = await registerShortCode(accessToken, connection);
     return {
       ...connection,
-      code: getConnectionCode(connection),
+      code: shortCode,
       expiresAt,
       stop: () => this.stopReceiver(),
     };

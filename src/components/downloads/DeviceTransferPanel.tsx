@@ -11,7 +11,7 @@ import { supabase } from '../../services/supabase';
 import { addTransferHistoryEntry } from '../../services/TransferHistoryStore';
 import {
   deviceTransferService,
-  parseTransferConnectionCode,
+  resolveTransferCode,
 } from '../../services/DeviceTransferService';
 import type { OfflineDownloadRecord } from '../../services/OfflineDownloadService';
 import type { TransferOfferItem } from '../../utils/deviceTransferProtocol';
@@ -168,7 +168,7 @@ export function DeviceTransferPanel() {
     }
     let address;
     try {
-      address = parseTransferConnectionCode(sendCode);
+      address = await resolveTransferCode(await getAccessToken(), sendCode);
     } catch (parseError) {
       setError(parseError instanceof Error ? parseError.message : 'Enter a valid receive code.');
       return;
@@ -340,7 +340,7 @@ export function DeviceTransferPanel() {
           autoCorrect={false}
           editable={!isSending && !transferDisabled}
           onChangeText={setSendCode}
-          placeholder="Paste receive code"
+          placeholder="Enter the 5-character code"
           placeholderTextColor={theme.secondaryText}
           style={styles.input}
           value={sendCode}
