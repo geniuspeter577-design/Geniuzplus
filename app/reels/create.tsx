@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Linking, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { REEL_FILTERS } from '../../src/components/ReelEditsOverlay';
@@ -103,7 +103,7 @@ export default function CreateReelScreen() {
   const [audio, setAudio] = useState<AudioPick>();
   const [location, setLocation] = useState('');
   const [tags, setTags] = useState('');
-  const [aiLabel, setAiLabel] = useState(false);
+  const [aiLabel] = useState(false);
   const [textDraft, setTextDraft] = useState('');
   const [textColor, setTextColor] = useState('#FFFFFF');
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -316,7 +316,6 @@ export default function CreateReelScreen() {
     { icon: 'download-outline', title: 'Save', run: saveInfo },
     { icon: 'add-circle-outline', title: 'Upload audio description', run: () => notAvailable('Audio description') },
     { icon: 'add-circle-outline', title: 'Upload text transcript', run: () => notAvailable('Text transcript') },
-    { icon: 'add-circle-outline', title: aiLabel ? 'Remove AI Label' : 'Add AI Label', run: () => setAiLabel(!aiLabel) },
     { icon: 'bug-outline', title: 'Report a problem', run: () => { void Linking.openURL('mailto:geniuzplus@gmail.com?subject=Geniuz%2B%20Reel%20problem').catch(() => undefined); } },
   ];
 
@@ -518,13 +517,6 @@ export default function CreateReelScreen() {
         {SOON_ROWS.map((row) => (
           <SettingsRow key={row.title} icon={row.icon} title={row.title} subtitle="Not available yet" onPress={() => notAvailable(row.title, row.reason)} />
         ))}
-        <SettingsRow
-          icon="add"
-          title="Add AI Label"
-          subtitle="Label realistic content made with AI"
-          onPress={() => setAiLabel(!aiLabel)}
-          right={<Switch value={aiLabel} onValueChange={setAiLabel} trackColor={{ true: theme.accent, false: '#555555' }} />}
-        />
         <SettingsRow icon="globe-outline" title="Who can see this?" subtitle={visibility === 'public' ? 'Public' : 'Followers'} onPress={chooseVisibility} />
       </ScrollView>
       <View style={styles.footer}>
