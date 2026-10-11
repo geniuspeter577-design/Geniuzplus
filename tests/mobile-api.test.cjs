@@ -253,6 +253,23 @@ test('Reel posting is available to signed-in non-members and earning is active-m
   assert.match(activeOnlyMigration, /create or replace function public\.request_creator_withdrawal/);
 });
 
+test('device transfer supports reviewed batches and resets a verified receive session between files', () => {
+  const panel = fs.readFileSync('src/components/downloads/DeviceTransferPanel.tsx', 'utf8');
+  const service = fs.readFileSync('src/services/DeviceTransferService.ts', 'utf8');
+  const server = fs.readFileSync('backend/src/http/server.ts', 'utf8');
+  const migration = fs.readFileSync('supabase/migrations/20261027000000_transfer_session_reset.sql', 'utf8');
+  assert.match(panel, /Send selected videos/);
+  assert.match(panel, /Incoming videos/);
+  assert.match(panel, /Accept selected/);
+  assert.match(panel, /Retry failed video/);
+  assert.match(panel, /Overall \{overallProgressPercent\}%/);
+  assert.match(service, /onIncomingBatch/);
+  assert.match(service, /type: 'batchOffer'/);
+  assert.match(service, /\/reset/);
+  assert.match(server, /complete\|reset/);
+  assert.match(migration, /reset_device_transfer_session/);
+});
+
 test('mobile Geniuz repository rejects malformed normalized responses', async () => {
   const apiClient = {
     get: async () => ({ items: [{ title: 'Missing required fields' }], page: 1, totalPages: 1 }),

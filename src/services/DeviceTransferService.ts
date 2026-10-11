@@ -18,6 +18,7 @@ import {
   getTransferResumeBytes,
   TransferFrameParser,
   TRANSFER_CHUNK_BYTES,
+  type TransferOfferItem,
   type TransferFrame,
 } from '../utils/deviceTransferProtocol';
 
@@ -41,6 +42,7 @@ type TransferManifest = {
 
 type ReceiverCallbacks = {
   canReceive: (contentId: string) => boolean;
+  onIncomingBatch: (items: TransferOfferItem[]) => Promise<string[]>;
   onProgress: (receivedBytes: number, totalBytes: number) => void;
   onReceived: (item: ContentItem, filePath: string, size: number) => Promise<void>;
   onComplete: (title: string) => void;
@@ -326,6 +328,52 @@ function buildReceivedItem(manifest: TransferManifest, filePath: string): Conten
 
 export class DeviceTransferService {
   private receiver?: ActiveReceiver;
+
+  async offerBatch({ address, records, signal }: {
+    address: TransferAddress;
+    records: OfflineDownloadRecord[];
+    signal: AbortSignal;
+  }) {
+    if (!isNativeTransferAvailable()) {
+      throw new Error('Device transfer is available only in the iOS or Android app.');
+    }
+    const items: TransferOfferItem[] = records.map((record) => ({
+      contentId: record.item.id,
+      title: record.item.title,
+      fileSizeBytes: record.size,
+    }));
+    const channel = await connectChannel(address.ip, address.port, signal);
+    const abortChannel = () => channel.close();
+    signal.addEventListener('abort', abortChannel, { once: true });
+    try {
+      await channel.send({
+        type: 'batchOffer',
+        sessionId: address.sessionId,
+        sessionToken: address.sessionToken,
+        items,
+      });
+      const decision = await channel.next(120_000);
+      if (decision.type === 'error') {
+        throw new Error(decision.message);
+      }
+      if (decision.type !== 'batchDecision') {
+        throw new Error('The receiving device returned an invalid batch decision.');
+      }
+      const offeredIds = new Set(items.map((item) => item.contentId));
+      if (decision.acceptedIds.some((id) => !offeredIds.has(id))) {
+        throw new Error('The receiving device accepted a video that was not offered.');
+      }
+      return [...new Set(decision.acceptedIds)];
+    } catch (error) {
+      if (signal.aborted) {
+        throw new Error('Transfer canceled.');
+      }
+      throw error;
+    } finally {
+      signal.removeEventListener('abort', abortChannel);
+      channel.close();
+    }
+  }
 
   async startReceiver(accessToken: string, callbacks: ReceiverCallbacks) {
     if (!isNativeTransferAvailable()) {
@@ -620,7 +668,35 @@ export class DeviceTransferService {
     receiver.activeSocket = socket;
     const channel = new FrameChannel(socket);
     try {
-      const hello = await channel.next();
+      const firstFrame = await channel.next();
+      if (firstFrame.type === 'batchOffer') {
+        if (
+          firstFrame.sessionId !== receiver.sessionId ||
+          !constantTimeEqual(firstFrame.sessionToken, receiver.sessionToken)
+        ) {
+          throw new Error('The sender used an invalid receive code.');
+        }
+        let decisionTimeout: ReturnType<typeof setTimeout> | undefined;
+        const disconnected = new Promise<string[]>((resolve) => {
+          socket.once('close', () => resolve([]));
+        });
+        const timedOut = new Promise<string[]>((resolve) => {
+          decisionTimeout = setTimeout(() => resolve([]), 120_000);
+        });
+        const acceptedIds = await Promise.race([
+          receiver.callbacks.onIncomingBatch(firstFrame.items).catch(() => []),
+          disconnected,
+          timedOut,
+        ]);
+        if (decisionTimeout) clearTimeout(decisionTimeout);
+        const offeredIds = new Set(firstFrame.items.map((item) => item.contentId));
+        await channel.send({
+          type: 'batchDecision',
+          acceptedIds: [...new Set(acceptedIds.filter((id) => offeredIds.has(id)))],
+        });
+        return;
+      }
+      const hello = firstFrame;
       if (
         hello.type !== 'hello' ||
         hello.sessionId !== receiver.sessionId ||
@@ -738,6 +814,7 @@ export class DeviceTransferService {
             receivedBytes: manifest.fileSizeBytes,
           });
           await transferApi(receiver.accessToken, `/api/transfers/sessions/${receiver.sessionId}/complete`, {});
+          await transferApi(receiver.accessToken, `/api/transfers/sessions/${receiver.sessionId}/reset`, {});
           await channel.send({ type: 'complete', sha256: actualSha256 });
           receiver.callbacks.onComplete(manifest.title);
           receiver.partFile = undefined;
@@ -745,9 +822,6 @@ export class DeviceTransferService {
           receiver.hash = undefined;
           receiver.nextChunk = 0;
           receiver.receivedBytes = 0;
-          receiver.stopped = true;
-          this.receiver = undefined;
-          receiver.server.close();
           return;
         }
         if (frame.type === 'error') {

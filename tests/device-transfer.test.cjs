@@ -30,6 +30,21 @@ test('transfer framing accepts split frames and rejects malformed or oversized i
   assert.throws(() => parser.push('x'.repeat(400_001)), /too large/i);
 });
 
+test('transfer framing validates incoming batch offers and receiver selections', () => {
+  const parser = new TransferFrameParser();
+  const sessionId = '9b21db0a-c9d1-4a4a-8ddd-ec7ea735d92d';
+  const offer = {
+    type: 'batchOffer',
+    sessionId,
+    sessionToken: 'a'.repeat(64),
+    items: [{ contentId: 'movie_123', title: 'A real saved video', fileSizeBytes: 8192 }],
+  };
+  assert.deepEqual(parser.push(encodeTransferFrame(offer)), [offer]);
+  const decision = { type: 'batchDecision', acceptedIds: ['movie_123'] };
+  assert.deepEqual(parser.push(encodeTransferFrame(decision)), [decision]);
+  assert.throws(() => parser.push(`${JSON.stringify({ ...offer, items: [{ ...offer.items[0], fileSizeBytes: 0 }] })}\n`), /invalid/i);
+});
+
 test('transfer base64 preserves binary chunks including padding boundaries', () => {
   for (const length of [0, 1, 2, 3, 255, 256, TRANSFER_CHUNK_BYTES]) {
     const bytes = Uint8Array.from({ length }, (_, index) => (index * 29) % 256);

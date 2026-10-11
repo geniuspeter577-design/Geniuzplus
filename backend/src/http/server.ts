@@ -980,7 +980,7 @@ async function handleRequest(
     return;
   }
 
-  const transferRoute = /^\/api\/transfers\/sessions\/([^/]+)\/(authorize|verify|progress|complete)$/.exec(
+  const transferRoute = /^\/api\/transfers\/sessions\/([^/]+)\/(authorize|verify|progress|complete|reset)$/.exec(
     pathname,
   );
   if (transferRoute) {
@@ -1092,13 +1092,13 @@ async function handleRequest(
       return;
     }
 
-    const { error } = await client.rpc('complete_device_transfer', {
-      p_session_id: sessionId,
-    });
+    const { error } = operation === 'complete'
+      ? await client.rpc('complete_device_transfer', { p_session_id: sessionId })
+      : await client.rpc('reset_device_transfer_session', { p_session_id: sessionId });
     if (error) {
-      throwTransferRpcError(error, 'complete the transfer');
+      throwTransferRpcError(error, operation === 'complete' ? 'complete the transfer' : 'prepare the next transfer');
     }
-    writeJson(response, 200, { status: 'completed' });
+    writeJson(response, 200, { status: operation === 'complete' ? 'completed' : 'waiting' });
     return;
   }
 

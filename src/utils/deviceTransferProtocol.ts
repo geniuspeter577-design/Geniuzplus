@@ -3,6 +3,12 @@ export const MAX_TRANSFER_FILE_BYTES = 1024 ** 3;
 const MAX_TRANSFER_FRAME_CHARACTERS = 400_000;
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
+export type TransferOfferItem = {
+  contentId: string;
+  title: string;
+  fileSizeBytes: number;
+};
+
 function isTransferFrame(value: unknown): value is TransferFrame {
   if (typeof value !== 'object' || value === null || Array.isArray(value) || !('type' in value)) {
     return false;
@@ -19,6 +25,32 @@ function isTransferFrame(value: unknown): value is TransferFrame {
         'permit' in value &&
         typeof value.permit === 'string' &&
         /^[0-9a-f]{64}$/i.test(value.permit)
+      );
+    case 'batchOffer':
+      return (
+        'sessionId' in value &&
+        typeof value.sessionId === 'string' &&
+        /^[0-9a-f-]{36}$/i.test(value.sessionId) &&
+        'sessionToken' in value &&
+        typeof value.sessionToken === 'string' &&
+        /^[0-9a-f]{64}$/i.test(value.sessionToken) &&
+        'items' in value &&
+        Array.isArray(value.items) &&
+        value.items.length > 0 &&
+        value.items.length <= 1000 &&
+        value.items.every((item) =>
+          typeof item === 'object' && item !== null &&
+          'contentId' in item && typeof item.contentId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(item.contentId) &&
+          'title' in item && typeof item.title === 'string' && item.title.trim().length > 0 && item.title.length <= 200 &&
+          'fileSizeBytes' in item && Number.isSafeInteger(item.fileSizeBytes) && Number(item.fileSizeBytes) > 0 && Number(item.fileSizeBytes) <= MAX_TRANSFER_FILE_BYTES
+        )
+      );
+    case 'batchDecision':
+      return (
+        'acceptedIds' in value &&
+        Array.isArray(value.acceptedIds) &&
+        value.acceptedIds.length <= 1000 &&
+        value.acceptedIds.every((id) => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(id))
       );
     case 'resume':
     case 'ack':
@@ -60,6 +92,8 @@ function isTransferFrame(value: unknown): value is TransferFrame {
 
 export type TransferFrame =
   | { type: 'hello'; sessionId: string; sessionToken: string; permit: string }
+  | { type: 'batchOffer'; sessionId: string; sessionToken: string; items: TransferOfferItem[] }
+  | { type: 'batchDecision'; acceptedIds: string[] }
   | { type: 'resume'; nextChunk: number; receivedBytes: number }
   | { type: 'chunk'; index: number; bytes: number; payload: string }
   | { type: 'ack'; nextChunk: number; receivedBytes: number }
