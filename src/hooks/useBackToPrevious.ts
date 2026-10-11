@@ -15,6 +15,10 @@ export function useBackToPrevious() {
       try {
         const atHome = HOME_PATHS.includes(pathname);
         if (!atHome) {
+          if (pathname === '/shorts') {
+            router.replace('/(tabs)');
+            return true;
+          }
           if (router.canGoBack()) router.back();
           else router.replace('/');
           return true;

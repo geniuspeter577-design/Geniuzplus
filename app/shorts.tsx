@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,6 @@ import { supabaseMovieRepository } from '../src/repositories/SupabaseMovieReposi
 import { useNetwork } from '../src/state/NetworkContext';
 import { theme } from '../src/theme';
 import { useContentQuery } from '../src/hooks/useContentQuery';
-import { backOrReplace } from '../src/utils/navigation';
 import { loadReelsFeed } from '../src/services/ReelsRepository';
 
 export default function ShortsScreen() {
@@ -34,7 +33,7 @@ export default function ShortsScreen() {
       {!isOnline ? (
         <View style={styles.messageState}>
           <ContentNotice message="Connect to the internet to watch Reels." tone="warning" />
-          <Pressable accessibilityRole="button" onPress={() => backOrReplace('/')} style={styles.button}>
+          <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')} style={styles.button}>
             <Text style={styles.buttonText}>Back</Text>
           </Pressable>
         </View>
@@ -46,17 +45,17 @@ export default function ShortsScreen() {
       ) : query.error ? (
         <View style={styles.messageState}>
           <ContentNotice message={query.error} tone="error" actionLabel="Retry" onAction={query.retry} />
-          <Pressable accessibilityRole="button" onPress={() => backOrReplace('/')} style={styles.button}>
+          <Pressable accessibilityRole="button" onPress={() => router.replace('/(tabs)')} style={styles.button}>
             <Text style={styles.buttonText}>Back</Text>
           </Pressable>
         </View>
       ) : query.data?.length ? (
         <>
-          <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} initialReelId={reelId} />
+          <ShortsFeed items={query.data} height={height} onBack={() => router.replace('/(tabs)')} initialReelId={reelId} />
           <PostReelButton />
         </>
       ) : (
-        <EmptyReelsPage onBack={() => backOrReplace('/')} />
+        <EmptyReelsPage onBack={() => router.replace('/(tabs)')} />
       )}
     </SafeAreaView>
   );
