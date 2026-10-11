@@ -354,7 +354,7 @@ export function DeviceTransferPanel() {
           </Pressable>
         ) : (
           <Pressable
-            disabled={transferDisabled || !selectedRecord || receiveAvailable.length === 0}
+            disabled={transferDisabled || selectedRecords.length === 0 || receiveAvailable.length === 0}
             onPress={() => void sendFiles()}
             style={[styles.action, (transferDisabled || selectedRecords.length === 0 || receiveAvailable.length === 0) && styles.disabled]}
           >
