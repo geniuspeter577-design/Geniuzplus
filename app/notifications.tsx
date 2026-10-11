@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,15 +22,41 @@ import {
   type AppNotification,
 } from '../src/services/NotificationsStore';
 import { backOrReplace } from '../src/utils/navigation';
+import { loadReelActivity, markReelActivityRead, type ReelActivity } from '../src/services/ReelsRepository';
+
+const ACTIVITY_TEXT: Record<ReelActivity['kind'], string> = {
+  like: 'liked your reel',
+  comment: 'commented on your reel',
+  save: 'saved your reel',
+  tag: 'tagged you in a reel',
+};
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activity, setActivity] = useState<ReelActivity[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void loadReelActivity()
+        .then((rows) => { if (active) setActivity(rows); })
+        .catch(() => undefined);
+      return () => { active = false; };
+    }, []),
+  );
+  const openActivity = async (row: ReelActivity) => {
+    setActivity((current) => current.map((item) => (item.id === row.id ? { ...item, read: true } : item)));
+    void markReelActivityRead(row.id).catch(() => undefined);
+    if (row.reelId) {
+      router.push({ pathname: '/shorts', params: { reelId: row.reelId } } as never);
+    }
+  };
 
   const refreshNotifications = useCallback(async () => {
     setIsRefreshing(true);
     try {
       setNotifications(await loadNotifications());
+      setActivity(await loadReelActivity().catch(() => []));
     } finally {
       setIsRefreshing(false);
     }
@@ -69,6 +96,8 @@ export default function NotificationsScreen() {
   const handleMarkAllRead = async () => {
     setNotifications((current) => current.map((item) => ({ ...item, read: true })));
     setNotifications(await markAllNotificationsRead());
+    void markReelActivityRead().catch(() => undefined);
+    setActivity((current) => current.map((item) => ({ ...item, read: true })));
   };
 
   return (
@@ -96,7 +125,29 @@ export default function NotificationsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void refreshNotifications()} tintColor={theme.accent} colors={[theme.accent]} />}
       >
-        {notifications.length === 0 ? (
+        {activity.map((row) => (
+          <Pressable
+            key={row.id}
+            onPress={() => void openActivity(row)}
+            style={[styles.card, !row.read && styles.unreadCard, { flexDirection: 'row', alignItems: 'center', gap: 12 }]}
+          >
+            {row.avatarUrl ? (
+              <Image source={{ uri: row.avatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+            ) : (
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#2A2F38', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: theme.text, fontWeight: '700' }}>{row.name.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardBody}>
+                <Text style={{ fontWeight: '700', color: theme.text }}>{row.name}</Text> {ACTIVITY_TEXT[row.kind]}
+              </Text>
+              <Text style={styles.cardMeta}>{new Date(row.createdAt).toLocaleString()}</Text>
+            </View>
+            {!row.read ? <View style={styles.unreadDot} /> : null}
+          </Pressable>
+        ))}
+        {notifications.length === 0 && activity.length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No notifications yet</Text>
             <Text style={styles.emptyBody}>You’ll see new announcements and title updates here.</Text>

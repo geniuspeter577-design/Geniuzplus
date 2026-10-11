@@ -520,3 +520,49 @@ export async function searchUsers(term: string) {
     `/rest/v1/reel_creator_profiles?select=id,display_name,username,avatar_url&or=(username.ilike.${encodeURIComponent(q)}*,display_name.ilike.*${encodeURIComponent(q)}*)&order=username.asc&limit=8`,
   );
 }
+
+
+export type ReelActivity = {
+  id: string;
+  kind: 'tag' | 'like' | 'comment' | 'save';
+  reelId: string | null;
+  createdAt: string;
+  read: boolean;
+  name: string;
+  username: string;
+  avatarUrl?: string;
+};
+
+export async function loadReelActivity(): Promise<ReelActivity[]> {
+  const rows = await request<{ id: string; actor_id: string; kind: string; reel_id: string | null; created_at: string; read_at: string | null }[]>(
+    '/rest/v1/reel_notifications?select=id,actor_id,kind,reel_id,created_at,read_at&order=created_at.desc&limit=50',
+  );
+  if (!rows.length) {
+    return [];
+  }
+  const actors = await request<{ id: string; display_name: string; username: string; avatar_url: string | null }[]>(
+    `/rest/v1/reel_creator_profiles?select=id,display_name,username,avatar_url&id=${inFilter([...new Set(rows.map((row) => row.actor_id))])}`,
+  );
+  const byId = new Map(actors.map((actor) => [actor.id, actor]));
+  return rows.map((row) => {
+    const actor = byId.get(row.actor_id);
+    return {
+      id: row.id,
+      kind: row.kind as ReelActivity['kind'],
+      reelId: row.reel_id,
+      createdAt: row.created_at,
+      read: Boolean(row.read_at),
+      name: actor?.display_name ?? 'Someone',
+      username: actor?.username ?? '',
+      ...(actor?.avatar_url ? { avatarUrl: actor.avatar_url } : {}),
+    };
+  });
+}
+
+export async function markReelActivityRead(id?: string) {
+  await request(`/rest/v1/reel_notifications?read_at=is.null${id ? `&id=eq.${id}` : ''}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ read_at: new Date().toISOString() }),
+  });
+}
