@@ -25,10 +25,8 @@ const STICKERS = ['😀', '😂', '😍', '🔥', '👏', '💯', '🎉', '❤�
 const COLORS = ['#FFFFFF', '#72F06A', '#FFD34D', '#FF5C7A', '#4DA3FF', '#000000'];
 const SOON_ROWS: { icon: IconName; title: string; reason: string }[] = [
   { icon: 'list', title: 'Add to playlist', reason: 'Playlists do not exist in Geniuzplus yet.' },
-  { icon: 'bag-handle-outline', title: 'Add product', reason: 'It needs a shop and payments to be set up.' },
   { icon: 'megaphone-outline', title: 'Boost reel', reason: 'It needs an advertising and payments system.' },
   { icon: 'time', title: 'Scheduling options', reason: 'It needs a scheduler on the backend.' },
-  { icon: 'chatbox-ellipses-outline', title: 'Closed captions', reason: 'It needs a speech-to-text service.' },
 ];
 
 const clamp = (value: number) => Math.max(0, Math.min(0.9, value));
