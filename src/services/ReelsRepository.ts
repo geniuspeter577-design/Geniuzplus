@@ -100,7 +100,7 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   const hiddenIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_HIDDEN_KEY) ?? '[]') as string[]);
   const interestedIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_INTEREST_KEY) ?? '[]') as string[]);
   const creatorFilter = creatorId ? `&user_id=eq.${creatorId}` : '';
-  const reels = await request<ReelRow[]>(`/rest/v1/reels?select=id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at&order=created_at.desc&limit=30${creatorFilter}`);
+  const reels = await request<ReelRow[]>(`/rest/v1/reels?select=id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
   const userIds = [...new Set(reels.map((item) => item.user_id))];
   const reelIds = reels.map((item) => item.id);
   const [creators, likes, comments, saves, follows] = await Promise.all([
