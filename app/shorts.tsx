@@ -5,6 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { ContentNotice } from '../src/components/ContentNotice';
 import { ShortsFeed } from '../src/components/ShortsFeed';
+import { EmptyReelsPage, PostReelButton } from '../src/components/ReelsEmpty';
 import { supabaseMovieRepository } from '../src/repositories/SupabaseMovieRepository';
 import { useNetwork } from '../src/state/NetworkContext';
 import { theme } from '../src/theme';
@@ -50,7 +51,14 @@ export default function ShortsScreen() {
           </Pressable>
         </View>
       ) : query.data?.length ? (
-        <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} initialReelId={reelId} />
+        query.data && query.data.length > 0 ? (
+          <>
+            <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} initialReelId={reelId} />
+            <PostReelButton />
+          </>
+        ) : (
+          <EmptyReelsPage onBack={() => backOrReplace('/')} />
+        )
       ) : (
         <View style={styles.messageState}>
           <ContentNotice message="No Shorts are available yet." />

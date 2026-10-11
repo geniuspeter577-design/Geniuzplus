@@ -1,3 +1,4 @@
+import { useBackToPrevious } from '../src/hooks/useBackToPrevious';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -16,7 +17,8 @@ import { FootballMatchesProvider } from '../src/state/FootballMatchesContext';
 import { useGlobalAndroidBackNavigation } from '../src/utils/navigation';
 
 export default function RootLayout() {
-  useGlobalAndroidBackNavigation();
+  useBackToPrevious();
+  // useGlobalAndroidBackNavigation();
 
   useEffect(() => {
     prewarmContentApi();

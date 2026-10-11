@@ -7,7 +7,7 @@ import { theme } from '../../src/theme';
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   return (
-    <Tabs
+    <Tabs backBehavior="history"
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {

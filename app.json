@@ -21,7 +21,14 @@
           "microphonePermission": false
         }
       ],
-      "expo-media-library",
+      [
+        "expo-media-library",
+        {
+          "granularPermissions": [
+            "video"
+          ]
+        }
+      ],
       [
         "expo-splash-screen",
         {
