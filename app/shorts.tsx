@@ -20,7 +20,7 @@ export default function ShortsScreen() {
   const dimensions = useWindowDimensions();
   const loadShorts = useCallback(async () => {
     if (!supabaseMovieRepository) {
-      throw new Error('Short videos are not configured.');
+      throw new Error('Reels are not configured.');
     }
     const shorts = await supabaseMovieRepository.getPublishedShorts();
     return { data: await loadReelsFeed(shorts), source: 'supabase' as const };
@@ -33,7 +33,7 @@ export default function ShortsScreen() {
       <Stack.Screen options={{ orientation: 'portrait', statusBarHidden: false, navigationBarHidden: false }} />
       {!isOnline ? (
         <View style={styles.messageState}>
-          <ContentNotice message="Connect to the internet to watch Shorts." tone="warning" />
+          <ContentNotice message="Connect to the internet to watch Reels." tone="warning" />
           <Pressable accessibilityRole="button" onPress={() => backOrReplace('/')} style={styles.button}>
             <Text style={styles.buttonText}>Back</Text>
           </Pressable>
@@ -41,7 +41,7 @@ export default function ShortsScreen() {
       ) : query.isLoading ? (
         <View style={styles.messageState}>
           <ActivityIndicator color={theme.accent} />
-          <Text style={styles.loadingText}>Loading Shorts…</Text>
+          <Text style={styles.loadingText}>Loading Reels…</Text>
         </View>
       ) : query.error ? (
         <View style={styles.messageState}>

@@ -75,7 +75,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (response.status === 204) {
       return undefined as T;
     }
-    return await response.json() as T;
+    const bodyText = await response.text();
+    return (bodyText ? JSON.parse(bodyText) : undefined) as T;
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error('The Reels service request timed out. Check your connection and retry.');
@@ -113,10 +114,15 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   ]);
   const creatorById = new Map(creators.map((creator) => [creator.id, creator]));
   const signed = await Promise.all(reels.map(async (reel) => {
-    const result = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${reel.storage_path}`, {
-      method: 'POST',
-      body: JSON.stringify({ expiresIn: 3600 }),
-    });
+    let result: { signedURL: string };
+    try {
+      result = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${reel.storage_path}`, {
+        method: 'POST',
+        body: JSON.stringify({ expiresIn: 3600 }),
+      });
+    } catch {
+      return null;
+    }
     const creator = creatorById.get(reel.user_id);
     if (!creator) {
       return null;
@@ -170,7 +176,7 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
 async function supabaseMoviePlayback(item: ContentItem) {
   const { supabaseMovieRepository } = await import('../repositories/SupabaseMovieRepository');
   if (!supabaseMovieRepository) {
-    throw new Error('Short videos are not configured.');
+    throw new Error('Reels are not configured.');
   }
   return supabaseMovieRepository.getPlaybackUrl(item);
 }
@@ -283,23 +289,19 @@ export async function uploadReel(
   const path = `${userId}/${reelId}/${filename}`;
   const file = new File(asset.uri);
   const headers = await getRequestHeaders(asset.mimeType ?? 'video/mp4');
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${getBaseUrl()}/storage/v1/object/reels/${path}`);
-    xhr.timeout = 120_000;
-    Object.entries(headers).forEach(([name, value]) => xhr.setRequestHeader(name, value));
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+  const uploadResult = await file.upload(`${getBaseUrl()}/storage/v1/object/reels/${path}`, {
+    httpMethod: 'POST',
+    headers,
+    mimeType: asset.mimeType ?? 'video/mp4',
+    onProgress: ({ bytesSent, totalBytes }) => {
+      if (totalBytes > 0) {
+        onProgress(Math.min(99, Math.round((bytesSent / totalBytes) * 100)));
       }
-    };
-    xhr.onload = () => xhr.status >= 200 && xhr.status < 300
-      ? resolve()
-      : reject(new Error(xhr.responseText || 'The Reel video could not be uploaded.'));
-    xhr.onerror = () => reject(new Error('The Reel upload was interrupted.'));
-    xhr.ontimeout = () => reject(new Error('The Reel upload timed out. Check your connection and retry.'));
-    xhr.send(file);
+    },
   });
+  if (uploadResult.status < 200 || uploadResult.status >= 300) {
+    throw new Error(uploadResult.body || 'The Reel video could not be uploaded.');
+  }
   try {
     await request('/rest/v1/reels', {
       method: 'POST',

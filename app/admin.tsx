@@ -2014,7 +2014,7 @@ export default function AdminScreen() {
             <View style={styles.card}>
               <View style={styles.sectionHeader}>
                 <View style={styles.grow}>
-                  <Text style={styles.sectionTitle}>Upload a {contentKind === 'short' ? 'short video' : 'movie'}</Text>
+                  <Text style={styles.sectionTitle}>Upload a {contentKind === 'short' ? 'reel' : 'movie'}</Text>
                   <Text style={styles.helper}>
                     Videos upload directly to private Backblaze storage in 16 MB parts.
                   </Text>
@@ -2046,7 +2046,7 @@ export default function AdminScreen() {
                     style={[styles.contentKindButton, contentKind === kind && styles.contentKindButtonSelected]}
                   >
                     <Text style={[styles.contentKindText, contentKind === kind && styles.contentKindTextSelected]}>
-                      {kind === 'short' ? 'Short video' : 'Movie'}
+                      {kind === 'short' ? 'Reel' : 'Movie'}
                     </Text>
                   </Pressable>
                 ))}

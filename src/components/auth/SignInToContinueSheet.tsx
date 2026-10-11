@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../KeyboardAwareScrollView';
 
@@ -234,9 +234,24 @@ export function SignInToContinueSheet({ visible, initialMode, onClose }: Props) 
                 accessibilityRole="button"
                 disabled={isSubmitting}
                 onPress={() => void continueWithGoogle()}
-                style={styles.secondaryButton}
+                style={[
+                  styles.secondaryButton,
+                  {
+                    alignItems: 'center',
+                    backgroundColor: '#1F6FEB',
+                    borderColor: '#1F6FEB',
+                    borderRadius: 999,
+                    flexDirection: 'row',
+                    gap: 12,
+                    justifyContent: 'center',
+                    opacity: isSubmitting ? 0.7 : 1,
+                  },
+                ]}
               >
-                <Text style={styles.secondaryButtonText}>{isSubmitting ? 'Connecting…' : 'Continue with Google'}</Text>
+                <View style={{ alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 17, height: 34, justifyContent: 'center', overflow: 'hidden', width: 34 }}>
+                  <Image source={require('../../../assets/google.jpeg')} style={{ height: 24, width: 24 }} resizeMode="contain" />
+                </View>
+                <Text style={[styles.secondaryButtonText, { color: '#FFFFFF', fontWeight: '700' }]}>{isSubmitting ? 'Connecting…' : 'Continue with Google'}</Text>
               </Pressable>
             ) : null}
             {mode === 'sign-in' ? (

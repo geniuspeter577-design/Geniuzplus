@@ -10,6 +10,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Animated,
   Pressable,
   Share,
   StyleSheet,
@@ -49,6 +50,7 @@ function ShortVideo({ item, height, isActive, onHide }: {
 }) {
   const player = useVideoPlayer(null, (videoPlayer) => {
     videoPlayer.timeUpdateEventInterval = 0.25;
+    videoPlayer.loop = true;
   });
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState(0);
@@ -60,6 +62,26 @@ function ShortVideo({ item, height, isActive, onHide }: {
   const [captionDraft, setCaptionDraft] = useState(item.caption);
   const [busy, setBusy] = useState(false);
   const lastReportedInterval = useRef(0);
+  const lastTapRef = useRef(0);
+  const heartScale = useRef(new Animated.Value(0)).current;
+  const heartOpacity = useRef(new Animated.Value(0)).current;
+  const showHeart = () => {
+    heartScale.setValue(0.4);
+    heartOpacity.setValue(1);
+    Animated.parallel([
+      Animated.spring(heartScale, { toValue: 1.2, friction: 4, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.delay(450),
+        Animated.timing(heartOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ]),
+    ]).start();
+  };
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => {
+    if (tapTimerRef.current) {
+      clearTimeout(tapTimerRef.current);
+    }
+  }, []);
   const isLegacy = item.id.startsWith('catalog:');
 
   useEffect(() => {
@@ -166,9 +188,35 @@ function ShortVideo({ item, height, isActive, onHide }: {
     Alert.alert('Reel options', undefined, actions);
   };
 
+  const handleVideoTap = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      lastTapRef.current = 0;
+      if (tapTimerRef.current) {
+        clearTimeout(tapTimerRef.current);
+      }
+      showHeart();
+      if (!currentItem.isLiked) {
+        void toggleLike();
+      }
+      return;
+    }
+    lastTapRef.current = now;
+    tapTimerRef.current = setTimeout(() => {
+      if (player.playing) {
+        player.pause();
+      } else {
+        player.play();
+      }
+    }, 300);
+  };
+
   return (
     <View style={[styles.videoPage, { height }]}>
-      <VideoView accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Pause or play Reel" onPress={handleVideoTap} style={StyleSheet.absoluteFill}><VideoView accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} /></Pressable>
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: heartOpacity, transform: [{ scale: heartScale }] }]}>
+        <Ionicons name="heart" size={110} color="#FF3B5C" />
+      </Animated.View>
       {!player.status || player.status === 'loading' ? <ActivityIndicator color={theme.accent} /> : null}
       {error ? (
         <View style={styles.errorCard}>
@@ -201,8 +249,13 @@ function ShortVideo({ item, height, isActive, onHide }: {
         <View style={styles.creatorRow}>
           <Pressable accessibilityRole="button" onPress={() => currentItem.userId && router.push({ pathname: '/reels/profile/[id]', params: { id: currentItem.userId } })} style={styles.creatorLink}>
             <View style={styles.creatorAvatar}>{currentItem.avatarUrl ? <Image source={{ uri: currentItem.avatarUrl }} style={styles.creatorAvatarImage} /> : <Text style={styles.avatarInitial}>{currentItem.creatorName.slice(0, 1).toUpperCase()}</Text>}</View>
-            <Text style={styles.creatorName} numberOfLines={1}>@{currentItem.creatorUsername}</Text>
-            {currentItem.isMember ? <VerifiedBadge /> : null}
+            <View style={styles.creatorTextBlock}>
+              <View style={styles.creatorNameRow}>
+                <Text style={styles.creatorName} numberOfLines={1}>{currentItem.creatorName}</Text>
+                <View style={{ opacity: currentItem.isMember ? 1 : 0.35 }}><VerifiedBadge /></View>
+              </View>
+              <Text style={styles.creatorHandle} numberOfLines={1}>@{currentItem.creatorUsername}</Text>
+            </View>
           </Pressable>
           {!currentItem.isFollowing && !currentItem.isOwner ? <Pressable accessibilityRole="button" onPress={toggleFollow} style={styles.followButton}><Text style={styles.followText}>Follow</Text></Pressable> : null}
         </View>
@@ -264,16 +317,13 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
       />
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Back from shorts"
+        accessibilityLabel="Back from Reels"
         onPress={onBack}
         style={styles.backButton}
       >
         <Ionicons name="arrow-back" size={22} color={theme.text} />
       </Pressable>
       <Text style={styles.counter}>{visibleItems.length ? `${activeIndex + 1} / ${visibleItems.length}` : ''}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Create a Reel" onPress={() => router.push('/reels/create')} style={styles.createButton}>
-        <Ionicons name="add" size={26} color={theme.background} />
-      </Pressable>
     </View>
   );
 }
@@ -299,9 +349,12 @@ const styles = StyleSheet.create({
   caption: { position: 'absolute', bottom: 30, left: 18, right: 78, gap: 8 },
   creatorRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
   creatorLink: { alignItems: 'center', flexDirection: 'row', flex: 1, gap: 7 },
-  creatorAvatar: { alignItems: 'center', backgroundColor: theme.accent, borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
+  creatorAvatar: { overflow: 'hidden', alignItems: 'center', backgroundColor: theme.accent, borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
   avatarInitial: { color: theme.background, fontSize: 14, fontWeight: '900' },
-  creatorAvatarImage: { height: '100%', width: '100%' },
+  creatorAvatarImage: { borderRadius: 17, height: '100%', width: '100%' },
+  creatorTextBlock: { flexShrink: 1, justifyContent: 'center' },
+  creatorNameRow: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  creatorHandle: { color: '#FFFFFF', fontSize: 11, fontWeight: '600', marginTop: 1, opacity: 0.7 },
   creatorName: { color: '#FFFFFF', flexShrink: 1, fontSize: 13, fontWeight: '800' },
   followButton: { borderColor: '#FFFFFF', borderRadius: 6, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
   followText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
