@@ -208,6 +208,11 @@ function ShortVideo({ item, height, isActive, onHide }: {
         </View>
         <Text style={styles.title} numberOfLines={3}>{currentItem.caption || currentItem.creatorName}</Text>
         {currentItem.hashtags.length ? <Text style={styles.description} numberOfLines={1}>{currentItem.hashtags.map((tag) => `#${tag}`).join(' ')}</Text> : null}
+        {currentItem.isOwner && !currentItem.isMember ? (
+          <Pressable accessibilityRole="button" onPress={() => router.push('/membership')} style={styles.membershipCta}>
+            <Text style={styles.membershipCtaText}>Become a member to start earning</Text>
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
       <Modal visible={commentOpen || editingCaption} transparent animationType="slide" onRequestClose={() => { setCommentOpen(false); setEditingCaption(false); }}>
@@ -302,6 +307,8 @@ const styles = StyleSheet.create({
   followText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
   title: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
   description: { color: '#FFFFFF', fontSize: 14, lineHeight: 20 },
+  membershipCta: { alignSelf: 'flex-start', backgroundColor: theme.accent, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 8 },
+  membershipCtaText: { color: theme.background, fontSize: 12, fontWeight: '900' },
   progressTrack: { position: 'absolute', bottom: 0, height: 2, left: 0, right: 0, backgroundColor: '#FFFFFF55' },
   progressFill: { height: '100%', backgroundColor: theme.accent },
   createButton: { position: 'absolute', top: 12, right: 14, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accent },

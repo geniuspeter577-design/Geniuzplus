@@ -40,7 +40,7 @@ export default function CreatorEarningsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
   const membershipKnown = membership.status !== null;
-  const hasMemberAccess = membership.status?.status === 'active' || membership.status?.status === 'grace';
+  const hasActiveMembership = membership.status?.status === 'active';
   const loadData = useCallback(async () => {
     if (membership.isLoading) {
       return;
@@ -49,7 +49,7 @@ export default function CreatorEarningsScreen() {
       setIsLoading(false);
       return;
     }
-    if (!hasMemberAccess) {
+    if (!hasActiveMembership) {
       setIsLoading(false);
       return;
     }
@@ -71,7 +71,7 @@ export default function CreatorEarningsScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [auth.session, hasMemberAccess, membership.isLoading]);
+  }, [auth.session, hasActiveMembership, membership.isLoading]);
 
   React.useEffect(() => {
     const timer = setTimeout(() => void loadData(), 0);
@@ -94,15 +94,15 @@ export default function CreatorEarningsScreen() {
           <Pressable accessibilityRole="button" onPress={() => void membership.refresh()} style={styles.primaryButton}><Text style={styles.primaryText}>Retry</Text></Pressable>
         </View>
       ) : null}
-      {!membership.isLoading && membershipKnown && !hasMemberAccess ? (
+      {!membership.isLoading && membershipKnown && !hasActiveMembership ? (
         <View style={styles.nonMember}>
           <Ionicons name="lock-closed-outline" size={34} color={theme.accent} />
           <Text style={styles.nonMemberTitle}>Become a member to start earning</Text>
-          <Text style={styles.copy}>Anyone signed in can post Reels. Earnings are available only to eligible members. Membership does not guarantee income.</Text>
+          <Text style={styles.copy}>Anyone signed in can post Reels. Only active members can earn. Membership does not guarantee income.</Text>
           <Pressable accessibilityRole="button" onPress={() => router.push('/membership')} style={styles.primaryButton}><Text style={styles.primaryText}>View Membership</Text></Pressable>
         </View>
       ) : null}
-      {membershipKnown && hasMemberAccess ? (
+      {membershipKnown && hasActiveMembership ? (
         <ScrollView contentContainerStyle={styles.content}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sectionTabs}>
             {sections.map((item) => <Pressable key={item.id} accessibilityRole="tab" accessibilityState={{ selected: item.id === section }} onPress={() => router.setParams({ section: item.id })} style={[styles.sectionTab, item.id === section && styles.activeSectionTab]}><Ionicons name={item.icon} size={16} color={item.id === section ? theme.accent : theme.secondaryText} /><Text style={[styles.sectionTabText, item.id === section && styles.activeSectionText]}>{item.title}</Text></Pressable>)}

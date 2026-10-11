@@ -19,18 +19,26 @@ export default function CreateReelScreen() {
   const [visibility, setVisibility] = useState<ReelVisibility>('public');
   const [progress, setProgress] = useState<number>();
   const [error, setError] = useState<string>();
+  const [retryUpload, setRetryUpload] = useState(false);
   const tooLong = Boolean(asset?.duration && asset.duration > MAX_REEL_DURATION_SECONDS * 1000);
 
   const pickVideo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['videos'],
-      allowsMultipleSelection: false,
-      videoMaxDuration: MAX_REEL_DURATION_SECONDS,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      setAsset(result.assets[0]);
-      setError(undefined);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['videos'],
+        allowsMultipleSelection: false,
+        videoMaxDuration: MAX_REEL_DURATION_SECONDS,
+        quality: 1,
+      });
+      if (!result.canceled && result.assets[0]) {
+        setAsset(result.assets[0]);
+        setError(undefined);
+        setRetryUpload(false);
+      }
+    } catch (pickerError) {
+      const message = pickerError instanceof Error ? pickerError.message : 'The video picker could not be opened.';
+      setError(`Upload failed: ${message}`);
+      setRetryUpload(false);
     }
   };
 
@@ -40,21 +48,26 @@ export default function CreateReelScreen() {
       return;
     }
     if (!asset || tooLong) {
-      setError(tooLong ? `This video is longer than ${MAX_REEL_DURATION_SECONDS} seconds. Trim it in your gallery and select it again.` : 'Choose a video to share.');
+      setError(`Upload failed: ${tooLong ? `This video is longer than ${MAX_REEL_DURATION_SECONDS} seconds. Trim it in your gallery and select it again.` : 'Choose a video to share.'}`);
+      setRetryUpload(false);
       return;
     }
     if ((asset.fileSize ?? 0) > MAX_REEL_FILE_SIZE_BYTES) {
-      setError('This video exceeds the 200 MB upload limit.');
+      setError('Upload failed: This video exceeds the 200 MB upload limit.');
+      setRetryUpload(false);
       return;
     }
     setError(undefined);
+    setRetryUpload(false);
     setProgress(0);
     try {
       const hashtags = [...caption.matchAll(/#([\p{L}\p{N}_]+)/gu)].map((match) => match[1]);
       await uploadReel(asset, { caption, hashtags, visibility }, setProgress);
       router.replace('/shorts');
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : 'The Reel could not be shared.');
+      const message = uploadError instanceof Error ? uploadError.message : 'The Reel could not be shared.';
+      setError(`Upload failed: ${message}`);
+      setRetryUpload(true);
       setProgress(undefined);
     }
   };
@@ -107,7 +120,14 @@ export default function CreateReelScreen() {
             <Text style={styles.muted}>{progress === 100 ? 'Shared' : `Uploading ${progress}%`}</Text>
           </View>
         ) : null}
-        {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorGroup}>
+            <Text accessibilityRole="alert" style={styles.error}>{error}</Text>
+            <Pressable accessibilityRole="button" onPress={() => retryUpload ? void shareNow() : void pickVideo()} style={styles.retryButton}>
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
       <View style={styles.footer}>
         <Pressable accessibilityRole="button" disabled={!asset || tooLong || typeof progress === 'number'} onPress={() => void shareNow()} style={[styles.shareButton, (!asset || tooLong || typeof progress === 'number') && styles.disabled]}>
@@ -140,7 +160,10 @@ const styles = StyleSheet.create({
   uploadProgress: { gap: 7 },
   progressTrack: { backgroundColor: theme.surfaceSoft, borderRadius: 4, height: 6, overflow: 'hidden' },
   progressFill: { backgroundColor: theme.accent, height: '100%' },
+  errorGroup: { alignItems: 'center', gap: 8 },
   error: { color: theme.error, fontSize: 13, lineHeight: 19 },
+  retryButton: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 8, borderWidth: 1, justifyContent: 'center', minHeight: 40, paddingHorizontal: 16 },
+  retryText: { color: theme.text, fontWeight: '800' },
   footer: { backgroundColor: theme.background, borderTopColor: theme.border, borderTopWidth: 1, gap: 10, padding: 16 },
   shareButton: { alignItems: 'center', backgroundColor: theme.accent, borderRadius: 10, justifyContent: 'center', minHeight: 50 },
   shareText: { color: theme.background, fontSize: 15, fontWeight: '900' },

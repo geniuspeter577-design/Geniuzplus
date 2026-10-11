@@ -231,6 +231,28 @@ test('transfer panel gates visitors with the existing membership upgrade card', 
   assert.match(profile, /Member until \$\{formatMembershipDate/);
 });
 
+test('Reel posting is available to signed-in non-members and earning is active-member-only', () => {
+  const createScreen = fs.readFileSync('app/reels/create.tsx', 'utf8');
+  const reelsService = fs.readFileSync('src/services/ReelsRepository.ts', 'utf8');
+  const shortsFeed = fs.readFileSync('src/components/ShortsFeed.tsx', 'utf8');
+  const creatorEarnings = fs.readFileSync('app/creator/earnings.tsx', 'utf8');
+  const setupMigration = fs.readFileSync('supabase/migrations/20261025000000_reels_and_creator_earnings.sql', 'utf8');
+  const activeOnlyMigration = fs.readFileSync('supabase/migrations/20261026000000_reels_active_members_only.sql', 'utf8');
+  assert.match(createScreen, /videoMaxDuration:\s*MAX_REEL_DURATION_SECONDS/);
+  assert.match(createScreen, /Upload failed:/);
+  assert.match(createScreen, />Retry<\/Text>/);
+  assert.match(reelsService, /xhr\.timeout = 120_000/);
+  assert.match(reelsService, /request timed out/);
+  assert.match(setupMigration, /values \('reels', 'reels', false, 209715200/);
+  assert.match(setupMigration, /Users create their own reels[\s\S]*?with check \(user_id = auth\.uid\(\)\)/);
+  assert.match(shortsFeed, /currentItem\.isOwner && !currentItem\.isMember/);
+  assert.match(shortsFeed, /Become a member to start earning/);
+  assert.match(creatorEarnings, /const hasActiveMembership = membership\.status\?\.status === 'active'/);
+  assert.doesNotMatch(activeOnlyMigration, /status = 'grace'/);
+  assert.match(activeOnlyMigration, /create or replace function public\.record_creator_earning/);
+  assert.match(activeOnlyMigration, /create or replace function public\.request_creator_withdrawal/);
+});
+
 test('mobile Geniuz repository rejects malformed normalized responses', async () => {
   const apiClient = {
     get: async () => ({ items: [{ title: 'Missing required fields' }], page: 1, totalPages: 1 }),

@@ -42,8 +42,8 @@ function getBaseUrl() {
 
 async function getRequestHeaders(contentType?: string) {
   const key = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
-  if (!key) {
-    throw new Error('Reels are not configured.');
+  if (!supabase || !key) {
+    throw new Error('Reels are not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY.');
   }
   const { data, error } = await supabase?.auth.getSession() ?? { data: { session: null }, error: null };
   if (error) {
@@ -60,18 +60,30 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = await getRequestHeaders(
     init.body && typeof init.body === 'string' ? 'application/json' : undefined,
   );
-  const response = await fetch(`${getBaseUrl()}${path}`, {
-    ...init,
-    headers: { ...headers, ...init.headers },
-  });
-  if (!response.ok) {
-    const details = await response.text();
-    throw new Error(details || 'The Reels service could not complete this request.');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const response = await fetch(`${getBaseUrl()}${path}`, {
+      ...init,
+      headers: { ...headers, ...init.headers },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(details || 'The Reels service could not complete this request.');
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return await response.json() as T;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error('The Reels service request timed out. Check your connection and retry.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  if (response.status === 204) {
-    return undefined as T;
-  }
-  return await response.json() as T;
 }
 
 function inFilter(ids: string[]) {
@@ -274,6 +286,7 @@ export async function uploadReel(
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${getBaseUrl()}/storage/v1/object/reels/${path}`);
+    xhr.timeout = 120_000;
     Object.entries(headers).forEach(([name, value]) => xhr.setRequestHeader(name, value));
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -284,6 +297,7 @@ export async function uploadReel(
       ? resolve()
       : reject(new Error(xhr.responseText || 'The Reel video could not be uploaded.'));
     xhr.onerror = () => reject(new Error('The Reel upload was interrupted.'));
+    xhr.ontimeout = () => reject(new Error('The Reel upload timed out. Check your connection and retry.'));
     xhr.send(file);
   });
   try {
