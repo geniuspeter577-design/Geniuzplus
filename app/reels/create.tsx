@@ -12,7 +12,7 @@ import { REEL_FILTERS } from '../../src/components/ReelEditsOverlay';
 import { MAX_REEL_DURATION_SECONDS, MAX_REEL_FILE_SIZE_BYTES } from '../../src/config/reels';
 import { useAuth } from '../../src/state/AuthContext';
 import { theme } from '../../src/theme';
-import { uploadReel } from '../../src/services/ReelsRepository';
+import { playlistOnUpload, uploadReel } from '../../src/services/ReelsRepository';
 import type { ReelEdits, ReelVisibility } from '../../src/models/reel';
 import { backOrReplace } from '../../src/utils/navigation';
 
@@ -24,7 +24,6 @@ type AudioPick = { uri: string; name: string; mimeType: string };
 const STICKERS = ['😀', '😂', '😍', '🔥', '👏', '💯', '🎉', '❤️', '😎', '🙏', '👍', '✨', '🎬', '🍿', '⭐', '😭', '🤣', '😮', '🥳', '💪', '🌍', '🎶', '👑', '🙌'];
 const COLORS = ['#FFFFFF', '#72F06A', '#FFD34D', '#FF5C7A', '#4DA3FF', '#000000'];
 const SOON_ROWS: { icon: IconName; title: string; reason: string }[] = [
-  { icon: 'list', title: 'Add to playlist', reason: 'Playlists do not exist in Geniuzplus yet.' },
   { icon: 'megaphone-outline', title: 'Boost reel', reason: 'It needs an advertising and payments system.' },
   { icon: 'time', title: 'Scheduling options', reason: 'It needs a scheduler on the backend.' },
 ];
@@ -104,6 +103,11 @@ export default function CreateReelScreen() {
   const [location, setLocation] = useState('');
   const [tags, setTags] = useState('');
   const [aiLabel] = useState(false);
+  const [addToList, setAddToList] = useState(false);
+  React.useEffect(() => {
+    playlistOnUpload.enabled = addToList;
+    return () => { playlistOnUpload.enabled = false; };
+  }, [addToList]);
   const [textDraft, setTextDraft] = useState('');
   const [textColor, setTextColor] = useState('#FFFFFF');
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -514,6 +518,7 @@ export default function CreateReelScreen() {
         </View>
         <SettingsRow icon="location" title="Location" subtitle={location || 'Add a place name'} onPress={() => setSheet('location')} />
         <SettingsRow icon="pricetag" title="Tag people" subtitle={tags || 'Add @usernames'} onPress={() => setSheet('tags')} />
+        <SettingsRow icon={addToList ? 'checkmark-circle' : 'list'} title="Add to playlist" subtitle={addToList ? 'On: this reel will be saved to your playlist' : 'Off'} onPress={() => setAddToList(!addToList)} />
         {SOON_ROWS.map((row) => (
           <SettingsRow key={row.title} icon={row.icon} title={row.title} subtitle="Not available yet" onPress={() => notAvailable(row.title, row.reason)} />
         ))}

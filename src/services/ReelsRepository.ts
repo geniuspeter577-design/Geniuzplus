@@ -354,6 +354,13 @@ export async function uploadReel(
     await fetch(`${getBaseUrl()}/storage/v1/object/reels/${path}`, { method: 'DELETE', headers });
     throw error;
   }
+  if (playlistOnUpload.enabled) {
+    try {
+      await addToPlaylist(reelId);
+    } catch {
+      // the Reel is still posted, even if the playlist save fails
+    }
+  }
   onProgress(100);
 }
 
@@ -500,3 +507,5 @@ export async function loadPlaylistReels(): Promise<ReelFeedItem[]> {
     .map((id) => all.find((reel) => reel.id === id))
     .filter((reel): reel is ReelFeedItem => Boolean(reel));
 }
+
+export const playlistOnUpload = { enabled: false };
