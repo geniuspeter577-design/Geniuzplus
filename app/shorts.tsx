@@ -51,21 +51,12 @@ export default function ShortsScreen() {
           </Pressable>
         </View>
       ) : query.data?.length ? (
-        query.data && query.data.length > 0 ? (
-          <>
-            <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} initialReelId={reelId} />
-            <PostReelButton />
-          </>
-        ) : (
-          <EmptyReelsPage onBack={() => backOrReplace('/')} />
-        )
+        <>
+          <ShortsFeed items={query.data} height={height} onBack={() => backOrReplace('/')} initialReelId={reelId} />
+          <PostReelButton />
+        </>
       ) : (
-        <View style={styles.messageState}>
-          <ContentNotice message="No Shorts are available yet." />
-          <Pressable accessibilityRole="button" onPress={() => backOrReplace('/')} style={styles.button}>
-            <Text style={styles.buttonText}>Back</Text>
-          </Pressable>
-        </View>
+        <EmptyReelsPage onBack={() => backOrReplace('/')} />
       )}
     </SafeAreaView>
   );

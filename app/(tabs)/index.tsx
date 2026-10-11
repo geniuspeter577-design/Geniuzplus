@@ -31,6 +31,7 @@ import { theme } from '../../src/theme';
 import { loadNotifications, getUnreadNotificationCount } from '../../src/services/NotificationsStore';
 import { formatRuntime } from '../../src/utils/contentPresentation';
 import { resetHomeToTrending } from '../../src/utils/homeNavigation';
+import { setHomeBackHandler } from '../../src/utils/homeBack';
 import {
   getHomeCategoryItems,
   isDemoCatalogEnabled,
@@ -143,6 +144,17 @@ export default function HomeScreen() {
     () => navigation.addListener('tabPress', resetHomeView),
     [navigation, resetHomeView],
   );
+  useEffect(() => {
+    setHomeBackHandler(() => {
+      if (selectedCategory !== 'Trending') {
+        setSelectedCategory('Trending');
+        homeScrollRef.current?.scrollTo({ y: 0, animated: false });
+        return true;
+      }
+      return false;
+    });
+    return () => setHomeBackHandler(null);
+  }, [selectedCategory]);
   const activeCategoryItems = useMemo(
     () =>
       selectedCategory === 'Trending'
