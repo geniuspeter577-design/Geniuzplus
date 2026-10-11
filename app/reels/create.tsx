@@ -12,7 +12,7 @@ import { REEL_FILTERS } from '../../src/components/ReelEditsOverlay';
 import { MAX_REEL_DURATION_SECONDS, MAX_REEL_FILE_SIZE_BYTES } from '../../src/config/reels';
 import { useAuth } from '../../src/state/AuthContext';
 import { theme } from '../../src/theme';
-import { playlistOnUpload, searchUsers, uploadReel } from '../../src/services/ReelsRepository';
+import { playlistOnUpload, scheduleOnUpload, searchUsers, uploadReel } from '../../src/services/ReelsRepository';
 import type { ReelEdits, ReelVisibility } from '../../src/models/reel';
 import { backOrReplace } from '../../src/utils/navigation';
 
@@ -25,7 +25,6 @@ const STICKERS = ['😀', '😂', '😍', '🔥', '👏', '💯', '🎉', '❤�
 const COLORS = ['#FFFFFF', '#72F06A', '#FFD34D', '#FF5C7A', '#4DA3FF', '#000000'];
 const SOON_ROWS: { icon: IconName; title: string; reason: string }[] = [
   { icon: 'megaphone-outline', title: 'Boost reel', reason: 'It needs an advertising and payments system.' },
-  { icon: 'time', title: 'Scheduling options', reason: 'It needs a scheduler on the backend.' },
 ];
 
 const clamp = (value: number) => Math.max(0, Math.min(0.9, value));
@@ -104,6 +103,14 @@ export default function CreateReelScreen() {
   const [tags, setTags] = useState('');
   const [aiLabel] = useState(false);
   const [addToList, setAddToList] = useState(false);
+  const [scheduleChoice, setScheduleChoice] = useState<'off' | 'hour' | 'tonight' | 'tomorrow' | 'three'>('off');
+  React.useEffect(() => {
+    scheduleOnUpload.choice = scheduleChoice;
+    return () => { scheduleOnUpload.choice = 'off'; };
+  }, [scheduleChoice]);
+  const SCHEDULE_ORDER = ['off', 'hour', 'tonight', 'tomorrow', 'three'] as const;
+  const SCHEDULE_LABEL = { off: 'Off: share right away', hour: 'In 1 hour', tonight: 'Tonight at 8 PM', tomorrow: 'Tomorrow at 9 AM', three: 'In 3 days' };
+  const nextSchedule = () => setScheduleChoice(SCHEDULE_ORDER[(SCHEDULE_ORDER.indexOf(scheduleChoice) + 1) % SCHEDULE_ORDER.length] ?? 'off');
   const [tagMatches, setTagMatches] = useState<Awaited<ReturnType<typeof searchUsers>>>([]);
   React.useEffect(() => {
     const token = tags.split(/\s+/).pop() ?? '';
@@ -558,6 +565,7 @@ export default function CreateReelScreen() {
         <SettingsRow icon="location" title="Location" subtitle={location || 'Add a place name'} onPress={() => setSheet('location')} />
         <SettingsRow icon="pricetag" title="Tag people" subtitle={tags || 'Add @usernames'} onPress={() => setSheet('tags')} />
         <SettingsRow icon={addToList ? 'checkmark-circle' : 'list'} title="Add to playlist" subtitle={addToList ? 'On: this reel will be saved to your playlist' : 'Off'} onPress={() => setAddToList(!addToList)} />
+        <SettingsRow icon="time" title="Schedule post" subtitle={SCHEDULE_LABEL[scheduleChoice]} onPress={nextSchedule} />
         {SOON_ROWS.map((row) => (
           <SettingsRow key={row.title} icon={row.icon} title={row.title} subtitle="Not available yet" onPress={() => notAvailable(row.title, row.reason)} />
         ))}

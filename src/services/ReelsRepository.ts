@@ -348,6 +348,7 @@ export async function uploadReel(
         hashtags: input.hashtags,
         visibility: input.visibility,
         edits: finalEdits,
+        publish_at: computePublishAt(scheduleOnUpload.choice),
       }),
     });
   } catch (error) {
@@ -565,4 +566,31 @@ export async function markReelActivityRead(id?: string) {
     headers: { Prefer: 'return=minimal' },
     body: JSON.stringify({ read_at: new Date().toISOString() }),
   });
+}
+
+export const scheduleOnUpload: { choice: 'off' | 'hour' | 'tonight' | 'tomorrow' | 'three' } = { choice: 'off' };
+
+function computePublishAt(choice: typeof scheduleOnUpload.choice): string | null {
+  const now = new Date();
+  if (choice === 'hour') {
+    return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
+  }
+  if (choice === 'three') {
+    return new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  }
+  if (choice === 'tonight') {
+    const when = new Date(now);
+    when.setHours(20, 0, 0, 0);
+    if (when.getTime() <= now.getTime()) {
+      when.setDate(when.getDate() + 1);
+    }
+    return when.toISOString();
+  }
+  if (choice === 'tomorrow') {
+    const when = new Date(now);
+    when.setDate(when.getDate() + 1);
+    when.setHours(9, 0, 0, 0);
+    return when.toISOString();
+  }
+  return null;
 }
