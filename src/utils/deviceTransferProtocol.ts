@@ -1,6 +1,7 @@
 export const TRANSFER_CHUNK_BYTES = 256 * 1024;
 export const MAX_TRANSFER_FILE_BYTES = 1024 ** 3;
 const MAX_TRANSFER_FRAME_CHARACTERS = 400_000;
+const CONTENT_ID_PATTERN = /^[\x21-\x7E]{1,200}$/;
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 export type TransferOfferItem = {
@@ -40,7 +41,7 @@ function isTransferFrame(value: unknown): value is TransferFrame {
         value.items.length <= 1000 &&
         value.items.every((item) =>
           typeof item === 'object' && item !== null &&
-          'contentId' in item && typeof item.contentId === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(item.contentId) &&
+          'contentId' in item && typeof item.contentId === 'string' && CONTENT_ID_PATTERN.test(item.contentId) &&
           'title' in item && typeof item.title === 'string' && item.title.trim().length > 0 && item.title.length <= 200 &&
           'fileSizeBytes' in item && Number.isSafeInteger(item.fileSizeBytes) && Number(item.fileSizeBytes) > 0 && Number(item.fileSizeBytes) <= MAX_TRANSFER_FILE_BYTES
         )
@@ -50,7 +51,7 @@ function isTransferFrame(value: unknown): value is TransferFrame {
         'acceptedIds' in value &&
         Array.isArray(value.acceptedIds) &&
         value.acceptedIds.length <= 1000 &&
-        value.acceptedIds.every((id) => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(id))
+        value.acceptedIds.every((id) => typeof id === 'string' && CONTENT_ID_PATTERN.test(id))
       );
     case 'resume':
     case 'ack':
@@ -214,7 +215,7 @@ function describeBadFrame(value: unknown): string {
   if (type === 'batchOffer' && typeof value === 'object' && value !== null && Array.isArray((value as { items?: unknown }).items)) {
     for (const raw of (value as { items: unknown[] }).items) {
       const item = (raw ?? {}) as { contentId?: unknown; title?: unknown; fileSizeBytes?: unknown };
-      if (typeof item.contentId !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(item.contentId)) {
+      if (typeof item.contentId !== 'string' || !CONTENT_ID_PATTERN.test(item.contentId)) {
         detail = ', bad content id: ' + String(item.contentId).slice(0, 40);
         break;
       }
