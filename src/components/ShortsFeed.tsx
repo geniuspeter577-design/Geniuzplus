@@ -80,7 +80,7 @@ function ShortVideo({ item, height, isActive, onHide }: {
         player.currentTime = trimStart;
       }
     });
-    return () => trimSub.remove();
+    return () => safeRemove(trimSub);
   }, [player, trimStart, trimEnd]);
   const reelAudioUrl = item.audioUrl;
   useEffect(() => {
@@ -88,16 +88,16 @@ function ShortVideo({ item, height, isActive, onHide }: {
       return undefined;
     }
     player.muted = true;
-    return () => { player.muted = false; };
+    return () => { safeUnmute(player); };
   }, [reelAudioUrl, player]);
   useEffect(() => {
     if (!reelAudioUrl || !isActive) {
-      audioPlayer.pause();
+      safePause(audioPlayer);
       return undefined;
     }
     let live = true;
-    void audioPlayer.replaceAsync(reelAudioUrl).then(() => { if (live) { audioPlayer.play(); } }).catch(() => undefined);
-    return () => { live = false; audioPlayer.pause(); };
+    void audioPlayer.replaceAsync(reelAudioUrl).then(() => { if (live) { safePlay(audioPlayer); } }).catch(() => undefined);
+    return () => { live = false; safePause(audioPlayer); };
   }, [reelAudioUrl, isActive, audioPlayer]);
   const insets = useSafeAreaInsets();
   const heartScale = useRef(new Animated.Value(0)).current;
@@ -123,19 +123,19 @@ function ShortVideo({ item, height, isActive, onHide }: {
 
   useEffect(() => {
     if (!isActive) {
-      player.pause();
+      safePause(player);
       return undefined;
     }
     let active = true;
     void player.replaceAsync(item.videoUrl).then(() => {
       if (active) {
         setError(undefined);
-        player.play();
+        safePlay(player);
       }
     }).catch(() => active && setError('This Reel could not be played. Retry to try again.'));
     return () => {
       active = false;
-      player.pause();
+      safePause(player);
     };
   }, [isActive, item.id, item.videoUrl, player]);
 
@@ -241,12 +241,12 @@ function ShortVideo({ item, height, isActive, onHide }: {
     lastTapRef.current = now;
     tapTimerRef.current = setTimeout(() => {
       if (player.playing) {
-        player.pause();
-        audioPlayer.pause();
+        safePause(player);
+        safePause(audioPlayer);
       } else {
-        player.play();
+        safePlay(player);
         if (item.audioUrl) {
-          audioPlayer.play();
+          safePlay(audioPlayer);
         }
       }
     }, 300);
@@ -263,7 +263,7 @@ function ShortVideo({ item, height, isActive, onHide }: {
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable accessibilityRole="button" onPress={() => void player.replaceAsync(item.videoUrl).then(() => player.play()).catch(() => undefined)} style={styles.retryButton}>
+          <Pressable accessibilityRole="button" onPress={() => void player.replaceAsync(item.videoUrl).then(() => safePlay(player)).catch(() => undefined)} style={styles.retryButton}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -423,3 +423,8 @@ const styles = StyleSheet.create({
   retryButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 18, borderRadius: 8, backgroundColor: theme.accent },
   retryText: { color: theme.background, fontWeight: '800' },
 });
+
+function safePause(p: { pause: () => void }) { try { p.pause(); } catch { /* player already released */ } }
+function safePlay(p: { play: () => void }) { try { p.play(); } catch { /* player already released */ } }
+function safeRemove(sub: { remove: () => void }) { try { sub.remove(); } catch { /* already released */ } }
+function safeUnmute(p: { muted: boolean }) { try { p.muted = false; } catch { /* already released */ } }
