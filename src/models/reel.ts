@@ -16,6 +16,19 @@ export type ReelFeedItem = {
   isFollowing: boolean;
   allowComments: boolean;
   isOwner: boolean;
+  edits?: ReelEdits;
+  audioUrl?: string;
 };
 
 export type ReelVisibility = 'public' | 'followers';
+
+export type ReelEditItem = { id: string; kind: 'text' | 'sticker'; value: string; color?: string; x: number; y: number };
+export type ReelEdits = {
+  trim?: { start: number; end: number };
+  filter?: string;
+  items?: ReelEditItem[];
+  audioPath?: string;
+  location?: string;
+  tags?: string;
+  aiLabel?: boolean;
+};

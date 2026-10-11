@@ -2,7 +2,7 @@ import { File } from 'expo-file-system';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { ReelFeedItem, ReelVisibility } from '../models/reel';
+import type { ReelEdits, ReelFeedItem, ReelVisibility } from '../models/reel';
 import type { ContentItem } from '../models/content';
 import { supabase } from './supabase';
 
@@ -15,6 +15,7 @@ type ReelRow = {
   visibility: ReelVisibility;
   allow_comments: boolean;
   created_at: string;
+  edits: ReelEdits | null;
 };
 
 type CreatorRow = {
@@ -100,7 +101,7 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   const hiddenIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_HIDDEN_KEY) ?? '[]') as string[]);
   const interestedIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_INTEREST_KEY) ?? '[]') as string[]);
   const creatorFilter = creatorId ? `&user_id=eq.${creatorId}` : '';
-  const reels = await request<ReelRow[]>(`/rest/v1/reels?select=id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
+  const reels = await request<ReelRow[]>(`/rest/v1/reels?select=id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at,edits&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
   const userIds = [...new Set(reels.map((item) => item.user_id))];
   const reelIds = reels.map((item) => item.id);
   const [creators, likes, comments, saves, follows] = await Promise.all([
@@ -122,6 +123,18 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
       });
     } catch {
       return null;
+    }
+    let audioUrl: string | undefined;
+    if (reel.edits?.audioPath) {
+      try {
+        const signedAudio = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${reel.edits.audioPath}`, {
+          method: 'POST',
+          body: JSON.stringify({ expiresIn: 3600 }),
+        });
+        audioUrl = signedAudio.signedURL.startsWith('http') ? signedAudio.signedURL : `${getBaseUrl()}/storage/v1${signedAudio.signedURL}`;
+      } catch {
+        audioUrl = undefined;
+      }
     }
     const creator = creatorById.get(reel.user_id);
     if (!creator) {
@@ -146,6 +159,8 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
       isFollowing: follows.some((entry) => entry.creator_id === reel.user_id),
       allowComments: reel.allow_comments,
       isOwner: userId === reel.user_id,
+      ...(reel.edits ? { edits: reel.edits } : {}),
+      ...(audioUrl ? { audioUrl } : {}),
     } satisfies ReelFeedItem;
   }));
   const userItems = signed.filter((item): item is ReelFeedItem => item !== null && (creatorId !== undefined || !hiddenIds.has(item.id)));
@@ -276,7 +291,7 @@ export async function deleteReel(reelId: string) {
 
 export async function uploadReel(
   asset: ImagePickerAsset,
-  input: { caption: string; hashtags: string[]; visibility: ReelVisibility },
+  input: { caption: string; hashtags: string[]; visibility: ReelVisibility; edits?: ReelEdits | undefined; audio?: { uri: string; name?: string | undefined; mimeType?: string | undefined } | undefined },
   onProgress: (progress: number) => void,
 ) {
   const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
@@ -302,6 +317,25 @@ export async function uploadReel(
   if (uploadResult.status < 200 || uploadResult.status >= 300) {
     throw new Error(uploadResult.body || 'The Reel video could not be uploaded.');
   }
+  let finalEdits: ReelEdits | null = input.edits ?? null;
+  if (input.audio) {
+    try {
+      const audioName = (input.audio.name ?? 'audio').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const audioPath = `${userId}/${reelId}/audio_${audioName}`;
+      const audioMime = input.audio.mimeType ?? 'audio/mpeg';
+      const audioHeaders = await getRequestHeaders(audioMime);
+      const audioResult = await new File(input.audio.uri).upload(`${getBaseUrl()}/storage/v1/object/reels/${audioPath}`, {
+        httpMethod: 'POST',
+        headers: audioHeaders,
+        mimeType: audioMime,
+      });
+      if (audioResult.status >= 200 && audioResult.status < 300) {
+        finalEdits = { ...(finalEdits ?? {}), audioPath };
+      }
+    } catch {
+      // the Reel is still posted, without the audio
+    }
+  }
   try {
     await request('/rest/v1/reels', {
       method: 'POST',
@@ -313,6 +347,7 @@ export async function uploadReel(
         caption: input.caption.trim(),
         hashtags: input.hashtags,
         visibility: input.visibility,
+        edits: finalEdits,
       }),
     });
   } catch (error) {

@@ -1,5 +1,6 @@
 import { useBackToPrevious } from '../src/hooks/useBackToPrevious';
-import { Stack } from 'expo-router';
+import { Stack, router as ebRouter, type ErrorBoundaryProps } from 'expo-router';
+import { Pressable as EBPressable, ScrollView as EBScroll, Text as EBText, View as EBView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
@@ -68,5 +69,23 @@ export default function RootLayout() {
         </NetworkProvider>
       </AuthProvider>
     </SafeAreaProvider>
+  );
+}
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return (
+    <EBView style={{ backgroundColor: '#0E1014', flex: 1, gap: 14, justifyContent: 'center', padding: 24 }}>
+      <EBText style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '800' }}>Something went wrong</EBText>
+      <EBScroll style={{ maxHeight: 220 }}>
+        <EBText style={{ color: '#9AA3AF', fontSize: 13, lineHeight: 19 }}>{String(error.message)}</EBText>
+      </EBScroll>
+      <EBPressable
+        accessibilityRole="button"
+        onPress={() => { void retry(); ebRouter.replace('/'); }}
+        style={{ alignItems: 'center', backgroundColor: '#72F06A', borderRadius: 10, justifyContent: 'center', minHeight: 50 }}
+      >
+        <EBText style={{ color: '#0E1014', fontSize: 15, fontWeight: '900' }}>Go Home</EBText>
+      </EBPressable>
+    </EBView>
   );
 }

@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { ReelEditsOverlay } from './ReelEditsOverlay';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import * as Clipboard from 'expo-clipboard';
@@ -64,6 +66,40 @@ function ShortVideo({ item, height, isActive, onHide }: {
   const [busy, setBusy] = useState(false);
   const lastReportedInterval = useRef(0);
   const lastTapRef = useRef(0);
+  const audioPlayer = useVideoPlayer(null, (audioInstance) => {
+    audioInstance.loop = true;
+  });
+  const trimStart = item.edits?.trim?.start ?? 0;
+  const trimEnd = item.edits?.trim?.end ?? 0;
+  useEffect(() => {
+    if (!trimStart && !trimEnd) {
+      return undefined;
+    }
+    const trimSub = player.addListener('timeUpdate', ({ currentTime }) => {
+      if (currentTime < trimStart - 0.4 || (trimEnd > 0 && currentTime >= trimEnd)) {
+        player.currentTime = trimStart;
+      }
+    });
+    return () => trimSub.remove();
+  }, [player, trimStart, trimEnd]);
+  const reelAudioUrl = item.audioUrl;
+  useEffect(() => {
+    if (!reelAudioUrl) {
+      return undefined;
+    }
+    player.muted = true;
+    return () => { player.muted = false; };
+  }, [reelAudioUrl, player]);
+  useEffect(() => {
+    if (!reelAudioUrl || !isActive) {
+      audioPlayer.pause();
+      return undefined;
+    }
+    let live = true;
+    void audioPlayer.replaceAsync(reelAudioUrl).then(() => { if (live) { audioPlayer.play(); } }).catch(() => undefined);
+    return () => { live = false; audioPlayer.pause(); };
+  }, [reelAudioUrl, isActive, audioPlayer]);
+  const insets = useSafeAreaInsets();
   const heartScale = useRef(new Animated.Value(0)).current;
   const heartOpacity = useRef(new Animated.Value(0)).current;
   const showHeart = () => {
@@ -206,8 +242,12 @@ function ShortVideo({ item, height, isActive, onHide }: {
     tapTimerRef.current = setTimeout(() => {
       if (player.playing) {
         player.pause();
+        audioPlayer.pause();
       } else {
         player.play();
+        if (item.audioUrl) {
+          audioPlayer.play();
+        }
       }
     }, 300);
   };
@@ -215,6 +255,7 @@ function ShortVideo({ item, height, isActive, onHide }: {
   return (
     <View style={[styles.videoPage, { height }]}>
       <Pressable accessibilityRole="button" accessibilityLabel="Pause or play Reel" onPress={handleVideoTap} style={StyleSheet.absoluteFill}><VideoView accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} /></Pressable>
+      <ReelEditsOverlay edits={currentItem.edits} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: heartOpacity, transform: [{ scale: heartScale }] }]}>
         <Ionicons name="heart" size={110} color="#FF3B5C" />
       </Animated.View>
@@ -271,7 +312,7 @@ function ShortVideo({ item, height, isActive, onHide }: {
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
       <Modal visible={commentOpen || editingCaption} transparent animationType="slide" onRequestClose={() => { setCommentOpen(false); setEditingCaption(false); }}>
         <KeyboardAvoidingView behavior="padding" style={styles.modalShade}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
             <View style={styles.modalHeading}><Text style={styles.modalTitle}>{editingCaption ? 'Edit caption' : 'Comments'}</Text><Pressable onPress={() => { setCommentOpen(false); setEditingCaption(false); }}><Ionicons name="close" size={22} color={theme.text} /></Pressable></View>
             {editingCaption ? <TextInput multiline value={captionDraft} onChangeText={setCaptionDraft} style={styles.commentInput} placeholder="Write a caption" placeholderTextColor={theme.secondaryText} /> : <FlatList data={comments} keyExtractor={(entry) => entry.id} renderItem={({ item: entry }) => <Text style={styles.commentLine}><Text style={styles.commentAuthor}>{entry.displayName} </Text>{entry.body}</Text>} ListEmptyComponent={<Text style={styles.modalEmpty}>No comments yet.</Text>} style={styles.commentList} />}
             <View style={styles.commentComposer}><TextInput value={editingCaption ? captionDraft : commentText} onChangeText={editingCaption ? setCaptionDraft : setCommentText} style={styles.commentInput} placeholder={editingCaption ? 'Write a caption' : 'Add a comment'} placeholderTextColor={theme.secondaryText} /><Pressable disabled={busy || (!editingCaption && !commentText.trim())} onPress={() => editingCaption ? void runAction(async () => { await updateReel(item.id, { caption: captionDraft.trim() }); setCurrentItem((value) => ({ ...value, caption: captionDraft.trim() })); setEditingCaption(false); }) : submitComment()}><Text style={styles.postComment}>{editingCaption ? 'Save' : 'Post'}</Text></Pressable></View>
