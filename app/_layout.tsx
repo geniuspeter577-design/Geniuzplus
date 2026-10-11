@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { OfflineBanner } from '../src/components/OfflineBanner';
+import { UpdatePrompt } from '../src/components/UpdatePrompt';
 import { FootballScorePin } from '../src/components/FootballScorePin';
 import { AuthProvider } from '../src/state/AuthContext';
 import { prewarmContentApi } from '../src/services/createContentService';
@@ -38,6 +39,7 @@ export default function RootLayout() {
             <DownloadsProvider>
               <FootballMatchesProvider>
                   <StatusBar style="light" />
+                  <UpdatePrompt />
                   <OfflineBanner />
                   <Stack
                     screenOptions={{
