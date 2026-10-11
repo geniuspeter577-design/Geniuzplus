@@ -26,7 +26,7 @@ import { getMeScreenData } from '../../src/utils/meScreen';
 import { formatFileSize } from '../../src/utils/formatFileSize.cjs';
 
 type DownloadTab = 'geniuz' | 'local' | 'received';
-type LocalVideo = { id: string; title: string; duration: number; size: number; thumbnail?: string };
+type LocalVideo = { id: string; uri: string; title: string; duration: number; size: number; thumbnail?: string };
 
 function formatDuration(durationMs: number) {
   const totalSeconds = Math.floor(durationMs / 1000);
@@ -133,6 +133,7 @@ export default function DownloadsScreen() {
         const size = new File(uri).size;
         return {
           id: asset.id,
+          uri,
           title: filename.replace(/\.[^.]+$/, ''),
           duration: duration ?? 0,
           size: Number.isFinite(size) ? size : 0,
@@ -286,7 +287,7 @@ export default function DownloadsScreen() {
               </View>
             ) : null}
             {localVideos.map((video) => (
-              <View key={video.id} style={styles.downloadCard}>
+              <Pressable key={video.id} accessibilityRole="button" accessibilityLabel={`Play ${video.title}`} onPress={() => router.push({ pathname: '/local-player', params: { uri: video.uri, title: video.title } } as never)} style={styles.downloadCard}>
                 {video.thumbnail ? (
                   <Image source={{ uri: video.thumbnail }} style={styles.poster} resizeMode="cover" />
                 ) : (
@@ -298,7 +299,7 @@ export default function DownloadsScreen() {
                   <Text style={styles.movieTitle} numberOfLines={2}>{video.title}</Text>
                   <Text style={styles.movieMeta}>{formatDuration(video.duration)} · {formatFileSize(video.size)}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
         ) : null}
