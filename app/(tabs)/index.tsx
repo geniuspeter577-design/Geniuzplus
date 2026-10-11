@@ -470,6 +470,9 @@ export default function HomeScreen() {
         ) : null}
         {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
         {selectedCategory === 'Trending' ? (
+          <SectionHeader title="My Playlist" onSeeAll={() => router.push('/playlist' as never)} />
+        ) : null}
+        {selectedCategory === 'Trending' ? (
           <ContentRail
             title="Upcoming"
             items={upcomingQuery.data ?? EMPTY_CONTENT_ITEMS}

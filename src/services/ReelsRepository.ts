@@ -448,3 +448,55 @@ export async function loadCreatorWithdrawals() {
     '/rest/v1/creator_withdrawals?select=id,amount_usd,status,created_at&order=created_at.desc&limit=200',
   );
 }
+
+// ---- Playlist ----
+async function playlistUserId() {
+  const { data } = await supabase?.auth.getSession() ?? { data: { session: null } };
+  const userId = data.session?.user.id;
+  if (!supabase || !userId) {
+    throw new Error('Sign in to use your playlist.');
+  }
+  return userId;
+}
+
+export async function addToPlaylist(reelId: string) {
+  const userId = await playlistUserId();
+  const client = supabase as any;
+  const { error } = await client.from('reel_playlist_items').upsert(
+    { user_id: userId, reel_id: reelId },
+    { onConflict: 'user_id,reel_id', ignoreDuplicates: true },
+  );
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function removeFromPlaylist(reelId: string) {
+  const userId = await playlistUserId();
+  const client = supabase as any;
+  const { error } = await client.from('reel_playlist_items').delete().eq('user_id', userId).eq('reel_id', reelId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function loadPlaylistReels(): Promise<ReelFeedItem[]> {
+  const userId = await playlistUserId();
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('reel_playlist_items')
+    .select('reel_id, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    throw new Error(error.message);
+  }
+  const order: string[] = (data ?? []).map((row: { reel_id: string }) => row.reel_id);
+  if (!order.length) {
+    return [];
+  }
+  const all = await loadReelsFeed();
+  return order
+    .map((id) => all.find((reel) => reel.id === id))
+    .filter((reel): reel is ReelFeedItem => Boolean(reel));
+}
