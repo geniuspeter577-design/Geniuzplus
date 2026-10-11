@@ -74,6 +74,15 @@
         "projectId": "ecb9ecb7-36e5-4ab8-8ea1-cacf8f83dede"
       }
     },
-    "owner": "geniuzlab57"
+    "owner": "geniuzlab57",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ecb9ecb7-36e5-4ab8-8ea1-cacf8f83dede",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }
