@@ -53,7 +53,7 @@ export default function CreateReelScreen() {
       return;
     }
     if ((asset.fileSize ?? 0) > MAX_REEL_FILE_SIZE_BYTES) {
-      setError('Upload failed: This video exceeds the 200 MB upload limit.');
+      setError('Upload failed: This video is larger than 50 MB. Choose a shorter or smaller video.');
       setRetryUpload(false);
       return;
     }
@@ -87,7 +87,7 @@ export default function CreateReelScreen() {
         <Pressable accessibilityRole="button" onPress={() => void pickVideo()} style={styles.picker}>
           <Ionicons name={asset ? 'checkmark-circle-outline' : 'videocam-outline'} size={30} color={theme.accent} />
           <Text style={styles.pickerTitle}>{asset?.fileName ?? 'Choose a video'}</Text>
-          <Text style={styles.muted}>Maximum {MAX_REEL_DURATION_SECONDS} seconds · 200 MB</Text>
+          <Text style={styles.muted}>Maximum {MAX_REEL_DURATION_SECONDS} seconds · 50 MB</Text>
           {asset?.duration ? <Text style={styles.muted}>{Math.ceil(asset.duration / 1000)} seconds</Text> : null}
         </Pressable>
         {tooLong ? <Text style={styles.error}>Trim the clip in your gallery to {MAX_REEL_DURATION_SECONDS} seconds or less, then select it again. In-app trimming is Coming soon.</Text> : null}

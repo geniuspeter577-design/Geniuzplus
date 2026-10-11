@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Config } from '../config/config';
@@ -977,6 +977,71 @@ async function handleRequest(
       throw new HttpError(502, 'TRANSFER_SESSION_CREATE_FAILED', 'Could not create a receive session.');
     }
     writeJson(response, 201, { sessionId: data.id, expiresAt: data.expires_at });
+    return;
+  }
+
+  if (pathname === '/api/transfers/code/register' || pathname === '/api/transfers/code/lookup') {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { client, userId } = await authenticatePlayback(config, request.headers.authorization);
+    if (!userId) {
+      throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in to use device transfer.');
+    }
+    await requireActiveTransferMembership(client);
+    const body = await readJson(request);
+    const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    if (pathname === '/api/transfers/code/register') {
+      const sessionId = requiredString(body, 'sessionId', 64);
+      const sessionToken = requiredString(body, 'sessionToken', 128);
+      const ip = requiredString(body, 'ip', 45);
+      const port = body.port;
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId) ||
+        !/^[a-f0-9]{64}$/i.test(sessionToken) ||
+        !/^([0-9]{1,3}[.]){3}[0-9]{1,3}$/.test(ip) ||
+        typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535
+      ) {
+        throw new HttpError(400, 'INVALID_TRANSFER_CODE_REQUEST', 'The transfer details are invalid.');
+      }
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        let code = '';
+        for (let index = 0; index < 5; index += 1) {
+          code += alphabet.charAt(randomInt(alphabet.length));
+        }
+        const { data, error } = await client.rpc('register_transfer_code', {
+          p_code: code,
+          p_session_id: sessionId,
+          p_ip: ip,
+          p_port: port,
+          p_session_token: sessionToken.toLowerCase(),
+        });
+        if (!error && typeof data === 'string') {
+          writeJson(response, 201, { code: data });
+          return;
+        }
+        if (error && error.code !== '23505') {
+          throwTransferRpcError(error, 'create the transfer code');
+        }
+      }
+      throw new HttpError(503, 'TRANSFER_CODE_UNAVAILABLE', 'Could not create a transfer code. Try again.');
+    }
+    const code = requiredString(body, 'code', 16).trim().toUpperCase();
+    if (!/^[ABCDEFGHJKMNPQRSTUVWXYZ2-9]{5}$/.test(code)) {
+      throw new HttpError(400, 'INVALID_TRANSFER_CODE', 'Enter the 5-character code shown on the receiving device.');
+    }
+    const { data, error } = await client.rpc('lookup_transfer_code', { p_code: code });
+    if (error) {
+      if (String(error.message ?? '').includes('TOO_MANY_ATTEMPTS')) {
+        throw new HttpError(429, 'TOO_MANY_ATTEMPTS', 'Too many wrong codes. Wait a few minutes and try again.');
+      }
+      throwTransferRpcError(error, 'look up the transfer code');
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) {
+      throw new HttpError(404, 'TRANSFER_CODE_NOT_FOUND', 'That code is not valid or has expired.');
+    }
+    writeJson(response, 200, { ip: row.ip, port: row.port, sessionId: row.session_id, sessionToken: row.session_token });
     return;
   }
 

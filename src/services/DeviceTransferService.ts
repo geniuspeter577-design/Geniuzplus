@@ -187,6 +187,7 @@ async function loadTcpSocket() {
   }
 }
 
+
 function getConnectionCode(address: TransferAddress) {
   return `${address.ip}|${address.port}|${address.sessionId}|${address.sessionToken}`;
 }
