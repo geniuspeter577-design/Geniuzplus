@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   pinButton: { alignItems: 'center', flexDirection: 'row', gap: 3, marginTop: 4, paddingVertical: 2 },
   pinText: { color: theme.accent, fontSize: 10, fontWeight: '800' },
   celebration: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     backgroundColor: theme.surface,
     justifyContent: 'center',

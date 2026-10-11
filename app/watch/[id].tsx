@@ -1081,7 +1081,7 @@ export default function WatchScreen() {
         <Text style={styles.disclaimer}>
           {isOfflinePlayback
             ? 'Playing the saved file on this device.'
-            : 'Playback is available for movies uploaded by an authorized Geniuz+ administrator.'}
+            : 'Playback is available for movies uploaded by an authorized Geniuzplus administrator.'}
         </Text>
       ) : null}
     </SafeAreaView>

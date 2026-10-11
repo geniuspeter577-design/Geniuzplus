@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   badgeWrap: { alignItems: 'center', height: 26, justifyContent: 'center', position: 'relative', width: 32 },
   teamName: { color: theme.text, fontSize: 9, fontWeight: '700', maxWidth: '100%' },
   celebration: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     backgroundColor: theme.surface,
     borderRadius: 8,

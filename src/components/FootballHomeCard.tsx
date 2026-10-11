@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   pinText: { color: theme.accent, fontSize: 10, fontWeight: '800' },
   celebration: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     backgroundColor: theme.surface,
     justifyContent: 'center',

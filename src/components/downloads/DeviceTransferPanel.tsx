@@ -171,7 +171,7 @@ export function DeviceTransferPanel() {
     <View style={styles.card}>
       <Text style={styles.title}>Device-to-device transfer</Text>
       <Text style={styles.description}>
-        Both sending and receiving require active Member access, verified by the server.
+        Both sending and receiving require active Member access, verified by the platform.
       </Text>
       <View style={styles.memberNotice}>
         <Text style={styles.memberNoticeTitle}>Transfer is for Members</Text>
@@ -262,7 +262,7 @@ export function DeviceTransferPanel() {
       ) : null}
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-      <Text style={styles.footnote}>Device transfer requires a Geniuz+ development build. It is not available in Expo Go.</Text>
+      <Text style={styles.footnote}>Device transfer requires a Geniuzplus development build. It is not available in Expo Go.</Text>
     </View>
   );
 }

@@ -250,6 +250,6 @@ export function runAccountFeatureGate(isSignedIn: boolean, openSignInSheet: () =
 }
 
 export function getProfileInitial(displayName: string | null | undefined, email: string | null | undefined) {
-  const value = displayName?.trim() || email?.trim() || 'Geniuz+';
+  const value = displayName?.trim() || email?.trim() || 'Geniuzplus';
   return Array.from(value)[0]?.toLocaleUpperCase() ?? 'G';
 }

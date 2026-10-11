@@ -3,12 +3,12 @@ function formatFileSize(bytes) {
     return '0 B';
   }
   if (bytes >= 1024 ** 3) {
-    return `${(bytes / 1024 ** 3).toFixed(2)} GiB`;
+    return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
   }
   if (bytes >= 1024 ** 2) {
-    return `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+    return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
   }
-  return `${Math.max(1, Math.round(bytes / 1024))} KiB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 exports.formatFileSize = formatFileSize;

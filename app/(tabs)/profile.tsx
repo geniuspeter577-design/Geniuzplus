@@ -139,7 +139,7 @@ export default function ProfileScreen() {
   };
 
   const displayName = auth.session
-    ? auth.profile?.display_name || auth.session.user.email || 'Geniuz+ user'
+    ? auth.profile?.display_name || auth.session.user.email || 'Geniuzplus user'
     : 'Sign in';
 
   return (
@@ -242,7 +242,7 @@ export default function ProfileScreen() {
             <Ionicons name={hasMemberAccess ? 'star' : 'person-outline'} size={18} color={hasMemberAccess ? theme.gold : theme.accent} />
             <Text style={[styles.memberEyebrow, !hasMemberAccess && styles.visitorMemberEyebrow]}>{hasMemberAccess ? 'MEMBER' : 'VISITOR'}</Text>
           </View>
-          <Text style={[styles.memberTitle, !hasMemberAccess && styles.visitorMemberTitle]}>Geniuz+ membership</Text>
+          <Text style={[styles.memberTitle, !hasMemberAccess && styles.visitorMemberTitle]}>Geniuzplus membership</Text>
           <Text style={styles.memberSubtitle}>{memberCardSubtitle}</Text>
         </Pressable>
 

@@ -306,14 +306,7 @@ export default function HomeScreen() {
             />
           }
         >
-          <View style={styles.brandGroup}>
-            <Image
-              source={require('../../assets/branding/logo-mark.png')}
-              style={styles.brandMark}
-              resizeMode="contain"
-            />
-            <Text style={styles.brand}>Geniuz+</Text>
-          </View>
+          <Image source={require('../../assets/new-logo/logo-full-cropped.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel="Geniuzplus" />
           {selectedCategory === 'Football' ? (
             <FootballMatchesPanel
               isOnline={false}
@@ -350,14 +343,7 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.headerRow}>
-          <View style={styles.brandGroup}>
-            <Image
-              source={require('../../assets/branding/logo-mark.png')}
-              style={styles.brandMark}
-              resizeMode="contain"
-            />
-            <Text style={styles.brand}>Geniuz+</Text>
-          </View>
+          <Image source={require('../../assets/new-logo/logo-full-cropped.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel="Geniuzplus" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
@@ -503,6 +489,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  brandLogo: { height: 30, aspectRatio: 2.14 },
   safeArea: { flex: 1, backgroundColor: theme.background },
   content: { paddingHorizontal: 18, paddingBottom: 30 },
   headerRow: {

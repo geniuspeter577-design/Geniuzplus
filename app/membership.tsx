@@ -143,7 +143,7 @@ export default function MembershipScreen() {
           <Benefit icon="star-outline" text="Exclusive member status" />
           <Benefit icon="trophy-outline" text="Premium creator recognition" />
           <Benefit icon="lock-closed-outline" text="Access to member-only content" />
-          <Benefit icon="heart-outline" text="Support creators and the Geniuz+ community" />
+          <Benefit icon="heart-outline" text="Support creators and the Geniuzplus community" />
           <Benefit icon="rocket-outline" text="Early access to new features" />
         </View>
       </ScrollView>

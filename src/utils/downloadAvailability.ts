@@ -15,7 +15,7 @@ export function getDownloadUnavailableReason({
     return 'Downloads are turned off for this title.';
   }
   if (platform === 'web') {
-    return 'Offline downloads need the Geniuz+ phone app; they are not available in a browser.';
+    return 'Offline downloads need the Geniuzplus phone app; they are not available in a browser.';
   }
   if (!supported) {
     return 'This video format is not supported for offline playback on this device.';

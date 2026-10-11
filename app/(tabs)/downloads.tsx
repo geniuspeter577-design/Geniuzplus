@@ -25,7 +25,7 @@ import { getMeScreenData } from '../../src/utils/meScreen';
 type DownloadTab = 'geniuz' | 'local' | 'received';
 
 const tabs: { id: DownloadTab; title: string }[] = [
-  { id: 'geniuz', title: 'Geniuz+ downloads' },
+  { id: 'geniuz', title: 'Geniuzplus downloads' },
   { id: 'local', title: 'Local files' },
   { id: 'received', title: 'Received' },
 ];
@@ -157,7 +157,6 @@ export default function DownloadsScreen() {
               {availableSpaceBytes === null ? 'Unavailable' : formatBytes(availableSpaceBytes)}
             </Text>
           </View>
-          <Text style={styles.storageUnit}>Binary units: KiB, MiB, GiB (base 1024)</Text>
         </View>
 
         <View style={styles.tabs} accessibilityRole="tablist">

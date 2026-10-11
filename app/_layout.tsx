@@ -1,3 +1,5 @@
+import { useAndroidBackToHome } from '../src/hooks/useAndroidBackToHome';
+import { useAndroidBackToHome } from '../src/hooks/useAndroidBackToHome';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -15,6 +17,8 @@ import { NetworkProvider } from '../src/state/NetworkContext';
 import { FootballMatchesProvider } from '../src/state/FootballMatchesContext';
 
 export default function RootLayout() {
+  useAndroidBackToHome();
+  useAndroidBackToHome();
   useEffect(() => {
     prewarmContentApi();
     const subscription = AppState.addEventListener('change', (state) => {

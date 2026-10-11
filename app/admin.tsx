@@ -1989,7 +1989,7 @@ export default function AdminScreen() {
                 <View style={styles.grow}>
                   <Text style={styles.sectionTitle}>Upload a {contentKind === 'short' ? 'short video' : 'movie'}</Text>
                   <Text style={styles.helper}>
-                    Videos upload directly to private Backblaze storage in 16 MiB parts.
+                    Videos upload directly to private Backblaze storage in 16 MB parts.
                   </Text>
                 </View>
                 <Pressable
@@ -2384,7 +2384,7 @@ export default function AdminScreen() {
 
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Add episode</Text>
-              <Text style={styles.helper}>Episode videos upload to private Backblaze storage in 16 MiB parts.</Text>
+              <Text style={styles.helper}>Episode videos upload to private Backblaze storage in 16 MB parts.</Text>
               <Text style={styles.fieldLabel}>Season</Text>
               <View style={styles.choiceList}>
                 {availableSeasons.map((season) => {
