@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Image,
   LayoutAnimation,
@@ -13,10 +13,12 @@ import {
 } from 'react-native';
 
 import type { FootballMatch } from '../models/football';
-import { formatWestAfricaKickoff, getKickoffPresentation, sortHomeFootballMatches } from '../utils/footballScores';
-import { useFootballGoalCelebration, type GoalSignal } from '../hooks/useFootballGoalCelebration';
+import { formatWestAfricaKickoff, sortHomeFootballMatches } from '../utils/footballScores';
+import type { GoalBallCounts } from '../utils/footballPin';
 import { FootballGoalBalls } from './FootballGoalBalls';
 import { theme } from '../theme';
+
+type GoalSignal = GoalBallCounts & { createdAt?: number };
 
 type Props = {
   matches: FootballMatch[];
@@ -63,6 +65,23 @@ function estimateClock(startsAt: string, nowMs: number): string {
   return `${pad(Math.floor(second / 60))}:${pad(second % 60)}`;
 }
 
+export type Celebration = {
+  matchId: string;
+  team: 'home' | 'away';
+  count: number;
+  token: number;
+  minute: string;
+  phase: 'goal' | 'scorer';
+};
+
+export function goalMinuteLabel(match: FootballMatch, nowMs: number): string {
+  if (match.minute !== null) {
+    return `${match.minute}′`;
+  }
+  const minutes = parseInt(estimateClock(match.startsAt, nowMs), 10);
+  return Number.isFinite(minutes) ? `${minutes}′` : '';
+}
+
 // Live clock mm:ss. Remounted (via key) whenever the provider minute changes,
 // so the seconds restart from the new minute. Seconds are counted here (approximate).
 export function LiveClock({ match, compact = false }: { match: FootballMatch; compact?: boolean }) {
@@ -83,18 +102,9 @@ export function LiveClock({ match, compact = false }: { match: FootballMatch; co
 }
 
 export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpenFootball, onPin }: Props) {
-  const resultMatches = useMemo(
-    () => matches.filter((match) => match.status === 'finished' && goalSignals[match.id]?.event === 'result'),
-    [goalSignals, matches],
-  );
-  const sortedMatches = useMemo(() => [...sortHomeFootballMatches(matches), ...resultMatches], [matches, resultMatches]);
-  const liveOnly = useMemo(() => sortedMatches.filter((match) => match.status === 'live'), [sortedMatches]);
-  const liveUpcoming = useMemo(
-    () => liveOnly.length > 0
-      ? [...liveOnly, ...resultMatches.filter((match) => !liveOnly.some((liveMatch) => liveMatch.id === match.id))]
-      : sortedMatches,
-    [liveOnly, resultMatches, sortedMatches],
-  );
+  const sortedMatches = sortHomeFootballMatches(matches);
+  const liveOnly = sortedMatches.filter((match) => match.status === 'live');
+  const liveUpcoming = liveOnly.length > 0 ? liveOnly : sortedMatches;
   const count = liveUpcoming.length;
 
   const listRef = useRef<ScrollView>(null);
@@ -102,7 +112,9 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
   const [isTouching, setIsTouching] = useState(false);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
-  const celebration = useFootballGoalCelebration(liveUpcoming, goalSignals);
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const handled = useRef<Record<string, number>>({});
+  const primed = useRef(false);
   const isCelebrating = celebration !== null;
 
   const fits = layoutWidth > 0 && contentWidth > 0 && contentWidth <= layoutWidth + 4;
@@ -128,24 +140,73 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
     return () => clearInterval(slide);
   }, [count, fits, isCelebrating, isOffline, isTouching, maxX, safeIndex]);
 
+  const celebrationKey = celebration ? `${celebration.matchId}-${celebration.token}` : null;
+
+  // Goal detection: a new goal signal on a live match brings that card to the front.
   useEffect(() => {
-    if (!celebration?.matchId) {
-      return;
-    }
     const timer = setTimeout(() => {
-      const index = liveUpcoming.findIndex((match) => match.id === celebration.matchId);
-      if (index < 0) {
+      if (!primed.current) {
+        primed.current = true;
+        for (const match of liveUpcoming) {
+          const oldToken = goalSignals[match.id]?.createdAt;
+          if (typeof oldToken === 'number') {
+            handled.current[match.id] = oldToken;
+          }
+        }
         return;
       }
-      if (fits) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      } else {
-        listRef.current?.scrollTo({ x: Math.min(index * STEP, maxX), animated: true });
+      for (let index = 0; index < liveUpcoming.length; index += 1) {
+        const match = liveUpcoming[index];
+        const signal = goalSignals[match.id];
+        const token = signal?.createdAt;
+        if (match.status !== 'live' || !signal || typeof token !== 'number') {
+          continue;
+        }
+        if (handled.current[match.id] === token) {
+          continue;
+        }
+        handled.current[match.id] = token;
+        const homeGoals = signal.home ?? 0;
+        const awayGoals = signal.away ?? 0;
+        if (homeGoals <= 0 && awayGoals <= 0) {
+          continue;
+        }
+        const team = homeGoals >= awayGoals ? 'home' : 'away';
+        if (fits) {
+          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        } else {
+          listRef.current?.scrollTo({ x: Math.min(index * STEP, maxX), animated: true });
+        }
+        setActiveIndex(index);
+        setCelebration({
+          matchId: match.id,
+          team,
+          count: team === 'home' ? homeGoals : awayGoals,
+          token,
+          minute: goalMinuteLabel(match, Date.now()),
+          phase: 'goal',
+        });
+        break;
       }
-      setActiveIndex(index);
     }, 0);
     return () => clearTimeout(timer);
-  }, [celebration?.matchId, fits, liveUpcoming, maxX]);
+  }, [fits, goalSignals, liveUpcoming, maxX]);
+
+  // GOAL!!! for 3.5 s, then team name and minute for 3.5 s, then back to normal.
+  useEffect(() => {
+    if (!celebrationKey) {
+      return;
+    }
+    const toScorer = setTimeout(
+      () => setCelebration((current) => (current ? { ...current, phase: 'scorer' } : current)),
+      5000,
+    );
+    const done = setTimeout(() => setCelebration(null), 10000);
+    return () => {
+      clearTimeout(toScorer);
+      clearTimeout(done);
+    };
+  }, [celebrationKey]);
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -154,7 +215,7 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
     setIsTouching(false);
   };
 
-  if (liveUpcoming.length === 0) {
+  if (count === 0) {
     return null;
   }
 
@@ -175,7 +236,6 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
       >
         {ordered.map((match) => {
           const live = match.status === 'live';
-          const kickoff = live ? undefined : getKickoffPresentation(match.startsAt);
           const goals = goalSignals[match.id];
           const celebrating = celebration && celebration.matchId === match.id ? celebration : null;
           const scoringTeam = celebrating && celebrating.team === 'away' ? match.awayTeam : match.homeTeam;
@@ -205,8 +265,8 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
                     </>
                   ) : (
                     <>
-                      <Text style={styles.centerMain}>{kickoff?.label ?? formatWestAfricaKickoff(match.startsAt)}</Text>
-                      <Text style={styles.centerSub}>{kickoff?.comingSoon ? 'Coming soon' : formatLagosDate(match.startsAt)}</Text>
+                      <Text style={styles.centerMain}>{formatWestAfricaKickoff(match.startsAt)}</Text>
+                      <Text style={styles.centerSub}>{formatLagosDate(match.startsAt)}</Text>
                     </>
                   )}
                   {isOffline ? <Text style={styles.offline}>Offline</Text> : null}
@@ -244,8 +304,6 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
                       </View>
                       <Text style={styles.goalText}>GOAL!!!</Text>
                     </>
-                  ) : celebrating.phase === 'result' ? (
-                    <Text style={styles.goalText}>FULL TIME</Text>
                   ) : (
                     <>
                       <Text style={styles.scorerTeam} numberOfLines={2}>{scoringTeam.name}</Text>

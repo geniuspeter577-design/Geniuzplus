@@ -15,23 +15,8 @@ type FootballDateState = {
   lastFetchedAt?: number;
 };
 
-type GoalSignal = { home: number; away: number; createdAt: number; event?: 'goal' | 'result' };
+type GoalSignal = { home: number; away: number; createdAt: number };
 type PinnedMatch = { date: string; matchId: string };
-
-function getMatchEvents(previousMatches: FootballMatch[], currentMatches: FootballMatch[]) {
-  const previousById = new Map(previousMatches.map((match) => [match.id, match]));
-  const signals: Record<string, GoalSignal> = {};
-  for (const match of currentMatches) {
-    const previous = previousById.get(match.id);
-    const goals = getGoalBallCounts(previous, match);
-    if (goals.home > 0 || goals.away > 0) {
-      signals[match.id] = { ...goals, createdAt: Date.now(), event: 'goal' };
-    } else if (previous?.status === 'live' && match.status === 'finished') {
-      signals[match.id] = { home: 0, away: 0, createdAt: Date.now(), event: 'result' };
-    }
-  }
-  return signals;
-}
 
 type FootballContextValue = {
   today: string;
@@ -62,7 +47,6 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const entriesRef = useRef<Record<string, FootballDateState>>({});
   const requestsRef = useRef(new Map<string, Promise<void>>());
-  const upcomingMatchesRef = useRef<FootballMatch[]>([]);
 
   const updateEntry = useCallback((date: string, updater: (previous: FootballDateState) => FootballDateState) => {
     const previous = entriesRef.current[date] ?? { matches: [], stale: false, isLoading: false };
@@ -92,7 +76,15 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
     updateEntry(date, (previous) => ({ ...previous, isLoading: true, error: undefined }));
     const request = getFootballMatches(date)
       .then((response: FootballMatchesResponse) => {
-        const signals = getMatchEvents(current?.matches ?? [], response.matches);
+        const oldMatches = new Map((current?.matches ?? []).map((match) => [match.id, match]));
+        const signals: Record<string, GoalSignal> = {};
+        for (const match of response.matches) {
+          const old = oldMatches.get(match.id);
+          const goals = getGoalBallCounts(old, match);
+          if (goals.home > 0 || goals.away > 0) {
+            signals[match.id] = { ...goals, createdAt: Date.now() };
+          }
+        }
         const signalIds = response.matches.map((match) => match.id);
         setGoalSignals((previous) => {
           const next = { ...previous };
@@ -111,7 +103,7 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
               }
             }
             return next;
-          }), Object.values(signals).some((signal) => signal.event === 'result') ? 11_000 : 1_800);
+          }), 1_800);
         }
         updateEntry(date, (previous) => ({
           ...previous,
@@ -173,26 +165,6 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
     setUpcoming((previous) => ({ ...previous, isLoading: true, error: undefined }));
     try {
       const response = await getFootballUpcoming();
-      const signals = getMatchEvents(upcomingMatchesRef.current, response.matches);
-      upcomingMatchesRef.current = response.matches;
-      const signalIds = response.matches.map((match) => match.id);
-      setGoalSignals((previous) => {
-        const next = { ...previous };
-        signalIds.forEach((id) => delete next[id]);
-        return { ...next, ...signals };
-      });
-      if (Object.keys(signals).length > 0) {
-        const signalTimes = Object.fromEntries(Object.entries(signals).map(([id, signal]) => [id, signal.createdAt]));
-        setTimeout(() => setGoalSignals((previous) => {
-          const next = { ...previous };
-          for (const [id, createdAt] of Object.entries(signalTimes)) {
-            if (next[id]?.createdAt === createdAt) {
-              delete next[id];
-            }
-          }
-          return next;
-        }), Object.values(signals).some((signal) => signal.event === 'result') ? 11_000 : 1_800);
-      }
       setUpcoming({ matches: response.matches, stale: response.stale, isLoading: false, lastFetchedAt: Date.now() });
     } catch (error: unknown) {
       setUpcoming((previous) => ({

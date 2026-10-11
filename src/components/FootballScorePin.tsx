@@ -18,8 +18,7 @@ import { useFootballMatches } from '../state/FootballMatchesContext';
 import { theme } from '../theme';
 import { getFootballPinPosition, snapFootballPinCorner, type FootballPinCorner, type PinPoint } from '../utils/footballPin';
 import { FootballGoalBalls } from './FootballGoalBalls';
-import { CelebrationLogo, LiveClock, TeamBadge } from './FootballHomeCard';
-import { useFootballGoalCelebration } from '../hooks/useFootballGoalCelebration';
+import { CelebrationLogo, LiveClock, TeamBadge, goalMinuteLabel, type Celebration } from './FootballHomeCard';
 
 const PIN_SIZE = { width: 170, height: 74 };
 const DEFAULT_CORNER: FootballPinCorner = 'top-right';
@@ -30,23 +29,13 @@ export function FootballScorePin() {
   const insets = useSafeAreaInsets();
   const viewport = useWindowDimensions();
   const [layoutReady, setLayoutReady] = useState(false);
-  const [pinTransform, setPinTransform] = useState({ x: 0, y: 0 });
-  const position = useRef(new Animated.ValueXY({ x: 0, y: 0 }));
+  const position = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const dragStart = useRef<PinPoint>({ x: 0, y: 0 });
   const positionRef = useRef<PinPoint>({ x: 0, y: 0 });
   const dimensionsRef = useRef({ viewport, insets });
   const userIdRef = useRef(auth.session?.user.id);
-  useEffect(() => {
-    const currentPosition = position.current;
-    const listener = currentPosition.addListener(({ x, y }) => {
-      setPinTransform({ x, y });
-    });
-    return () => currentPosition.removeListener(listener);
-  }, []);
-  useEffect(() => {
-    dimensionsRef.current = { viewport, insets };
-    userIdRef.current = auth.session?.user.id;
-  }, [auth.session?.user.id, insets, viewport]);
+  dimensionsRef.current = { viewport, insets };
+  userIdRef.current = auth.session?.user.id;
 
   useEffect(() => {
     let active = true;
@@ -64,15 +53,13 @@ export function FootballScorePin() {
       }
       const target = getFootballPinPosition(savedCorner, viewport, PIN_SIZE, insets);
       positionRef.current = target;
-      position.current.setValue(target);
-      setPinTransform({ x: target.x, y: target.y });
+      position.setValue(target);
       setLayoutReady(true);
     };
     void restore();
     return () => { active = false; };
-  }, [auth.session?.user.id, insets, viewport]);
+  }, [auth.session?.user.id, insets.bottom, insets.left, insets.right, insets.top, position, viewport.height, viewport.width]);
 
-  /* eslint-disable react-hooks/refs */
   const panResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 3 || Math.abs(gesture.dy) > 3,
     onPanResponderGrant: () => {
@@ -81,15 +68,14 @@ export function FootballScorePin() {
     onPanResponderMove: (_event, gesture) => {
       const next = { x: dragStart.current.x + gesture.dx, y: dragStart.current.y + gesture.dy };
       positionRef.current = next;
-      position.current.setValue(next);
+      position.setValue(next);
     },
     onPanResponderRelease: (_event, gesture) => {
       const current = { x: dragStart.current.x + gesture.dx, y: dragStart.current.y + gesture.dy };
       const dimensions = dimensionsRef.current;
       const target = snapFootballPinCorner(current, dimensions.viewport, PIN_SIZE, dimensions.insets);
       positionRef.current = { x: target.x, y: target.y };
-      Animated.spring(position.current, { toValue: { x: target.x, y: target.y }, useNativeDriver: false, damping: 24, stiffness: 240 }).start();
-      setPinTransform({ x: target.x, y: target.y });
+      Animated.spring(position, { toValue: { x: target.x, y: target.y }, useNativeDriver: false, damping: 24, stiffness: 240 }).start();
       const currentUserId = userIdRef.current;
       if (currentUserId) {
         void getUserAppSettings(currentUserId)
@@ -97,14 +83,65 @@ export function FootballScorePin() {
           .catch((error: unknown) => console.warn('[FootballPin] Could not save the position.', error));
       }
     },
-  }), []);
-  /* eslint-enable react-hooks/refs */
+  }), [position]);
 
   const match = football.pinnedMatch;
   const goal = match ? football.goalSignals[match.id] : undefined;
-  const matches = useMemo(() => (match ? [match] : []), [match]);
-  const goalSignals = useMemo(() => (match && goal ? { [match.id]: goal } : {}), [goal, match]);
-  const celebration = useFootballGoalCelebration(matches, goalSignals);
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const handledGoal = useRef<Record<string, number>>({});
+  const primedFor = useRef<string | null>(null);
+  const celebrationKey = celebration ? `${celebration.matchId}-${celebration.token}` : null;
+
+  // Same goal celebration as the Home card. A newly pinned match never replays old goals.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!match) {
+        primedFor.current = null;
+        return;
+      }
+      const token = goal?.createdAt;
+      if (primedFor.current !== match.id) {
+        primedFor.current = match.id;
+        handledGoal.current[match.id] = typeof token === 'number' ? token : 0;
+        return;
+      }
+      if (match.status !== 'live' || !goal || typeof token !== 'number' || handledGoal.current[match.id] === token) {
+        return;
+      }
+      handledGoal.current[match.id] = token;
+      const homeGoals = goal.home ?? 0;
+      const awayGoals = goal.away ?? 0;
+      if (homeGoals <= 0 && awayGoals <= 0) {
+        return;
+      }
+      const team = homeGoals >= awayGoals ? 'home' : 'away';
+      setCelebration({
+        matchId: match.id,
+        team,
+        count: team === 'home' ? homeGoals : awayGoals,
+        token,
+        minute: goalMinuteLabel(match, Date.now()),
+        phase: 'goal',
+      });
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [goal, match]);
+
+  // GOAL!!! for 3.5 s, then team name and minute for 3.5 s, then back to normal.
+  useEffect(() => {
+    if (!celebrationKey) {
+      return;
+    }
+    const toScorer = setTimeout(
+      () => setCelebration((current) => (current ? { ...current, phase: 'scorer' } : current)),
+      5000,
+    );
+    const done = setTimeout(() => setCelebration(null), 10000);
+    return () => {
+      clearTimeout(toScorer);
+      clearTimeout(done);
+    };
+  }, [celebrationKey]);
   if (!football.pinned || !match || !layoutReady) {
     return null;
   }
@@ -122,7 +159,7 @@ export function FootballScorePin() {
       <Animated.View
         {...panResponder.panHandlers}
         pointerEvents="auto"
-        style={[styles.pin, { width: PIN_SIZE.width, height: PIN_SIZE.height, transform: [{ translateX: pinTransform.x }, { translateY: pinTransform.y }] }]}
+        style={[styles.pin, { width: PIN_SIZE.width, height: PIN_SIZE.height, transform: position.getTranslateTransform() }]}
       >
         <View style={styles.topLine}>
           <Pressable accessibilityRole="button" accessibilityLabel="Close pinned score" hitSlop={7} onPress={football.unpinMatch} style={styles.close}>
@@ -167,8 +204,6 @@ export function FootballScorePin() {
                 </View>
                 <Text style={styles.goalText}>GOAL!!!</Text>
               </View>
-            ) : celebrating.phase === 'result' ? (
-              <Text style={styles.goalText}>FULL TIME</Text>
             ) : (
               <>
                 <Text style={styles.scorerTeam} numberOfLines={2}>{scoringTeam.name}</Text>
