@@ -34,6 +34,7 @@ import {
   reportReel,
   setReelInterest,
   toggleReelRelation,
+  addToPlaylist,
   updateReel,
 } from '../services/ReelsRepository';
 import { theme } from '../theme';
@@ -208,6 +209,13 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
         setCurrentItem((value) => ({ ...value, isSaved: next }));
       });
 
+  const addPlaylist = () => isLegacy
+    ? Alert.alert('Playlist', 'Coming soon')
+    : void runAction(async () => {
+        await addToPlaylist(item.id);
+        Alert.alert('Playlist', 'Added to your playlist.');
+      });
+
   const toggleFollow = () => isLegacy
     ? Alert.alert('Follow creator', 'Coming soon')
     : void runAction(async () => {
@@ -308,6 +316,9 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Save Reel" onPress={toggleSave} style={styles.action}>
           <Ionicons name={currentItem.isSaved ? 'bookmark' : 'bookmark-outline'} size={25} color="#FFFFFF" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Add to playlist" onPress={addPlaylist} style={styles.action}>
+          <Ionicons name="list" size={26} color="#FFFFFF" />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="More Reel options" onPress={openMore} style={styles.action}>
           <Ionicons name="ellipsis-horizontal" size={27} color="#FFFFFF" />
