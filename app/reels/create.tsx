@@ -12,7 +12,7 @@ import { REEL_FILTERS } from '../../src/components/ReelEditsOverlay';
 import { MAX_REEL_DURATION_SECONDS, MAX_REEL_FILE_SIZE_BYTES } from '../../src/config/reels';
 import { useAuth } from '../../src/state/AuthContext';
 import { theme } from '../../src/theme';
-import { playlistOnUpload, uploadReel } from '../../src/services/ReelsRepository';
+import { playlistOnUpload, searchUsers, uploadReel } from '../../src/services/ReelsRepository';
 import type { ReelEdits, ReelVisibility } from '../../src/models/reel';
 import { backOrReplace } from '../../src/utils/navigation';
 
@@ -104,6 +104,28 @@ export default function CreateReelScreen() {
   const [tags, setTags] = useState('');
   const [aiLabel] = useState(false);
   const [addToList, setAddToList] = useState(false);
+  const [tagMatches, setTagMatches] = useState<Awaited<ReturnType<typeof searchUsers>>>([]);
+  React.useEffect(() => {
+    const token = tags.split(/\s+/).pop() ?? '';
+    const q = token.replace(/^@/, '').replace(/[^\p{L}\p{N}_]/gu, '');
+    if (!q) {
+      setTagMatches([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      searchUsers(q)
+        .then((rows) => { if (!cancelled) setTagMatches(rows); })
+        .catch(() => { if (!cancelled) setTagMatches([]); });
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [tags]);
+  const pickTag = (username: string) => {
+    const parts = tags.split(/\s+/).filter(Boolean);
+    parts.pop();
+    setTags(`${parts.length ? `${parts.join(' ')} ` : ''}@${username} `);
+    setTagMatches([]);
+  };
   React.useEffect(() => {
     playlistOnUpload.enabled = addToList;
     return () => { playlistOnUpload.enabled = false; };
@@ -394,6 +416,23 @@ export default function CreateReelScreen() {
             <>
               <Text style={styles.sheetTitle}>Tag people</Text>
               <TextInput value={tags} onChangeText={setTags} placeholder="@username @another" placeholderTextColor="#9AA3AF" style={styles.sheetInput} maxLength={80} autoCapitalize="none" autoFocus />
+              {tagMatches.length ? (
+                <View style={{ maxHeight: 220 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled">
+                    {tagMatches.map((user) => (
+                      <Pressable key={user.id} accessibilityRole="button" onPress={() => pickTag(user.username)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}>
+                        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#2A2F38', alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{(user.display_name || user.username).charAt(0).toUpperCase()}</Text>
+                        </View>
+                        <View>
+                          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>{user.display_name}</Text>
+                          <Text style={{ color: '#9AA3AF' }}>@{user.username}</Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
               <Pressable accessibilityRole="button" onPress={() => setSheet(null)} style={styles.sheetButton}><Text style={styles.sheetButtonText}>Done</Text></Pressable>
             </>
           ) : null}

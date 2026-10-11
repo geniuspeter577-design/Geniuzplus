@@ -509,3 +509,14 @@ export async function loadPlaylistReels(): Promise<ReelFeedItem[]> {
 }
 
 export const playlistOnUpload = { enabled: false };
+
+
+export async function searchUsers(term: string) {
+  const q = term.replace(/^@/, '').replace(/[^\p{L}\p{N}_]/gu, '').slice(0, 24);
+  if (!q) {
+    return [];
+  }
+  return request<{ id: string; display_name: string; username: string; avatar_url?: string | null }[]>(
+    `/rest/v1/reel_creator_profiles?select=id,display_name,username,avatar_url&or=(username.ilike.${encodeURIComponent(q)}*,display_name.ilike.*${encodeURIComponent(q)}*)&order=username.asc&limit=8`,
+  );
+}
