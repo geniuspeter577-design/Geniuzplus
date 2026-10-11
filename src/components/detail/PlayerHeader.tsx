@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import * as Brightness from 'expo-brightness';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -14,6 +15,7 @@ import {
   type GestureResponderEvent,
   type LayoutChangeEvent,
   type ViewStyle,
+  Linking,
 } from 'react-native';
 
 import { theme } from '../../theme';
@@ -492,7 +494,7 @@ export function PlayerHeader({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Open TV"
-                onPress={() => setToastMessage('Coming soon')}
+                onPress={() => setToastMessage('TV casting is not available yet')}
                 style={isLandscape ? styles.iconLabelButton : styles.iconButton}
               >
                 {isLandscape ? (
@@ -507,7 +509,7 @@ export function PlayerHeader({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Open help"
-                onPress={() => setToastMessage('Coming soon')}
+                onPress={() => { void Linking.openURL('mailto:geniuzplus@gmail.com?subject=Geniuz%2B%20help').catch(() => setToastMessage('Could not open email')); }}
                 style={isLandscape ? styles.iconLabelButton : styles.iconButton}
               >
                 {isLandscape ? (
@@ -523,7 +525,7 @@ export function PlayerHeader({
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Open settings"
-                  onPress={() => setToastMessage('Coming soon')}
+                  onPress={() => router.push('/settings')}
                   style={styles.iconLabelButton}
                 >
                   <Ionicons name="settings-outline" size={22} color={theme.text} />
@@ -741,7 +743,7 @@ export function PlayerHeader({
                       </View>
                       <Text style={styles.portraitTimeText}>{`${formatPlaybackTime(currentTime)}/${duration > 0 ? formatPlaybackTime(duration) : '--:--'}`}</Text>
                     </View>
-                    <Pressable accessibilityRole="button" accessibilityLabel="Mini player coming soon" onPress={() => setToastMessage('Coming soon')} style={styles.portraitMiniButton}>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Mini player coming soon" onPress={() => setToastMessage('Mini player is not available yet')} style={styles.portraitMiniButton}>
                       <Ionicons name="play-circle-outline" size={16} color={theme.text} />
                     </Pressable>
                     <Pressable accessibilityRole="button" accessibilityLabel="Enter full screen" onPress={onToggleRotate} style={styles.fullscreenButton}>

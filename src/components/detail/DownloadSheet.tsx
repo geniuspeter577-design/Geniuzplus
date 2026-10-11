@@ -143,7 +143,7 @@ export function DownloadSheet({
                         style={[styles.qualityChip, styles.disabledButton]}
                       >
                         <Ionicons name="ribbon" size={13} color={theme.gold} />
-                        <Text style={styles.qualityText}>{quality} · Coming soon</Text>
+                        <Text style={styles.qualityText}>{quality} · Not available yet</Text>
                       </Pressable>
                     ))
                   ) : null}
@@ -178,7 +178,7 @@ export function DownloadSheet({
                   style={[styles.vipButton, styles.disabledButton]}
                 >
                   <Ionicons name="ribbon" size={17} color={theme.gold} />
-                  <Text style={styles.vipText}>VIP features · Coming soon</Text>
+                  <Text style={styles.vipText}>VIP features · Not available yet</Text>
                 </Pressable>
               ) : null}
             </ScrollView>

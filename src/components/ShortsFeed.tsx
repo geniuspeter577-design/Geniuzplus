@@ -11,6 +11,7 @@ import {
   Image,
   Modal,
   Animated,
+  KeyboardAvoidingView,
   Pressable,
   Share,
   StyleSheet,
@@ -269,13 +270,13 @@ function ShortVideo({ item, height, isActive, onHide }: {
       </View>
       <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress}%` }]} /></View>
       <Modal visible={commentOpen || editingCaption} transparent animationType="slide" onRequestClose={() => { setCommentOpen(false); setEditingCaption(false); }}>
-        <View style={styles.modalShade}>
+        <KeyboardAvoidingView behavior="padding" style={styles.modalShade}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeading}><Text style={styles.modalTitle}>{editingCaption ? 'Edit caption' : 'Comments'}</Text><Pressable onPress={() => { setCommentOpen(false); setEditingCaption(false); }}><Ionicons name="close" size={22} color={theme.text} /></Pressable></View>
             {editingCaption ? <TextInput multiline value={captionDraft} onChangeText={setCaptionDraft} style={styles.commentInput} placeholder="Write a caption" placeholderTextColor={theme.secondaryText} /> : <FlatList data={comments} keyExtractor={(entry) => entry.id} renderItem={({ item: entry }) => <Text style={styles.commentLine}><Text style={styles.commentAuthor}>{entry.displayName} </Text>{entry.body}</Text>} ListEmptyComponent={<Text style={styles.modalEmpty}>No comments yet.</Text>} style={styles.commentList} />}
             <View style={styles.commentComposer}><TextInput value={editingCaption ? captionDraft : commentText} onChangeText={editingCaption ? setCaptionDraft : setCommentText} style={styles.commentInput} placeholder={editingCaption ? 'Write a caption' : 'Add a comment'} placeholderTextColor={theme.secondaryText} /><Pressable disabled={busy || (!editingCaption && !commentText.trim())} onPress={() => editingCaption ? void runAction(async () => { await updateReel(item.id, { caption: captionDraft.trim() }); setCurrentItem((value) => ({ ...value, caption: captionDraft.trim() })); setEditingCaption(false); }) : submitComment()}><Text style={styles.postComment}>{editingCaption ? 'Save' : 'Post'}</Text></Pressable></View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
