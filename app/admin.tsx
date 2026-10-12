@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { File as ExpoFile } from 'expo-file-system';
+import { readFilePartBytes } from '../src/utils/readFilePart';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
@@ -882,7 +883,7 @@ export default function AdminScreen() {
           file: {
             size: selectedTrailer.size,
             readPart: (start, end, contentType) =>
-              readFilePart(selectedTrailer.file, start, end, contentType),
+              readFilePartBytes(selectedTrailer.file, start, end, contentType),
           },
           fileName: selectedTrailer.name,
           contentType: selectedTrailer.contentType,
@@ -900,7 +901,7 @@ export default function AdminScreen() {
         file: {
           size: selectedFile.size,
           readPart: (start, end, contentType) =>
-            readFilePart(selectedFile.file, start, end, contentType),
+            readFilePartBytes(selectedFile.file, start, end, contentType),
         },
         fileName: selectedFile.name,
         contentType: selectedFile.contentType,
@@ -1170,7 +1171,7 @@ export default function AdminScreen() {
           file: {
             size: seriesTrailer.size,
             readPart: (start, end, contentType) =>
-              readFilePart(seriesTrailer.file, start, end, contentType),
+              readFilePartBytes(seriesTrailer.file, start, end, contentType),
           },
           fileName: seriesTrailer.name,
           contentType: seriesTrailer.contentType,
@@ -1333,7 +1334,7 @@ export default function AdminScreen() {
         file: {
           size: episodeFile.size,
           readPart: (start, end, contentType) =>
-            readFilePart(episodeFile.file, start, end, contentType),
+            readFilePartBytes(episodeFile.file, start, end, contentType),
         },
         fileName: episodeFile.name,
         contentType: episodeFile.contentType,
@@ -1555,7 +1556,7 @@ export default function AdminScreen() {
           file: {
             size: editTrailerFile.size,
             readPart: (start, end, contentType) =>
-              readFilePart(editTrailerFile.file, start, end, contentType),
+              readFilePartBytes(editTrailerFile.file, start, end, contentType),
           },
           fileName: editTrailerFile.name,
           contentType: editTrailerFile.contentType,

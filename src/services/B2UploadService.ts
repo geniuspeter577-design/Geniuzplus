@@ -2,7 +2,7 @@ import { logger } from '../utils/logger';
 
 type UploadFile = {
   size: number;
-  readPart: (start: number, end: number, contentType: string) => Promise<Blob>;
+  readPart: (start: number, end: number, contentType: string) => Promise<Blob | Uint8Array>;
 };
 
 type UploadOptions = {
@@ -175,7 +175,7 @@ function waitBeforeRetry(milliseconds: number, signal: AbortSignal) {
 
 async function uploadPart(
   partUrl: PartUrl,
-  filePart: Blob,
+  filePart: Blob | Uint8Array,
   contentType: string,
   signal: AbortSignal,
 ) {
@@ -188,7 +188,7 @@ async function uploadPart(
       const response = await fetch(partUrl.url, {
         method: 'PUT',
         headers: { 'Content-Type': contentType },
-        body: filePart,
+        body: filePart as unknown as BodyInit,
         signal,
       });
       if (!response.ok) {
