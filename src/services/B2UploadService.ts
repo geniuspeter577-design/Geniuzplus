@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { logger } from '../utils/logger';
 
 type UploadFile = {
@@ -272,12 +273,22 @@ export async function uploadVideoToB2({
         throw new Error('The upload service returned an incomplete list of part URLs.');
       }
 
-      const uploadedParts: { partNumber: number; etag: string }[] = [];
-      for (const partUrl of signedParts) {
+      const sendOne = async (partUrl: PartUrl) => {
         const start = (partUrl.partNumber - 1) * multipart!.partSize;
         const end = Math.min(start + multipart!.partSize, file.size);
         const filePart = await file.readPart(start, end, contentType);
-        uploadedParts.push(await uploadPart(partUrl, filePart, contentType, signal));
+        return uploadPart(partUrl, filePart, contentType, signal);
+      };
+
+      const uploadedParts: { partNumber: number; etag: string }[] = [];
+      if (Platform.OS === 'web') {
+        // Laptop: send the 3 pieces at the same time
+        uploadedParts.push(...(await Promise.all(signedParts.map(sendOne))));
+      } else {
+        // Phone: one piece at a time, gentle and safe
+        for (const partUrl of signedParts) {
+          uploadedParts.push(await sendOne(partUrl));
+        }
       }
       parts.push(...uploadedParts);
       onProgress(Math.min(95, Math.floor((parts.length / partCount) * 95)));

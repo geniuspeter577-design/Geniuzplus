@@ -131,6 +131,7 @@ export default function LibraryScreen() {
           <ContentNotice message="Demo catalog — saved sample titles are shown." />
         ) : null}
 
+        <SectionHeader title="My Playlist" onSeeAll={() => router.push('/playlist' as never)} />
         <SectionHeader title="My watchlist" />
         <View style={styles.grid}>
           {visibleWatchlist.map((item) => (
