@@ -16,6 +16,7 @@ type ReelRow = {
   allow_comments: boolean;
   created_at: string;
   edits: ReelEdits | null;
+  boosted_until?: string | null;
 };
 
 type CreatorRow = {
@@ -101,7 +102,18 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   const hiddenIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_HIDDEN_KEY) ?? '[]') as string[]);
   const interestedIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_INTEREST_KEY) ?? '[]') as string[]);
   const creatorFilter = creatorId ? `&user_id=eq.${creatorId}` : '';
-  const reels = await request<ReelRow[]>(`/rest/v1/reels?select=id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at,edits&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
+  const reelColumns = 'id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at,edits,boosted_until';
+  const recentReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
+  let boostedReels: ReelRow[] = [];
+  if (!creatorId) {
+    try {
+      const nowIso = new Date().toISOString();
+      boostedReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&visibility=eq.public&boosted_until=gt.${encodeURIComponent(nowIso)}&order=boosted_until.desc&limit=5`);
+    } catch {
+      boostedReels = [];
+    }
+  }
+  const reels = [...recentReels, ...boostedReels.filter((boosted) => !recentReels.some((recent) => recent.id === boosted.id))];
   const userIds = [...new Set(reels.map((item) => item.user_id))];
   const reelIds = reels.map((item) => item.id);
   const [creators, likes, comments, saves, follows] = await Promise.all([
@@ -159,6 +171,7 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
       isFollowing: follows.some((entry) => entry.creator_id === reel.user_id),
       allowComments: reel.allow_comments,
       isOwner: userId === reel.user_id,
+      ...(reel.boosted_until && new Date(reel.boosted_until).getTime() > Date.now() ? { isBoosted: true as boolean } : {}),
       ...(reel.edits ? { edits: reel.edits } : {}),
       ...(audioUrl ? { audioUrl } : {}),
     } satisfies ReelFeedItem;
@@ -182,10 +195,36 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
     allowComments: false,
     isOwner: false,
   })));
-  return [...userItems, ...legacyItems].sort((a, b) =>
+  const ordered = [...userItems, ...legacyItems].sort((a, b) =>
     Number(interestedIds.has(b.id)) - Number(interestedIds.has(a.id)) ||
     b.createdAt.localeCompare(a.createdAt),
   );
+  if (creatorId) {
+    return ordered;
+  }
+  // Boosted reels take about one in every three spots.
+  const boostedItems = ordered.filter((entry) => entry.isBoosted);
+  const normalItems = ordered.filter((entry) => !entry.isBoosted);
+  const mixed: ReelFeedItem[] = [];
+  let boostIndex = 0;
+  normalItems.forEach((entry, index) => {
+    if (index > 0 && index % 2 === 0) {
+      const nextBoosted = boostedItems[boostIndex];
+      if (nextBoosted) {
+        mixed.push(nextBoosted);
+        boostIndex += 1;
+      }
+    }
+    mixed.push(entry);
+  });
+  while (boostIndex < boostedItems.length) {
+    const rest = boostedItems[boostIndex];
+    if (rest) {
+      mixed.push(rest);
+    }
+    boostIndex += 1;
+  }
+  return mixed;
 }
 
 async function supabaseMoviePlayback(item: ContentItem) {

@@ -369,6 +369,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
                 <View style={{ opacity: currentItem.isMember ? 1 : 0.35 }}><VerifiedBadge /></View>
               </View>
               <Text style={styles.creatorHandle} numberOfLines={1}>@{currentItem.creatorUsername}</Text>
+              {currentItem.isBoosted ? <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '700' }}>Boosted</Text> : null}
             </View>
           </Pressable>
           {!currentItem.isFollowing && !currentItem.isOwner ? <Pressable accessibilityRole="button" onPress={toggleFollow} style={styles.followButton}><Text style={styles.followText}>Follow</Text></Pressable> : null}

@@ -16,6 +16,7 @@ export type ReelFeedItem = {
   isFollowing: boolean;
   allowComments: boolean;
   isOwner: boolean;
+  isBoosted?: boolean;
   edits?: ReelEdits;
   audioUrl?: string;
 };
