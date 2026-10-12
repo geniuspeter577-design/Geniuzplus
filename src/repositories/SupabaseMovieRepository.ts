@@ -255,6 +255,18 @@ export class SupabaseMovieRepository {
     const extension = contentType === 'image/png' ? 'png' : 'jpg';
     const path = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}.${extension}`;
     const publicUrl = () => this.client.storage.from(TITLE_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+    if (typeof document !== 'undefined') {
+      const blob = await (await fetch(imageUri)).blob();
+      const { error: webError } = await this.client.storage.from(TITLE_IMAGE_BUCKET).upload(path, blob, {
+        contentType,
+        cacheControl: '31536000',
+        upsert: false,
+      });
+      if (webError) {
+        throw new Error(`Could not save the title image: ${webError.message}`);
+      }
+      return publicUrl();
+    }
     const form = new FormData();
     form.append('file', { uri: imageUri, name: path, type: contentType } as unknown as Blob);
     const { error } = await this.client.storage.from(TITLE_IMAGE_BUCKET).upload(path, form, {
