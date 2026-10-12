@@ -273,6 +273,14 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
+          {auth.isAdmin ? (
+            <MeRow
+              icon="shield-checkmark-outline"
+              title="Admin"
+              subtitle="Manage titles, uploads and content"
+              onPress={() => router.push('/admin')}
+            />
+          ) : null}
           <MeRow
             icon="chatbubble-ellipses-outline"
             title="Messages"

@@ -1,3 +1,4 @@
+import { NotificationBell } from '../../src/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -339,7 +340,7 @@ export default function HomeScreen() {
               style={styles.iconButton}
               onPress={() => router.push('/notifications')}
             >
-              <Ionicons name="notifications-outline" size={22} color={theme.text} />
+              <NotificationBell />
               {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
             </Pressable>
           </View>
@@ -392,7 +393,7 @@ export default function HomeScreen() {
             style={styles.iconButton}
             onPress={() => router.push('/notifications')}
           >
-            <Ionicons name="notifications-outline" size={22} color={theme.text} />
+            <NotificationBell />
             {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
           </Pressable>
         </View>

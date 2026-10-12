@@ -13,14 +13,11 @@ import { useContentQuery } from '../src/hooks/useContentQuery';
 import { loadReelsFeed } from '../src/services/ReelsRepository';
 
 function goHome() {
-  try {
-    if (router.canDismiss()) {
-      router.dismissAll();
-    }
-  } catch {
-    // nothing to close
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.replace('/');
   }
-  router.replace('/');
 }
 
 export default function ShortsScreen() {

@@ -862,13 +862,13 @@ export default function AdminScreen() {
       }
       accessTokenForCleanup = accessToken;
       const storedPosterUrl = posterImage
-        ? await repository.uploadTitleImage(posterImage.blob, 'image/jpeg')
+        ? await repository.uploadTitleImage(posterImage.uri, 'image/jpeg')
         : posterUrl.trim() || undefined;
       if (posterImage && storedPosterUrl) {
         uploadedImages.push(storedPosterUrl);
       }
       const storedCoverUrl = coverImage
-        ? await repository.uploadTitleImage(coverImage.blob, 'image/jpeg')
+        ? await repository.uploadTitleImage(coverImage.uri, 'image/jpeg')
         : undefined;
       if (coverImage && storedCoverUrl) {
         uploadedImages.push(storedCoverUrl);
@@ -1140,13 +1140,13 @@ export default function AdminScreen() {
     uploadAbortController.current = trailerAbortController;
     try {
       const storedPosterUrl = seriesPosterImage
-        ? await repository.uploadTitleImage(seriesPosterImage.blob, 'image/jpeg')
+        ? await repository.uploadTitleImage(seriesPosterImage.uri, 'image/jpeg')
         : seriesPosterUrl.trim() || undefined;
       if (seriesPosterImage && storedPosterUrl) {
         uploadedImages.push(storedPosterUrl);
       }
       const storedCoverUrl = seriesCoverImage
-        ? await repository.uploadTitleImage(seriesCoverImage.blob, 'image/jpeg')
+        ? await repository.uploadTitleImage(seriesCoverImage.uri, 'image/jpeg')
         : undefined;
       if (seriesCoverImage && storedCoverUrl) {
         uploadedImages.push(storedCoverUrl);
@@ -1527,10 +1527,10 @@ export default function AdminScreen() {
     uploadAbortController.current = controller;
     try {
       if (editPosterImage) {
-        uploadedPosterUrl = await repository.uploadTitleImage(editPosterImage.blob, 'image/jpeg');
+        uploadedPosterUrl = await repository.uploadTitleImage(editPosterImage.uri, 'image/jpeg');
       }
       if (editCoverImage) {
-        uploadedCoverUrl = await repository.uploadTitleImage(editCoverImage.blob, 'image/jpeg');
+        uploadedCoverUrl = await repository.uploadTitleImage(editCoverImage.uri, 'image/jpeg');
       }
       let trailerStorageKey = editTrailerRemoved ? undefined : editingMovie.trailerStorageKey;
       let trailerSizeBytes = editTrailerRemoved ? undefined : editingMovie.trailerSizeBytes;

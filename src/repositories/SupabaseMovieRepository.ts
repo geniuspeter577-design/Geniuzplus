@@ -1,3 +1,4 @@
+import { File as ExpoUploadFile } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Upload } from 'tus-js-client';
@@ -250,20 +251,48 @@ export class SupabaseMovieRepository {
     private readonly publishableKey: string,
   ) {}
 
-  async uploadTitleImage(blob: Blob, contentType: string) {
+  async uploadTitleImage(imageUri: string, contentType: string) {
     const extension = contentType === 'image/png' ? 'png' : 'jpg';
     const path = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}.${extension}`;
-    const { error } = await this.client.storage.from(TITLE_IMAGE_BUCKET).upload(path, blob, {
-      contentType,
+    const publicUrl = () => this.client.storage.from(TITLE_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+    const form = new FormData();
+    form.append('file', { uri: imageUri, name: path, type: contentType } as unknown as Blob);
+    const { error } = await this.client.storage.from(TITLE_IMAGE_BUCKET).upload(path, form, {
       cacheControl: '31536000',
       upsert: false,
     });
-    if (error) {
-      throw new Error('Could not save the title image. Check the title-images bucket and try again.', {
-        cause: error,
-      });
+    if (!error) {
+      return publicUrl();
     }
-    return this.client.storage.from(TITLE_IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+    let backupFailure = '';
+    try {
+      const { data: sessionData } = await this.client.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        throw new Error('Sign in again to save the title image.');
+      }
+      const result = await new ExpoUploadFile(imageUri).upload(
+        `${this.projectUrl.replace(/\/+$/, '')}/storage/v1/object/${TITLE_IMAGE_BUCKET}/${path}`,
+        {
+          httpMethod: 'POST',
+          headers: {
+            apikey: this.publishableKey,
+            Authorization: `Bearer ${token}`,
+            'Content-Type': contentType,
+            'x-upsert': 'false',
+            'cache-control': 'max-age=31536000',
+          },
+          mimeType: contentType,
+        },
+      );
+      if (result.status >= 200 && result.status < 300) {
+        return publicUrl();
+      }
+      backupFailure = String(result.body || result.status);
+    } catch (backupError) {
+      backupFailure = backupError instanceof Error ? backupError.message : String(backupError);
+    }
+    throw new Error(`Could not save the title image: ${error.message} | backup: ${backupFailure}`, { cause: error });
   }
 
     async uploadSubtitleTrack(input: {

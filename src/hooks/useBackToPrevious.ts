@@ -16,12 +16,8 @@ export function useBackToPrevious() {
         const atHome = HOME_PATHS.includes(pathname);
         if (!atHome) {
           if (pathname === '/shorts') {
-            try {
-              if (router.canDismiss()) router.dismissAll();
-            } catch {
-              // nothing to close
-            }
-            router.replace('/');
+            if (router.canGoBack()) router.back();
+            else router.replace('/');
             return true;
           }
           if (router.canGoBack()) router.back();
