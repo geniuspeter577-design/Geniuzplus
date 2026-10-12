@@ -272,15 +272,13 @@ export async function uploadVideoToB2({
         throw new Error('The upload service returned an incomplete list of part URLs.');
       }
 
-      const uploadedParts = await Promise.all(
-        signedParts.map((partUrl) => {
-          const start = (partUrl.partNumber - 1) * multipart!.partSize;
-          const end = Math.min(start + multipart!.partSize, file.size);
-          return file
-            .readPart(start, end, contentType)
-            .then((filePart) => uploadPart(partUrl, filePart, contentType, signal));
-        }),
-      );
+      const uploadedParts: { partNumber: number; etag: string }[] = [];
+      for (const partUrl of signedParts) {
+        const start = (partUrl.partNumber - 1) * multipart!.partSize;
+        const end = Math.min(start + multipart!.partSize, file.size);
+        const filePart = await file.readPart(start, end, contentType);
+        uploadedParts.push(await uploadPart(partUrl, filePart, contentType, signal));
+      }
       parts.push(...uploadedParts);
       onProgress(Math.min(95, Math.floor((parts.length / partCount) * 95)));
     }
