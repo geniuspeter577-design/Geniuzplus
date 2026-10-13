@@ -18,7 +18,7 @@ export async function listAdminUsers(config: Config, search: string, membersOnly
   for (let current = 1; current <= 5; current += 1) {
     const { data, error } = await admin.auth.admin.listUsers({ page: current, perPage: 200 });
     if (error) {
-      throw new HttpError(502, 'USER_LIST_FAILED', 'Could not load users.');
+      throw new HttpError(502, 'USER_LIST_FAILED', 'Could not load users: ' + error.message);
     }
     authUsers.push(...data.users);
     if (data.users.length < 200) break;
@@ -27,13 +27,13 @@ export async function listAdminUsers(config: Config, search: string, membersOnly
   const ids = authUsers.map((user) => user.id);
   const profiles = new Map<string, ProfileRow>();
   const memberships = new Map<string, MembershipRow>();
-  for (let start = 0; start < ids.length; start += 200) {
-    const chunk = ids.slice(start, start + 200);
+  for (let start = 0; start < ids.length; start += 50) {
+    const chunk = ids.slice(start, start + 50);
     const [profileResult, membershipResult] = await Promise.all([
       admin.from('profiles').select('id,display_name,public_id').in('id', chunk),
       admin.from('memberships').select('user_id,status,current_period_end,grace_until').in('user_id', chunk),
     ]);
-    if (profileResult.error) throw new HttpError(502, 'PROFILE_LOOKUP_FAILED', 'Could not load user names.');
+    if (profileResult.error) throw new HttpError(502, 'PROFILE_LOOKUP_FAILED', 'Could not load user names: ' + profileResult.error.message);
     for (const row of (profileResult.data ?? []) as ProfileRow[]) profiles.set(row.id, row);
     for (const row of (membershipResult.data ?? []) as MembershipRow[]) memberships.set(row.user_id, row);
   }
