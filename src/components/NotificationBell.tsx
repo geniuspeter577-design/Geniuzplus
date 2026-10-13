@@ -35,10 +35,6 @@ export function NotificationBell() {
   );
 
   useEffect(() => {
-    if (count <= 0) {
-      swing.setValue(0);
-      return undefined;
-    }
     const swings = Array.from({ length: 18 }, (_, i) => (i % 2 === 0 ? 1 : -1)).map((toValue) =>
       Animated.timing(swing, { toValue, duration: SWING_MS, useNativeDriver: true }),
     );
