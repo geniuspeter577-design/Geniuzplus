@@ -33,6 +33,7 @@ export function UsersPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [deletingId, setDeletingId] = useState<string | undefined>();
+  const [busyId, setBusyId] = useState<string | undefined>();
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -96,6 +97,49 @@ export function UsersPanel() {
     }
   };
 
+  const sendBadge = async (user: AdminUser, action: 'grant' | 'remove', days: number) => {
+    if (!supabase) return;
+    setBusyId(user.id);
+    setError(undefined);
+    try {
+      const { data: s, error: se } = await supabase.auth.getSession();
+      if (se || !s.session?.access_token) throw new Error('Admin sign-in is required.');
+      const base = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
+      if (!base) throw new Error('The backend URL is not configured.');
+      const response = await fetch(`${base}/admin/users/badge`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${s.session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, action, days, confirmPaid: true }),
+      });
+      if (!response.ok) {
+        throw new Error(response.status === 409
+          ? 'Nothing changed: the badge state was different from what the list showed.'
+          : 'The badge could not be changed.');
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The badge could not be changed.');
+    } finally {
+      setBusyId(undefined);
+    }
+  };
+
+  const askBadge = (user: AdminUser) => {
+    const who = user.email ?? user.displayName ?? user.id;
+    if (user.hasBadge) {
+      Alert.alert('Remove badge?', `${who}\n\nThey lose Member access right now. If they paid for it, no money is refunded.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => void sendBadge(user, 'remove', 0) },
+      ]);
+      return;
+    }
+    Alert.alert('Give Member badge', `${who}\n\nHow long should it last? (Tap outside to cancel.)`, [
+      { text: '30 days', onPress: () => void sendBadge(user, 'grant', 30) },
+      { text: '90 days', onPress: () => void sendBadge(user, 'grant', 90) },
+      { text: '1 year', onPress: () => void sendBadge(user, 'grant', 365) },
+    ], { cancelable: true });
+  };
+
   const confirmDelete = (user: AdminUser) => {
     const who = user.email ?? user.displayName ?? user.id;
     const extra = user.hasBadge ? '\n\nThis person has an ACTIVE membership.' : '';
@@ -140,6 +184,13 @@ export function UsersPanel() {
           <Text style={{ color: user.hasBadge ? COLORS.gold : COLORS.muted }}>
             {user.hasBadge ? `Member${user.membershipEnds ? ` until ${formatDate(user.membershipEnds)}` : ''}` : 'No badge'}
           </Text>
+          <Pressable
+            disabled={busyId === user.id}
+            onPress={() => askBadge(user)}
+            style={{ alignSelf: 'flex-start', marginTop: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.gold }}
+          >
+            <Text style={{ color: COLORS.gold, fontWeight: '600' }}>{busyId === user.id ? 'Working…' : user.hasBadge ? 'Remove badge' : 'Give badge'}</Text>
+          </Pressable>
           <Pressable
             disabled={deletingId === user.id}
             onPress={() => confirmDelete(user)}

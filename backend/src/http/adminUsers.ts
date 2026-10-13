@@ -55,7 +55,7 @@ export async function listAdminUsers(config: Config, search: string, membersOnly
         lastSignInAt: user.last_sign_in_at ?? null,
         membershipStatus: status,
         membershipEnds: membership?.current_period_end ?? null,
-        hasBadge: status === 'active' || (status === 'grace' && graceLeft),
+        hasBadge: (status === 'active' || status === 'grace') && graceLeft,
       };
     })
     .filter((user) => (membersOnly ? user.hasBadge : true))
@@ -100,4 +100,48 @@ export async function deleteAdminUser(config: Config, actingUserId: string, targ
     throw new HttpError(502, 'DELETE_FAILED', 'The user could not be deleted.');
   }
   return { deleted: true };
+}
+
+export async function changeAdminBadge(config: Config, actingUserId: string, targetId: string, action: string, days: number, confirmPaid: boolean) {
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+    throw new HttpError(503, 'SERVICE_KEY_NOT_CONFIGURED', 'Badge changes are not configured on this server.');
+  }
+  if (!/^[0-9a-f-]{36}$/i.test(targetId)) {
+    throw new HttpError(400, 'INVALID_USER', 'A valid user id is required.');
+  }
+  if (action !== 'grant' && action !== 'remove') {
+    throw new HttpError(400, 'INVALID_ACTION', 'Action must be grant or remove.');
+  }
+  const admin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data: m } = await admin.from('memberships').select('status,grace_until,source').eq('user_id', targetId).maybeSingle();
+  const now = new Date();
+  const hasBadge = !!m && (m.status === 'active' || m.status === 'grace') && Date.parse(m.grace_until) > now.getTime();
+  const reference = 'admin-' + action + '-' + now.getTime();
+  if (action === 'grant') {
+    if (hasBadge) throw new HttpError(409, 'ALREADY_MEMBER', 'This user already has a badge.');
+    if (![30, 90, 365].includes(days)) throw new HttpError(400, 'INVALID_DAYS', 'Days must be 30, 90 or 365.');
+    const end = new Date(now.getTime() + days * 86400000).toISOString();
+    const { error } = await admin.from('memberships').upsert({
+      user_id: targetId, status: 'active', current_period_start: now.toISOString(),
+      current_period_end: end, grace_until: end, source: 'admin', updated_at: now.toISOString(),
+    });
+    if (error) throw new HttpError(502, 'GRANT_FAILED', 'The badge could not be given.');
+  } else {
+    if (!hasBadge) throw new HttpError(409, 'NO_BADGE', 'This user has no badge to remove.');
+    if (m?.source !== 'admin' && !confirmPaid) {
+      throw new HttpError(409, 'PAID_BADGE', 'This badge was paid for. Confirm to remove it.');
+    }
+    const { error } = await admin.from('memberships').update({
+      status: 'expired', current_period_end: now.toISOString(), grace_until: now.toISOString(), updated_at: now.toISOString(),
+    }).eq('user_id', targetId);
+    if (error) throw new HttpError(502, 'REMOVE_FAILED', 'The badge could not be removed.');
+  }
+  const { error: auditError } = await admin.from('membership_audit_log').insert({
+    admin_user_id: actingUserId, user_id: targetId, action: 'admin_badge_' + action, reference,
+    details: { days: action === 'grant' ? days : null, previousSource: m?.source ?? null },
+  });
+  if (auditError) throw new HttpError(503, 'AUDIT_FAILED', 'The change was applied but its audit record failed.');
+  return { ok: true };
 }
