@@ -149,12 +149,13 @@ export class TMDBContentRepository implements ContentRepository {
 
   getUpcomingReleases() {
     return this.upcomingReleasesCache.getOrLoad('upcoming-releases:NG', async () => {
-      const [upcoming, nowPlaying] = await Promise.all([
-        this.provider.getUpcoming(1, 'NG'),
-        this.provider.getNowPlaying(1, 'NG'),
-      ]);
+      const pageNumbers = [1, 2, 3, 4, 5];
+      const responses = await Promise.all(pageNumbers.flatMap((page) => [
+        this.provider.getUpcoming(page, 'NG'),
+        this.provider.getNowPlaying(page, 'NG'),
+      ]));
       const unique = new Map<number, ContentItem>();
-      for (const record of [...(upcoming.results ?? []), ...(nowPlaying.results ?? [])]) {
+      for (const record of responses.flatMap((response) => response.results ?? [])) {
         if (typeof record.id !== 'number') continue;
         const item = toContentItem(record, 'movie');
         if (!item?.releaseDate) continue;

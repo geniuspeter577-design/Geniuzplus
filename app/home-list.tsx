@@ -43,9 +43,12 @@ function getPublishedFilter(kind: string | undefined, value: string | undefined)
 async function loadUpcomingList(): Promise<ContentItem[]> {
   const today = new Date().toISOString().slice(0, 10);
   const none: ContentItem[] = [];
-  const [own, releases, upcoming, nowPlaying] = await Promise.all([
+  const [own, published, releases, upcoming, nowPlaying] = await Promise.all([
     supabaseMovieRepository
       ? supabaseMovieRepository.getUpcomingMovies().catch(() => none)
+      : Promise.resolve(none),
+    supabaseMovieRepository
+      ? supabaseMovieRepository.getPublishedMovies().catch(() => none)
       : Promise.resolve(none),
     getUpcomingReleases().catch(() => none),
     getTmdbUpcoming().catch(() => none),
@@ -53,12 +56,14 @@ async function loadUpcomingList(): Promise<ContentItem[]> {
   ]);
   const normalize = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '');
   const ownSet = new Set(own);
-  const ownTitles = new Set(own.map((item) => normalize(item.title)));
+  const ownTitles = new Set([...own, ...published].map((item) => normalize(item.title)));
   const ownTmdbIds = new Set(
-    own.map((item) => item.tmdbId).filter((id): id is number => typeof id === 'number'),
+    [...own, ...published].map((item) => item.tmdbId).filter((id): id is number => typeof id === 'number'),
   );
   const seen = new Set<string>();
-  const merged = [...own, ...releases, ...upcoming, ...nowPlaying].filter((item) => {
+  const ownReleased = published.filter((item) => item.releaseDate && item.releaseDate <= today && !ownSet.has(item));
+  ownReleased.forEach((item) => ownSet.add(item));
+  const merged = [...own, ...ownReleased, ...releases, ...upcoming, ...nowPlaying].filter((item) => {
     if (seen.has(item.id)) return false;
     seen.add(item.id);
     if (ownSet.has(item)) return true;

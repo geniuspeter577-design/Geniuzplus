@@ -66,7 +66,7 @@ export function PosterCard({ item, onPress, compact = false, grid = false, fillC
           </Text>
           <Text style={styles.meta}>
             {showReleaseDate && item.releaseDate
-              ? `Coming ${new Date(`${item.releaseDate}T00:00:00Z`).toLocaleDateString()}`
+              ? `${item.releaseDate <= new Date().toISOString().slice(0, 10) ? 'Out' : 'Coming'} ${new Date(`${item.releaseDate}T00:00:00Z`).toLocaleDateString()}`
               : `${item.year ?? '—'} • ${formatRuntime(item)}`}
           </Text>
         </LinearGradient>
