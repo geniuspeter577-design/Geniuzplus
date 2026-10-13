@@ -470,18 +470,6 @@ export default function HomeScreen() {
           />
         ) : null}
         {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
-        {selectedCategory === 'Trending' ? (
-          <ContentRail
-            title="Upcoming"
-            items={upcomingQuery.data ?? EMPTY_CONTENT_ITEMS}
-            isLoading={upcomingQuery.isLoading}
-            error={upcomingQuery.error}
-            retry={upcomingQuery.retry}
-            emptyMessage="No upcoming movies have been announced."
-            showReleaseDate
-            onSeeAll={() => router.push({ pathname: '/home-list', params: { kind: 'upcoming', title: 'Upcoming' } })}
-          />
-        ) : null}
         {noTitles && selectedCategory !== 'Football' ? <Text style={styles.emptyText}>Nothing here yet</Text> : null}
         {!catalogQuery.isLoading && !catalogQuery.data?.hasFailures && selectedCategory !== 'Trending' && selectedCategory !== 'Football' && activeCategoryItems.length === 0 ? (
           <Text style={styles.emptyText}>Nothing here yet</Text>
@@ -516,6 +504,19 @@ export default function HomeScreen() {
 
         {selectedCategory !== 'Football' && !footballToday.isLoading && !footballToday.error && footballToday.matches.length === 0 ? (
           <Text style={{ color: theme.secondaryText, marginHorizontal: 16, marginVertical: 8 }}>No upcoming matches right now</Text>
+        ) : null}
+
+        {selectedCategory === 'Trending' ? (
+          <ContentRail
+            title="Upcoming"
+            items={upcomingQuery.data ?? EMPTY_CONTENT_ITEMS}
+            isLoading={upcomingQuery.isLoading}
+            error={upcomingQuery.error}
+            retry={upcomingQuery.retry}
+            emptyMessage="No upcoming movies have been announced."
+            showReleaseDate
+            onSeeAll={() => router.push({ pathname: '/home-list', params: { kind: 'upcoming', title: 'Upcoming' } })}
+          />
         ) : null}
 
         {selectedCategory !== 'Football' && publishedItems.length ? (
