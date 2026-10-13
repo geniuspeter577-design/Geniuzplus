@@ -1393,7 +1393,7 @@ async function handleRequest(
   }
 
   if (pathname === '/api/content/upcoming-releases') {
-    if (!config.tmdbApiKey || !config.tmdbCommercialUseAuthorized) {
+    if (!config.tmdbApiKey || !(config.tmdbCommercialUseAuthorized || process.env.TMDB_PERSONAL_USE === 'true')) {
       writeJson(response, 200, { items: [] });
       return;
     }
