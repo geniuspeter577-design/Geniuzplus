@@ -55,4 +55,18 @@ export async function getUpcomingReleases() {
   return geniuzApiRepository.getUpcomingReleases();
 }
 
+export async function getTmdbUpcoming() {
+  if (!geniuzApiRepository) {
+    throw new Error('Upcoming releases are not configured.');
+  }
+  return geniuzApiRepository.getUpcoming();
+}
+
+export async function getTmdbNowPlaying() {
+  if (!geniuzApiRepository) {
+    throw new Error('Now playing is not configured.');
+  }
+  return geniuzApiRepository.getNowPlaying();
+}
+
 export const contentService = createContentService();

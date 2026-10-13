@@ -1,4 +1,4 @@
-import { getUpcomingReleases } from '../../src/services/createContentService';
+import { getTmdbUpcoming, getUpcomingReleases } from '../../src/services/createContentService';
 import { NotificationBell } from '../../src/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
@@ -104,7 +104,10 @@ export default function HomeScreen() {
       supabaseMovieRepository
         ? supabaseMovieRepository.getUpcomingMovies()
         : Promise.reject(new Error('Supabase catalog is not configured.')),
-      getUpcomingReleases(),
+      Promise.all([
+        getUpcomingReleases().catch(() => []),
+        getTmdbUpcoming().catch(() => []),
+      ]).then(([releases, upcoming]) => [...releases, ...upcoming]),
     ]);
     if (ownResult.status === 'rejected' && tmdbResult.status === 'rejected') {
       throw ownResult.reason;
@@ -118,15 +121,21 @@ export default function HomeScreen() {
     const external = tmdbResult.status === 'fulfilled'
       ? tmdbResult.value.filter(
           (item) =>
-            !!item.releaseDate &&
-            item.releaseDate >= today &&
             !ownTitles.has(normalize(item.title)) &&
             (item.tmdbId === undefined || !ownTmdbIds.has(item.tmdbId)),
         )
       : [];
-    const merged = [...own, ...external].sort((a, b) =>
-      (a.releaseDate ?? '9999').localeCompare(b.releaseDate ?? '9999'),
+    const seenIds = new Set<string>();
+    const unique = [...own, ...external].filter(
+      (item) => !seenIds.has(item.id) && seenIds.add(item.id),
     );
+    const merged = unique.sort((a, b) => {
+      const aFuture = (a.releaseDate ?? '') >= today;
+      const bFuture = (b.releaseDate ?? '') >= today;
+      if (aFuture !== bFuture) return aFuture ? -1 : 1;
+      const order = (a.releaseDate ?? '').localeCompare(b.releaseDate ?? '');
+      return aFuture ? order : -order;
+    });
     return { data: merged, source: 'supabase' as const };
   }, []);
   const upcomingQuery = useContentQuery('home-upcoming-movies', loadUpcomingMovies, isOnline);
