@@ -68,7 +68,8 @@ async function loadUpcomingList(): Promise<ContentItem[]> {
     seen.add(item.id);
     if (ownSet.has(item)) return true;
     if (ownTitles.has(normalize(item.title))) return false;
-    if (item.tmdbId !== undefined && ownTmdbIds.has(item.tmdbId)) return false;
+    const itemTmdb = item.tmdbId ?? Number(/^tmdb:movie:(\d+)$/.exec(item.id)?.[1]);
+    if (item.type !== 'series' && Number.isFinite(itemTmdb) && ownTmdbIds.has(itemTmdb)) return false;
     return true;
   });
   return merged.sort((a, b) => {

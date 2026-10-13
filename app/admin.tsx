@@ -330,6 +330,39 @@ export default function AdminScreen() {
   const [description, setDescription] = useState('');
   const [year, setYear] = useState('');
   const [releaseDate, setReleaseDate] = useState('');
+  const [tmdbId, setTmdbId] = useState<number>();
+  const [tmdbMatches, setTmdbMatches] = useState<{ id: number; title: string; year: number | null; releaseDate: string | null }[]>([]);
+  useEffect(() => {
+    const query = title.trim();
+    if (tmdbId || contentKind !== 'movie' || query.length < 3) {
+      setTmdbMatches([]);
+      return undefined;
+    }
+    const apiBaseUrl = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
+    if (!apiBaseUrl) {
+      return undefined;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetch(`${apiBaseUrl}/api/content/search?q=${encodeURIComponent(query)}`, { signal: controller.signal })
+        .then((reply) => (reply.ok ? reply.json() : { items: [] }))
+        .then((data: { items?: { id: string; title: string; year?: number; releaseDate?: string; type?: string }[] }) => {
+          const found: { id: number; title: string; year: number | null; releaseDate: string | null }[] = [];
+          for (const item of data.items ?? []) {
+            const match = /^tmdb:movie:(\d+)$/.exec(item.id);
+            if (item.type === 'movie' && match && found.length < 5) {
+              found.push({ id: Number(match[1]), title: item.title, year: item.year ?? null, releaseDate: item.releaseDate ?? null });
+            }
+          }
+          setTmdbMatches(found);
+        })
+        .catch(() => undefined);
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [title, tmdbId, contentKind]);
   const [genres, setGenres] = useState('');
   const [categories, setCategories] = useState<string[]>([]);
   const [runtime, setRuntime] = useState('');
@@ -914,6 +947,7 @@ export default function AdminScreen() {
           description,
           ...(parsedYear === undefined ? {} : { releaseYear: parsedYear }),
           ...(parsedReleaseDate ? { releaseDate: parsedReleaseDate } : {}),
+          ...(tmdbId ? { tmdbId } : {}),
           genres: genres
             .split(',')
             .map((genre) => genre.trim())
@@ -1007,6 +1041,7 @@ export default function AdminScreen() {
     contentRating,
     description,
     releaseDate,
+    tmdbId,
     genres,
     categories,
     allowDownload,
@@ -2072,7 +2107,7 @@ export default function AdminScreen() {
                               : posterUrl;
                 const onChangeText =
                   field.key === 'title'
-                    ? setTitle
+                    ? (text: string) => { setTitle(text); setTmdbId(undefined); }
                     : field.key === 'description'
                       ? setDescription
                       : field.key === 'year'
@@ -2102,6 +2137,32 @@ export default function AdminScreen() {
                       accessibilityLabel={field.label}
                       editable={!isUploading}
                     />
+                    {field.key === 'title' && tmdbId ? (
+                      <Text style={styles.fieldLabel}>Linked to TMDB #{tmdbId}</Text>
+                    ) : null}
+                    {field.key === 'title' && tmdbMatches.length > 0 ? (
+                      <View style={{ marginTop: 6, borderWidth: 1, borderColor: theme.border, borderRadius: 10, overflow: 'hidden' }}>
+                        <Text style={[styles.fieldLabel, { padding: 8 }]}>Tap the matching TMDB movie (optional)</Text>
+                        {tmdbMatches.map((match) => (
+                          <Pressable
+                            key={match.id}
+                            accessibilityRole="button"
+                            onPress={() => {
+                              setTitle(match.title);
+                              setTmdbId(match.id);
+                              if (match.year) setYear(String(match.year));
+                              if (match.releaseDate) setReleaseDate(match.releaseDate);
+                              setTmdbMatches([]);
+                            }}
+                            style={{ padding: 12, borderTopWidth: 1, borderColor: theme.border }}
+                          >
+                            <Text style={{ color: theme.text }}>
+                              {match.title}{match.year ? ` (${match.year})` : ''}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                 );
               })}

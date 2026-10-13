@@ -13,13 +13,13 @@ import type { SubtitleFormat } from '../utils/subtitles';
 const MOVIE_BUCKET = 'movie-assets';
 const PUBLISHED_CATALOG_PAGE_SIZE = 500;
 const MOVIE_COLUMNS =
-  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status';
+  'id,title,description,release_year,release_date,tmdb_id,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status';
 const LEGACY_MOVIE_COLUMNS =
-  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_content_type';
+  'id,title,description,release_year,release_date,tmdb_id,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_content_type';
 const MOVIE_COLUMNS_WITH_CREATED_AT =
-  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status,created_at';
+  'id,title,description,release_year,release_date,tmdb_id,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,conversion_status,created_at';
 const LEGACY_MOVIE_COLUMNS_WITH_CREATED_AT =
-  'id,title,description,release_year,release_date,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,created_at';
+  'id,title,description,release_year,release_date,tmdb_id,genres,categories,poster_url,cover_url,runtime_minutes,content_rating,video_path,published,file_extension,mime_type,file_size_bytes,allow_download,storage_provider,storage_key,content_type,trailer_storage_key,trailer_size_bytes,trailer_duration_seconds,trailer_content_type,created_at';
 type MovieColumnList =
   | typeof MOVIE_COLUMNS
   | typeof LEGACY_MOVIE_COLUMNS
@@ -36,6 +36,7 @@ type MovieRecord = {
   description: string | null;
   release_year: number | null;
   release_date?: string | null;
+  tmdb_id?: number | null;
   genres: string[] | null;
   categories?: string[] | null;
   poster_url: string | null;
@@ -102,6 +103,7 @@ export type NewMovie = {
   description: string;
   releaseYear?: number;
   releaseDate?: string;
+  tmdbId?: number;
   genres: string[];
   categories: string[];
   posterUrl?: string;
@@ -209,6 +211,7 @@ function toContentItem(movie: MovieRecord): ContentItem {
     type: isSeries ? 'series' : movie.content_type === 'short' ? 'short' : 'movie',
     ...(movie.release_year === null ? {} : { year: movie.release_year }),
     ...(movie.release_date ? { releaseDate: movie.release_date } : {}),
+    ...(typeof movie.tmdb_id === 'number' ? { tmdbId: movie.tmdb_id } : {}),
     genres: movie.genres ?? [],
     categories: movie.categories ?? [],
     ...(movie.poster_url ? { posterUrl: movie.poster_url } : {}),
@@ -790,6 +793,7 @@ export class SupabaseMovieRepository {
       description: movie.description.trim() || null,
       release_year: movie.releaseYear ?? null,
       release_date: movie.releaseDate ?? null,
+      tmdb_id: movie.tmdbId ?? null,
       genres: movie.genres,
       categories: movie.categories,
       poster_url: movie.posterUrl?.trim() || null,
