@@ -16,6 +16,7 @@ import {
   Text,
   type TextInputProps,
   View,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -2755,7 +2756,12 @@ export default function AdminScreen() {
               }}
             >
               <View style={styles.editBackdrop}>
-                <KeyboardAwareScrollView contentContainerStyle={styles.editPanel}>
+                <ScrollView
+                  style={{ maxHeight: '94%' }}
+                  contentContainerStyle={styles.editPanel}
+                  nestedScrollEnabled
+                  keyboardShouldPersistTaps="handled"
+                >
                   <View style={styles.catalogHeader}>
                     <Text style={styles.sectionTitle}>Edit title</Text>
                     <Pressable
@@ -2877,7 +2883,7 @@ export default function AdminScreen() {
                   >
                     <Text style={styles.primaryButtonText}>{editSaving ? 'Saving…' : 'Save changes'}</Text>
                   </Pressable>
-                </KeyboardAwareScrollView>
+                </ScrollView>
               </View>
             </Modal>
           </>
@@ -3221,7 +3227,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.72)',
   },
   editPanel: {
-    maxHeight: '94%',
     backgroundColor: theme.background,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
