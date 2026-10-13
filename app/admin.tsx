@@ -24,6 +24,7 @@ import { ContentNotice } from '../src/components/ContentNotice';
 import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../src/components/KeyboardAwareScrollView';
 import { CategoryPicker } from '../src/components/CategoryPicker';
 import { SubtitleUploadPanel } from '../src/components/admin/SubtitleUploadPanel';
+import { UsersPanel } from '../src/components/admin/UsersPanel';
 import { useNetwork } from '../src/state/NetworkContext';
 import { TitleImage } from '../src/components/TitleImage';
 import { MAX_TRAILER_FILE_SIZE_BYTES, MAX_VIDEO_FILE_SIZE_BYTES } from '../src/constants/video';
@@ -2659,6 +2660,9 @@ export default function AdminScreen() {
                   <Text style={styles.primaryButtonText}>{isDeletingUnusedMedia ? 'Deleting…' : 'Delete unused files'}</Text>
                 </Pressable>
               </View>
+            </View>
+            <View style={styles.card}>
+              <UsersPanel />
             </View>
             {!moviesLoading && !moviesError && movies.length === 0 ? (
               <Text style={styles.helper}>No uploaded movies yet.</Text>
