@@ -25,6 +25,7 @@ import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../src/componen
 import { CategoryPicker } from '../src/components/CategoryPicker';
 import { SubtitleUploadPanel } from '../src/components/admin/SubtitleUploadPanel';
 import { UsersPanel } from '../src/components/admin/UsersPanel';
+import { AdminLobby, type AdminRoom } from '../src/components/admin/AdminLobby';
 import { useNetwork } from '../src/state/NetworkContext';
 import { TitleImage } from '../src/components/TitleImage';
 import { MAX_TRAILER_FILE_SIZE_BYTES, MAX_VIDEO_FILE_SIZE_BYTES } from '../src/constants/video';
@@ -395,6 +396,7 @@ export default function AdminScreen() {
   const [pendingCleanups, setPendingCleanups] = useState<PendingTitleCleanup[]>([]);
   const [cleanupError, setCleanupError] = useState<string>();
   const [unusedMediaScan, setUnusedMediaScan] = useState<UnusedMediaScan | null>(null);
+  const [room, setRoom] = useState<AdminRoom>(null);
   const [unusedMediaError, setUnusedMediaError] = useState<string>();
   const [unusedMediaDeleteSummary, setUnusedMediaDeleteSummary] = useState<{
     deleted: number;
@@ -1974,8 +1976,8 @@ export default function AdminScreen() {
           />
         }
       >
-        <Pressable accessibilityRole="button" onPress={() => backOrReplace('/(tabs)/profile')} style={styles.backButton}>
-          <Text style={styles.backText}>‹  Back</Text>
+        <Pressable accessibilityRole="button" onPress={() => (room ? setRoom(null) : backOrReplace('/(tabs)/profile'))} style={styles.backButton}>
+          <Text style={styles.backText}>{room ? '‹  Admin home' : '‹  Back'}</Text>
         </Pressable>
         <Text style={styles.header}>Admin console</Text>
         <Text style={styles.subtitle}>Upload and manage movies you have rights to distribute.</Text>
@@ -2042,6 +2044,11 @@ export default function AdminScreen() {
           </View>
         ) : (
           <>
+            {room === null ? (
+              <AdminLobby onOpen={setRoom} catalogCount={movies.length} />
+            ) : null}
+            {room === null ? (
+              <>
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push('/admin-status')}
@@ -2049,6 +2056,10 @@ export default function AdminScreen() {
             >
               <Text style={styles.secondaryButtonText}>System status</Text>
             </Pressable>
+              </>
+            ) : null}
+            {room === 'upload' ? (
+              <>
             <View style={styles.card}>
               <View style={styles.sectionHeader}>
                 <View style={styles.grow}>
@@ -2365,7 +2376,11 @@ export default function AdminScreen() {
                 </Text>
               </Pressable>
             </View>
+              </>
+            ) : null}
 
+            {room === 'series' ? (
+              <>
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Add series</Text>
               <Text style={styles.helper}>Create a series title before adding seasons and episodes.</Text>
@@ -2547,9 +2562,17 @@ export default function AdminScreen() {
                 <Text style={styles.primaryButtonText}>{isUploading ? 'Uploading…' : 'Add episode'}</Text>
               </Pressable>
             </View>
+              </>
+            ) : null}
 
+            {room === 'subtitles' ? (
+              <>
             <SubtitleUploadPanel titles={movies} isOnline={isOnline} />
+              </>
+            ) : null}
 
+            {room === 'catalog' ? (
+              <>
             <View style={styles.catalogHeader}>
               <Text style={styles.sectionTitle}>Content catalog</Text>
               <Pressable accessibilityRole="button" onPress={() => void loadMovies()}>
@@ -2601,6 +2624,10 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
             ))}
+              </>
+            ) : null}
+            {room === 'cleanup' ? (
+              <>
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Backblaze cleanup</Text>
               <Text style={styles.helper}>
@@ -2661,9 +2688,17 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
             </View>
+              </>
+            ) : null}
+            {room === 'users' ? (
+              <>
             <View style={styles.card}>
               <UsersPanel />
             </View>
+              </>
+            ) : null}
+            {room === 'catalog' ? (
+              <>
             {!moviesLoading && !moviesError && movies.length === 0 ? (
               <Text style={styles.helper}>No uploaded movies yet.</Text>
             ) : null}
@@ -2749,6 +2784,8 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
             ))}
+              </>
+            ) : null}
             <Modal
               visible={Boolean(editingMovie)}
               transparent
