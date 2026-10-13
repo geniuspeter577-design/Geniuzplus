@@ -7,7 +7,7 @@ type AdminUser = {
   id: string;
   email: string | null;
   displayName: string | null;
-  username: string | null;
+  publicId: string | null;
   joinedAt: string;
   membershipStatus: string;
   membershipEnds: string | null;
@@ -92,8 +92,9 @@ export function UsersPanel() {
       {data && data.users.length === 0 && !loading ? <Text style={{ color: COLORS.muted }}>No users found.</Text> : null}
       {data?.users.map((user) => (
         <View key={user.id} style={{ backgroundColor: COLORS.card, borderRadius: 10, padding: 12, gap: 2 }}>
-          <Text style={{ color: COLORS.text, fontWeight: '600' }}>{user.displayName ?? user.username ?? 'No name'}</Text>
+          <Text style={{ color: COLORS.text, fontWeight: '600' }}>{user.displayName ?? 'No name'}</Text>
           <Text style={{ color: COLORS.muted }}>{user.email ?? 'No email'}</Text>
+          {user.publicId ? <Text style={{ color: COLORS.muted }}>ID {user.publicId}</Text> : null}
           <Text style={{ color: COLORS.muted }}>Joined {formatDate(user.joinedAt)}</Text>
           <Text style={{ color: user.hasBadge ? COLORS.gold : COLORS.muted }}>
             {user.hasBadge ? `Member${user.membershipEnds ? ` until ${formatDate(user.membershipEnds)}` : ''}` : 'No badge'}
