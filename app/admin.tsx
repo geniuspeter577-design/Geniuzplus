@@ -2646,7 +2646,7 @@ export default function AdminScreen() {
                   accessibilityRole="button"
                   disabled={isScanningUnusedMedia}
                   onPress={() => void runUnusedMediaScan()}
-                  style={[styles.secondaryButton, isScanningUnusedMedia && styles.disabledButton]}
+                  style={[styles.secondaryButton, styles.bulkButton, isScanningUnusedMedia && styles.disabledButton]}
                 >
                   <Text style={styles.secondaryButtonText}>{isScanningUnusedMedia ? 'Finding…' : 'Find unused files'}</Text>
                 </Pressable>
@@ -2654,7 +2654,7 @@ export default function AdminScreen() {
                   accessibilityRole="button"
                   disabled={!unusedMediaScan || isDeletingUnusedMedia}
                   onPress={() => void deleteUnusedMedia()}
-                  style={[styles.primaryButton, (!unusedMediaScan || isDeletingUnusedMedia) && styles.disabledButton]}
+                  style={[styles.primaryButton, styles.bulkButton, (!unusedMediaScan || isDeletingUnusedMedia) && styles.disabledButton]}
                 >
                   <Text style={styles.primaryButtonText}>{isDeletingUnusedMedia ? 'Deleting…' : 'Delete unused files'}</Text>
                 </Pressable>
@@ -2668,7 +2668,7 @@ export default function AdminScreen() {
                 <Pressable
                   accessibilityRole="button"
                   onPress={() => setSelectMode((current) => !current)}
-                  style={styles.secondaryButton}
+                  style={[styles.secondaryButton, styles.bulkButton]}
                 >
                   <Text style={styles.secondaryButtonText}>{selectMode ? 'Cancel select' : 'Select titles'}</Text>
                 </Pressable>
@@ -2677,7 +2677,7 @@ export default function AdminScreen() {
                     accessibilityRole="button"
                     disabled={selectedTitleIds.length === 0}
                     onPress={() => void deleteSelectedTitles()}
-                    style={[styles.primaryButton, selectedTitleIds.length === 0 && styles.disabledButton]}
+                    style={[styles.primaryButton, styles.bulkButton, selectedTitleIds.length === 0 && styles.disabledButton]}
                   >
                     <Text style={styles.primaryButtonText}>Delete selected ({selectedTitleIds.length})</Text>
                   </Pressable>
@@ -2697,7 +2697,7 @@ export default function AdminScreen() {
                   </Pressable>
                 ) : null}
                 <TitleImage uri={movie.posterUrl} style={styles.catalogPoster} iconSize={18} />
-                <View style={styles.grow}>
+                <View style={[styles.grow, { minWidth: 200 }]}>
                   <Text style={styles.movieTitle}>{movie.title}</Text>
                   <ConversionStatusBadge status={movie.conversionStatus} />
                   <Text style={styles.helper}>
@@ -3149,6 +3149,9 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 10,
     padding: 14,
+  },
+  bulkButton: {
+    marginTop: 0,
   },
   bulkActionsRow: {
     flexDirection: 'row',
