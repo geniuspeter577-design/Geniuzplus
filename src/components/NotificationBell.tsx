@@ -1,38 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
-import { getUnreadNotificationCount, loadNotifications } from '../services/NotificationsStore';
 import { theme } from '../theme';
 
 const SWING_MS = 110;
 const PAUSE_MS = 2500;
 
-export function NotificationBell() {
-  const [count, setCount] = useState(0);
+export function NotificationBell({ count = 0 }: { count?: number }) {
   const [swing] = useState(() => new Animated.Value(0));
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      const refresh = () => {
-        loadNotifications()
-          .then((items) => {
-            if (active) {
-              setCount(getUnreadNotificationCount(items));
-            }
-          })
-          .catch(() => undefined);
-      };
-      refresh();
-      const timer = setInterval(refresh, 20000);
-      return () => {
-        active = false;
-        clearInterval(timer);
-      };
-    }, []),
-  );
 
   useEffect(() => {
     const swings = Array.from({ length: 18 }, (_, i) => (i % 2 === 0 ? 1 : -1)).map((toValue) =>
@@ -50,12 +26,12 @@ export function NotificationBell() {
       loop.stop();
       swing.setValue(0);
     };
-  }, [count, swing]);
+  }, [swing]);
 
   const rotate = swing.interpolate({ inputRange: [-1, 1], outputRange: ['-22deg', '22deg'] });
 
   return (
-    <View>
+    <View style={styles.wrap}>
       <Animated.View style={{ transform: [{ rotate }] }}>
         <Ionicons name="notifications-outline" size={22} color={theme.text} />
       </Animated.View>
@@ -69,17 +45,20 @@ export function NotificationBell() {
 }
 
 const styles = StyleSheet.create({
+  wrap: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   badge: {
     position: 'absolute',
-    top: -7,
-    right: -9,
+    top: 2,
+    right: 2,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
     paddingHorizontal: 4,
-    backgroundColor: '#FF3B5C',
+    backgroundColor: '#FF3B30',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
+    elevation: 6,
   },
   badgeText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 });

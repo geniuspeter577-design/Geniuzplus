@@ -185,3 +185,26 @@ export async function createBroadcastNotification(
   await saveNotifications(result);
   return result;
 }
+
+export function subscribeToNotificationChanges(onChange: () => void) {
+  let cancelled = false;
+  let cleanup: (() => void) | undefined;
+  void getSupabaseClient().then((supabase) => {
+    if (!supabase || cancelled) {
+      return;
+    }
+    const client = supabase as unknown as {
+      channel: (name: string) => any;
+      removeChannel: (channel: unknown) => unknown;
+    };
+    const channel = client.channel(`bell-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, onChange)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reel_notifications' }, onChange)
+      .subscribe();
+    cleanup = () => { void client.removeChannel(channel); };
+  }).catch(() => undefined);
+  return () => {
+    cancelled = true;
+    cleanup?.();
+  };
+}

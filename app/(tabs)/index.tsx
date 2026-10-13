@@ -1,5 +1,7 @@
 import { getTmdbUpcoming, getUpcomingReleases } from '../../src/services/createContentService';
 import { NotificationBell } from '../../src/components/NotificationBell';
+import { loadReelActivity } from '../../src/services/ReelsRepository';
+import { subscribeToNotificationChanges } from '../../src/services/NotificationsStore';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -330,15 +332,25 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void loadNotifications().then((items) => {
-      if (active) {
-        setUnreadCount(getUnreadNotificationCount(items));
-      }
-    }).catch((error: unknown) => {
-      console.error('[Home] Could not load notifications.', error);
-    });
+    const refreshUnread = () => {
+      void loadNotifications().then((items) => {
+        const n = getUnreadNotificationCount(items);
+        return loadReelActivity()
+          .then((rows) => n + rows.filter((r) => !r.read).length)
+          .catch(() => n);
+      }).then((total) => {
+        if (active) setUnreadCount(total);
+      }).catch((error: unknown) => {
+        console.error('[Home] Could not load notifications.', error);
+      });
+    };
+    refreshUnread();
+    const timer = setInterval(refreshUnread, 20000);
+    const unsubscribe = subscribeToNotificationChanges(refreshUnread);
     return () => {
       active = false;
+      clearInterval(timer);
+      unsubscribe();
     };
   }, []));
 
@@ -375,8 +387,7 @@ export default function HomeScreen() {
               style={styles.iconButton}
               onPress={() => router.push('/notifications')}
             >
-              <NotificationBell />
-              {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
+              <NotificationBell count={unreadCount} />
             </Pressable>
           </View>
           {selectedCategory === 'Football' ? (
@@ -428,8 +439,7 @@ export default function HomeScreen() {
             style={styles.iconButton}
             onPress={() => router.push('/notifications')}
           >
-            <NotificationBell />
-            {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
+            <NotificationBell count={unreadCount} />
           </Pressable>
         </View>
 
