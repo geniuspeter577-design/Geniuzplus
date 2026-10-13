@@ -18,6 +18,11 @@ import {
   supabaseMovieRepository,
   type PublishedTitlesFilter,
 } from '../src/repositories/SupabaseMovieRepository';
+import {
+  getTmdbNowPlaying,
+  getTmdbUpcoming,
+  getUpcomingReleases,
+} from '../src/services/createContentService';
 import { useLibrary } from '../src/state/LibraryContext';
 import { theme } from '../src/theme';
 import { backOrReplace } from '../src/utils/navigation';
@@ -33,6 +38,41 @@ function getPublishedFilter(kind: string | undefined, value: string | undefined)
     return { kind, value: value.trim() } satisfies PublishedTitlesFilter;
   }
   return undefined;
+}
+
+async function loadUpcomingList(): Promise<ContentItem[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const none: ContentItem[] = [];
+  const [own, releases, upcoming, nowPlaying] = await Promise.all([
+    supabaseMovieRepository
+      ? supabaseMovieRepository.getUpcomingMovies().catch(() => none)
+      : Promise.resolve(none),
+    getUpcomingReleases().catch(() => none),
+    getTmdbUpcoming().catch(() => none),
+    getTmdbNowPlaying().catch(() => none),
+  ]);
+  const normalize = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const ownSet = new Set(own);
+  const ownTitles = new Set(own.map((item) => normalize(item.title)));
+  const ownTmdbIds = new Set(
+    own.map((item) => item.tmdbId).filter((id): id is number => typeof id === 'number'),
+  );
+  const seen = new Set<string>();
+  const merged = [...own, ...releases, ...upcoming, ...nowPlaying].filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    if (ownSet.has(item)) return true;
+    if (ownTitles.has(normalize(item.title))) return false;
+    if (item.tmdbId !== undefined && ownTmdbIds.has(item.tmdbId)) return false;
+    return true;
+  });
+  return merged.sort((a, b) => {
+    const aFuture = (a.releaseDate ?? '') >= today;
+    const bFuture = (b.releaseDate ?? '') >= today;
+    if (aFuture !== bFuture) return aFuture ? -1 : 1;
+    const order = (a.releaseDate ?? '').localeCompare(b.releaseDate ?? '');
+    return aFuture ? order : -order;
+  });
 }
 
 export default function HomeListScreen() {
@@ -85,12 +125,17 @@ export default function HomeListScreen() {
         pageItems = page.map(({ item }) => item);
         pageHasMore = offset + page.length < entries.length;
       } else {
-        if (!supabaseMovieRepository) {
-          throw new Error('The published catalog is not available.');
+        if (kind === 'upcoming') {
+          pageItems = await loadUpcomingList();
+          pageHasMore = false;
+        } else {
+          if (!supabaseMovieRepository) {
+            throw new Error('The published catalog is not available.');
+          }
+          const page = await supabaseMovieRepository.getPublishedTitlesPage(filter!, offset, PAGE_SIZE);
+          pageItems = page.items;
+          pageHasMore = page.hasMore;
         }
-        const page = await supabaseMovieRepository.getPublishedTitlesPage(filter!, offset, PAGE_SIZE);
-        pageItems = page.items;
-        pageHasMore = page.hasMore;
       }
 
       const nextItems = reset ? pageItems : [...itemsRef.current, ...pageItems];
