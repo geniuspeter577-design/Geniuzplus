@@ -27,6 +27,7 @@ import { isValidPaystackSignature } from '../services/PaystackService';
 import { isValidFlutterwaveHash } from '../services/FlutterwaveService';
 import { MembershipService, type MembershipOperations } from '../services/MembershipService';
 import { authenticateAdmin, authenticatePlayback, requirePublishedOrAdmin } from './auth';
+import { listAdminUsers } from './adminUsers';
 import { HttpError, mapProviderError } from './errors';
 
 const MAX_PAGE = 500;
@@ -1339,6 +1340,18 @@ async function handleRequest(
       { id: eventId, event: body.event as string, data: { reference } },
       body,
     ));
+    return;
+  }
+
+  if (pathname === '/admin/users') {
+    if (request.method !== 'GET') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    await authenticateAdmin(config, request.headers.authorization);
+    const search = (url.searchParams.get('q') ?? '').slice(0, 100);
+    const membersOnly = url.searchParams.get('members') === '1';
+    const pageNumber = Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1;
+    writeJson(response, 200, await listAdminUsers(config, search, membersOnly, pageNumber));
     return;
   }
 
