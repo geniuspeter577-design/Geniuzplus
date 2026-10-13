@@ -54,7 +54,7 @@ async function loadUpcomingList(): Promise<ContentItem[]> {
     getTmdbUpcoming().catch(() => none),
     getTmdbNowPlaying().catch(() => none),
   ]);
-  const normalize = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const normalize = (title: string) => title.toLowerCase().replace(/\(\s*\d{4}\s*\)/g, '').replace(/[^a-z0-9]/g, '');
   const ownSet = new Set(own);
   const ownTitles = new Set([...own, ...published].map((item) => normalize(item.title)));
   const ownTmdbIds = new Set(
