@@ -55,7 +55,7 @@ export function NotificationBell() {
   const rotate = swing.interpolate({ inputRange: [-1, 1], outputRange: ['-22deg', '22deg'] });
 
   return (
-    <View style={styles.wrap}>
+    <View>
       <Animated.View style={{ transform: [{ rotate }] }}>
         <Ionicons name="notifications-outline" size={22} color={theme.text} />
       </Animated.View>
@@ -69,13 +69,10 @@ export function NotificationBell() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   badge: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 10,
-    elevation: 6,
+    top: -7,
+    right: -9,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
