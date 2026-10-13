@@ -48,4 +48,11 @@ export function getFootballUpcoming() {
   return geniuzApiRepository.getFootballUpcoming();
 }
 
+export async function getUpcomingReleases() {
+  if (!geniuzApiRepository) {
+    throw new Error('Upcoming releases are not configured.');
+  }
+  return geniuzApiRepository.getUpcomingReleases();
+}
+
 export const contentService = createContentService();

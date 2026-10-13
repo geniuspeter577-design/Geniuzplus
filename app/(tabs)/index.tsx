@@ -1,3 +1,4 @@
+import { getUpcomingReleases } from '../../src/services/createContentService';
 import { NotificationBell } from '../../src/components/NotificationBell';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
@@ -98,10 +99,35 @@ export default function HomeScreen() {
   }, []);
   const catalogQuery = useContentQuery('home-supabase-catalog', loadCatalog, isOnline);
   const loadUpcomingMovies = useCallback(async () => {
-    if (!supabaseMovieRepository) {
-      throw new Error('Supabase catalog is not configured.');
+    const today = new Date().toISOString().slice(0, 10);
+    const [ownResult, tmdbResult] = await Promise.allSettled([
+      supabaseMovieRepository
+        ? supabaseMovieRepository.getUpcomingMovies()
+        : Promise.reject(new Error('Supabase catalog is not configured.')),
+      getUpcomingReleases(),
+    ]);
+    if (ownResult.status === 'rejected' && tmdbResult.status === 'rejected') {
+      throw ownResult.reason;
     }
-    return { data: await supabaseMovieRepository.getUpcomingMovies(), source: 'supabase' as const };
+    const own = ownResult.status === 'fulfilled' ? ownResult.value : [];
+    const normalize = (title: string) => title.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const ownTitles = new Set(own.map((item) => normalize(item.title)));
+    const ownTmdbIds = new Set(
+      own.map((item) => item.tmdbId).filter((id): id is number => typeof id === 'number'),
+    );
+    const external = tmdbResult.status === 'fulfilled'
+      ? tmdbResult.value.filter(
+          (item) =>
+            !!item.releaseDate &&
+            item.releaseDate >= today &&
+            !ownTitles.has(normalize(item.title)) &&
+            (item.tmdbId === undefined || !ownTmdbIds.has(item.tmdbId)),
+        )
+      : [];
+    const merged = [...own, ...external].sort((a, b) =>
+      (a.releaseDate ?? '9999').localeCompare(b.releaseDate ?? '9999'),
+    );
+    return { data: merged, source: 'supabase' as const };
   }, []);
   const upcomingQuery = useContentQuery('home-upcoming-movies', loadUpcomingMovies, isOnline);
   const { continueWatching, isInWatchlist, toggleWatchlist } = useLibrary();
