@@ -69,3 +69,35 @@ export async function listAdminUsers(config: Config, search: string, membersOnly
   const start = (pageNumber - 1) * pageSize;
   return { total: all.length, page: pageNumber, pageSize, users: all.slice(start, start + pageSize) };
 }
+
+export async function deleteAdminUser(config: Config, actingUserId: string, targetId: string, confirmPaid: boolean) {
+  if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
+    throw new HttpError(503, 'SERVICE_KEY_NOT_CONFIGURED', 'User deletion is not configured on this server.');
+  }
+  if (!/^[0-9a-f-]{36}$/i.test(targetId)) {
+    throw new HttpError(400, 'INVALID_USER', 'A valid user id is required.');
+  }
+  if (targetId === actingUserId) {
+    throw new HttpError(400, 'CANNOT_DELETE_SELF', 'You cannot delete your own account.');
+  }
+  const admin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data, error } = await admin.auth.admin.getUserById(targetId);
+  if (error || !data.user) {
+    throw new HttpError(404, 'USER_NOT_FOUND', 'That user was not found.');
+  }
+  if (data.user.app_metadata?.role === 'admin') {
+    throw new HttpError(403, 'CANNOT_DELETE_ADMIN', 'Admin accounts cannot be deleted here.');
+  }
+  const { data: membership } = await admin.from('memberships').select('status').eq('user_id', targetId).maybeSingle();
+  const paid = membership?.status === 'active' || membership?.status === 'grace';
+  if (paid && !confirmPaid) {
+    throw new HttpError(409, 'ACTIVE_MEMBERSHIP', 'This user has an active membership. Confirm to delete anyway.');
+  }
+  const { error: deleteError } = await admin.auth.admin.deleteUser(targetId);
+  if (deleteError) {
+    throw new HttpError(502, 'DELETE_FAILED', 'The user could not be deleted.');
+  }
+  return { deleted: true };
+}

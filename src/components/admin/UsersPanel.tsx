@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Switch, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '../../services/supabase';
 
@@ -32,6 +32,7 @@ export function UsersPanel() {
   const [data, setData] = useState<UsersResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const [deletingId, setDeletingId] = useState<string | undefined>();
 
   const load = useCallback(async () => {
     if (!supabase) {
@@ -68,6 +69,46 @@ export function UsersPanel() {
     void load();
   }, [load]);
 
+  const removeUser = async (user: AdminUser) => {
+    if (!supabase) return;
+    setDeletingId(user.id);
+    setError(undefined);
+    try {
+      const { data: s, error: se } = await supabase.auth.getSession();
+      if (se || !s.session?.access_token) throw new Error('Admin sign-in is required.');
+      const base = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
+      if (!base) throw new Error('The backend URL is not configured.');
+      const response = await fetch(`${base}/admin/users/delete`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${s.session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, confirmPaid: user.hasBadge }),
+      });
+      if (!response.ok) {
+        throw new Error(response.status === 400 || response.status === 403
+          ? 'This account cannot be deleted (it is you or another admin).'
+          : 'The user could not be deleted.');
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'The user could not be deleted.');
+    } finally {
+      setDeletingId(undefined);
+    }
+  };
+
+  const confirmDelete = (user: AdminUser) => {
+    const who = user.email ?? user.displayName ?? user.id;
+    const extra = user.hasBadge ? '\n\nThis person has an ACTIVE membership.' : '';
+    Alert.alert(
+      'Delete this user?',
+      `${who}\n\nTheir login, profile and payment history will be erased. This cannot be undone.${extra}`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void removeUser(user) },
+      ],
+    );
+  };
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
@@ -99,6 +140,13 @@ export function UsersPanel() {
           <Text style={{ color: user.hasBadge ? COLORS.gold : COLORS.muted }}>
             {user.hasBadge ? `Member${user.membershipEnds ? ` until ${formatDate(user.membershipEnds)}` : ''}` : 'No badge'}
           </Text>
+          <Pressable
+            disabled={deletingId === user.id}
+            onPress={() => confirmDelete(user)}
+            style={{ alignSelf: 'flex-start', marginTop: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: COLORS.error }}
+          >
+            <Text style={{ color: COLORS.error, fontWeight: '600' }}>{deletingId === user.id ? 'Deleting…' : 'Delete'}</Text>
+          </Pressable>
         </View>
       ))}
       {data && totalPages > 1 ? (

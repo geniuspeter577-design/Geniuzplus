@@ -27,7 +27,7 @@ import { isValidPaystackSignature } from '../services/PaystackService';
 import { isValidFlutterwaveHash } from '../services/FlutterwaveService';
 import { MembershipService, type MembershipOperations } from '../services/MembershipService';
 import { authenticateAdmin, authenticatePlayback, requirePublishedOrAdmin } from './auth';
-import { listAdminUsers } from './adminUsers';
+import { deleteAdminUser, listAdminUsers } from './adminUsers';
 import { HttpError, mapProviderError } from './errors';
 
 const MAX_PAGE = 500;
@@ -1352,6 +1352,18 @@ async function handleRequest(
     const membersOnly = url.searchParams.get('members') === '1';
     const pageNumber = Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1;
     writeJson(response, 200, await listAdminUsers(config, search, membersOnly, pageNumber));
+    return;
+  }
+
+  if (pathname === '/admin/users/delete') {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { userId } = await authenticateAdmin(config, request.headers.authorization);
+    const body = await readJson(request);
+    const targetId = requiredString(body, 'userId', 64);
+    const confirmPaid = (body as { confirmPaid?: unknown }).confirmPaid === true;
+    writeJson(response, 200, await deleteAdminUser(config, userId, targetId, confirmPaid));
     return;
   }
 
