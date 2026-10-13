@@ -376,7 +376,6 @@ export default function HomeScreen() {
               onPress={() => router.push('/notifications')}
             >
               <NotificationBell />
-              {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
             </Pressable>
           </View>
           {selectedCategory === 'Football' ? (
@@ -429,7 +428,6 @@ export default function HomeScreen() {
             onPress={() => router.push('/notifications')}
           >
             <NotificationBell />
-            {unreadCount > 0 ? <View style={styles.notificationBadge}><Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View> : null}
           </Pressable>
         </View>
 
