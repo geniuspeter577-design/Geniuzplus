@@ -55,7 +55,7 @@ export function UsersPanel() {
       if (!response.ok) {
         throw new Error(response.status === 401 || response.status === 403
           ? 'Admin session expired. Sign in again and retry.'
-          : 'The user list could not be loaded.');
+          : 'The user list could not be loaded (' + response.status + ': ' + (await response.text()).slice(0, 160) + ')');
       }
       setData((await response.json()) as UsersResponse);
     } catch (e) {

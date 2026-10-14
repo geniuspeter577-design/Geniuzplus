@@ -25,6 +25,8 @@ import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../src/componen
 import { CategoryPicker } from '../src/components/CategoryPicker';
 import { SubtitleUploadPanel } from '../src/components/admin/SubtitleUploadPanel';
 import { UsersPanel } from '../src/components/admin/UsersPanel';
+import { registerBackInterceptor } from '../src/utils/backInterceptors';
+import { registerBackInterceptor } from '../src/utils/backInterceptors';
 import { AdminLobby, type AdminRoom } from '../src/components/admin/AdminLobby';
 import { useNetwork } from '../src/state/NetworkContext';
 import { TitleImage } from '../src/components/TitleImage';
@@ -397,6 +399,20 @@ export default function AdminScreen() {
   const [cleanupError, setCleanupError] = useState<string>();
   const [unusedMediaScan, setUnusedMediaScan] = useState<UnusedMediaScan | null>(null);
   const [room, setRoom] = useState<AdminRoom>(null);
+  useEffect(() => {
+    if (room === null) return undefined;
+    return registerBackInterceptor(() => {
+      setRoom(null);
+      return true;
+    });
+  }, [room]);
+  useEffect(() => {
+    if (room === null) return undefined;
+    return registerBackInterceptor(() => {
+      setRoom(null);
+      return true;
+    });
+  }, [room]);
   const [unusedMediaError, setUnusedMediaError] = useState<string>();
   const [unusedMediaDeleteSummary, setUnusedMediaDeleteSummary] = useState<{
     deleted: number;
