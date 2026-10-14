@@ -22,6 +22,7 @@ import {
 import { ContentNotFoundError, ContentService } from '../services/ContentService';
 import { FootballMatchesService } from '../services/FootballMatchesService';
 import { FootballDataProvider } from '../providers/FootballDataProvider';
+import { getMemberFootball } from './memberFootball';
 import { SportsProviderError } from '../providers/SportsProvider';
 import { isValidPaystackSignature } from '../services/PaystackService';
 import { isValidFlutterwaveHash } from '../services/FlutterwaveService';
@@ -437,6 +438,39 @@ async function handleRequest(
     try {
       writeJson(response, 200, await footballMatches.getUpcoming());
     } catch (error) {
+      throw mapFootballProviderError(error);
+    }
+    return;
+  }
+
+  if (pathname === '/api/member/football/matches' || pathname === '/api/member/football/upcoming') {
+    if (request.method !== 'GET') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { client, userId } = await authenticatePlayback(config, request.headers.authorization);
+    if (!userId) {
+      throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in to see live scores.');
+    }
+    const access = await membership.getStatus(client, userId);
+    if (access.status !== 'active' && access.status !== 'grace') {
+      throw new HttpError(403, 'MEMBERS_ONLY', 'Live scores are for members.');
+    }
+    if (!config.apiSportsKey) {
+      throw new HttpError(503, 'FOOTBALL_NOT_CONFIGURED', 'Live scores are not configured.');
+    }
+    const memberFootball = getMemberFootball(config.apiSportsKey);
+    try {
+      if (pathname === '/api/member/football/upcoming') {
+        writeJson(response, 200, await memberFootball.getUpcoming());
+      } else {
+        const date = url.searchParams.get('date')?.trim() ?? '';
+        if (!isRealCalendarDate(date)) {
+          throw new HttpError(400, 'INVALID_MATCH_DATE', 'The date query parameter must be a real date in YYYY-MM-DD format.');
+        }
+        writeJson(response, 200, await memberFootball.getMatches(date));
+      }
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
       throw mapFootballProviderError(error);
     }
     return;
