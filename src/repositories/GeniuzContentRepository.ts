@@ -260,6 +260,18 @@ export class GeniuzContentRepository implements ContentRepository {
     );
   }
 
+  async getMemberFootballUpcoming(accessToken: string) {
+    return parseFootballMatches(
+      await this.apiClient.get<unknown>('/api/member/football/upcoming', {}, { Authorization: `Bearer ${accessToken}` }),
+    );
+  }
+
+  async getMemberFootballMatches(date: string, accessToken: string) {
+    return parseFootballMatches(
+      await this.apiClient.get<unknown>('/api/member/football/matches', { date }, { Authorization: `Bearer ${accessToken}` }),
+    );
+  }
+
   async getSimilar(id: string, page = 1) {
     const response = await this.apiClient.get<ContentPageResponse>(
       `/api/content/${encodeURIComponent(id)}/similar`,

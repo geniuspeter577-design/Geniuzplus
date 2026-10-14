@@ -54,7 +54,7 @@ export class ApiClient {
     this.cacheTtlMs = cacheTtlMs;
   }
 
-  async get<T>(path: string, params: QueryParams = {}): Promise<T> {
+  async get<T>(path: string, params: QueryParams = {}, headers: Record<string, string> = {}): Promise<T> {
     const url = this.buildUrl(path, params);
     const key = url.toString();
     const cached = this.cache.get(key);
@@ -70,7 +70,7 @@ export class ApiClient {
       return existingRequest as Promise<T>;
     }
 
-    const request = this.request<T>(url)
+    const request = this.request<T>(url, headers)
       .then((value) => {
         this.cache.set(key, { value, expiresAt: Date.now() + this.cacheTtlMs });
         return value;
@@ -96,7 +96,7 @@ export class ApiClient {
     return url;
   }
 
-  private async request<T>(url: URL): Promise<T> {
+  private async request<T>(url: URL, extraHeaders: Record<string, string> = {}): Promise<T> {
     const maxAttempts = this.startupRequest ? 3 : 1;
     let lastError: unknown;
 
@@ -108,7 +108,7 @@ export class ApiClient {
       try {
         const response = await fetch(url.toString(), {
           method: 'GET',
-          headers: { Accept: 'application/json' },
+          headers: { Accept: 'application/json', ...extraHeaders },
           signal: controller.signal,
         });
 

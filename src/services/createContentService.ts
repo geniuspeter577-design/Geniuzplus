@@ -1,8 +1,9 @@
-import { ApiClient } from '../api/ApiClient';
+import { ApiClient, ApiError } from '../api/ApiClient';
 import { GeniuzContentRepository } from '../repositories/GeniuzContentRepository';
 import { MockContentRepository } from '../repositories/MockContentRepository';
 import { logger } from '../utils/logger';
 import { ContentService } from './ContentService';
+import { supabase } from './supabase';
 
 const geniuzApiUrl = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim();
 const mockRepository = new MockContentRepository();
@@ -34,18 +35,44 @@ export function prewarmContentApi() {
   void apiWakeupClient?.get('/health').catch(() => undefined);
 }
 
-export function getFootballMatches(date: string) {
-  if (!geniuzApiRepository) {
-    throw new Error('Football scores are not configured.');
+const MEMBER_FOOTBALL_RETRY_MS = 10 * 60_000;
+let memberFootballBlockedUntil = 0;
+
+async function tryMemberFootball<T>(call: (accessToken: string) => Promise<T>): Promise<T | undefined> {
+  if (!supabase || Date.now() < memberFootballBlockedUntil) {
+    return undefined;
   }
-  return geniuzApiRepository.getFootballMatches(date);
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) {
+      return undefined;
+    }
+    return await call(token);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      memberFootballBlockedUntil = Date.now() + MEMBER_FOOTBALL_RETRY_MS;
+    }
+    return undefined;
+  }
 }
 
-export function getFootballUpcoming() {
+export async function getFootballMatches(date: string) {
   if (!geniuzApiRepository) {
     throw new Error('Football scores are not configured.');
   }
-  return geniuzApiRepository.getFootballUpcoming();
+  const repository = geniuzApiRepository;
+  const live = await tryMemberFootball((token) => repository.getMemberFootballMatches(date, token));
+  return live ?? repository.getFootballMatches(date);
+}
+
+export async function getFootballUpcoming() {
+  if (!geniuzApiRepository) {
+    throw new Error('Football scores are not configured.');
+  }
+  const repository = geniuzApiRepository;
+  const live = await tryMemberFootball((token) => repository.getMemberFootballUpcoming(token));
+  return live ?? repository.getFootballUpcoming();
 }
 
 export async function getUpcomingReleases() {
