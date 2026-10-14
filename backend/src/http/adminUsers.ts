@@ -33,7 +33,7 @@ export async function listAdminUsers(config: Config, search: string, membersOnly
       admin.from('profiles').select('id,display_name,public_id').in('id', chunk),
       admin.from('memberships').select('user_id,status,current_period_end,grace_until').in('user_id', chunk),
     ]);
-    if (profileResult.error) throw new HttpError(502, 'PROFILE_LOOKUP_FAILED', 'Could not load user names: ' + profileResult.error.message);
+    if (profileResult.error) console.error('[adminUsers] profiles lookup failed:', profileResult.error.message);
     for (const row of (profileResult.data ?? []) as ProfileRow[]) profiles.set(row.id, row);
     for (const row of (membershipResult.data ?? []) as MembershipRow[]) memberships.set(row.user_id, row);
   }
