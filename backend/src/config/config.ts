@@ -16,6 +16,7 @@ export type Config = {
   tmdbApiKey: string | undefined;
   tmdbCommercialUseAuthorized: boolean;
   footballDataApiKey?: string;
+  apiSportsKey?: string;
   paystackSecretKey?: string;
   flutterwaveSecretKey?: string;
   flutterwaveSecretHash?: string;
@@ -98,6 +99,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): Config
     tmdbApiKey: environment.TMDB_API_KEY?.trim() || undefined,
     tmdbCommercialUseAuthorized: (environment.TMDB_COMMERCIAL_USE_AUTHORIZED ?? 'false').trim().toLowerCase() === 'true',
     footballDataApiKey: environment.FOOTBALL_DATA_API_KEY?.trim() || undefined,
+    apiSportsKey: environment.API_SPORTS_KEY?.trim() || undefined,
     paystackSecretKey: environment.PAYSTACK_SECRET_KEY?.trim() || undefined,
     flutterwaveSecretKey: environment.FLUTTERWAVE_SECRET_KEY?.trim() || undefined,
     flutterwaveSecretHash: environment.FLUTTERWAVE_SECRET_HASH?.trim() || undefined,
