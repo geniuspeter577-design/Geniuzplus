@@ -59,7 +59,7 @@
         "backgroundColor": "#020807",
         "foregroundImage": "./assets/new-logo/adaptive-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": false
     },
     "androidStatusBar": {
       "translucent": false

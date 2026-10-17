@@ -1,35 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs, router, usePathname } from 'expo-router';
-import { useEffect, useRef } from 'react';
-import { BackHandler, Platform, ToastAndroid } from 'react-native';
+import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '../../src/theme';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
-  const pathname = usePathname();
-  const lastBackPress = useRef(0);
-  useEffect(() => {
-    if (Platform.OS !== 'android') return undefined;
-    const tabPaths = ['/', '/search', '/library', '/downloads', '/profile'];
-    if (!tabPaths.includes(pathname)) return undefined;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (pathname !== '/') {
-        router.navigate('/');
-        return true;
-      }
-      const now = Date.now();
-      if (now - lastBackPress.current < 2000) {
-        BackHandler.exitApp();
-        return true;
-      }
-      lastBackPress.current = now;
-      ToastAndroid.show('Press back again to exit', ToastAndroid.SHORT);
-      return true;
-    });
-    return () => sub.remove();
-  }, [pathname]);
   return (
     <Tabs backBehavior="history"
       screenOptions={({ route }) => ({
