@@ -52,22 +52,10 @@ export function SeasonSheet({
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                   onPress={() => onSelect(season)}
-                  style={[styles.seasonRow, selected && styles.selectedSeason]}
+                  style={[styles.seasonRow, selected && styles.selectedSeason, { justifyContent: 'center', alignItems: 'center', minHeight: 48, borderRadius: 8, marginHorizontal: 16, marginBottom: 12, backgroundColor: selected ? 'rgba(114,240,106,0.15)' : theme.surface }]}
                 >
-                  <View style={styles.seasonNumber}>
-                    <Text style={[styles.seasonNumberText, selected && styles.selectedSeasonText]}>
-                      {season.seasonNumber}
-                    </Text>
-                  </View>
-                  <View style={styles.seasonCopy}>
-                    <Text style={styles.seasonTitle}>Season {season.seasonNumber}</Text>
-                    <Text style={styles.seasonMeta}>
-                      {season.episodes.length} episodes
-                      {season.year ? ` · ${season.year}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={[styles.viewEpisodes, selected && styles.selectedSeasonText]}>
-                    View episodes
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: selected ? theme.accent : theme.secondaryText }}>
+                    Season {String(season.seasonNumber).padStart(2, '0')}
                   </Text>
                 </Pressable>
               );
@@ -100,7 +88,7 @@ export function EpisodeChips({
   const ordered = orderEpisodes(episodes);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodeChipRow}>
-      <View style={[styles.episodeChip, !selectedId && styles.selectedEpisodeChip]}>
+      <View style={[styles.episodeChip, { minWidth: 70, minHeight: 64, borderRadius: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }, !selectedId && styles.selectedEpisodeChip]}>
         <Text style={[styles.episodeChipText, !selectedId && styles.selectedEpisodeText]}>All</Text>
       </View>
       {ordered.map((episode) => {
@@ -114,7 +102,7 @@ export function EpisodeChips({
         return (
           <View
             key={episode.id}
-            style={[styles.episodeChip, selectedId === episode.id && styles.selectedEpisodeChip]}
+            style={[styles.episodeChip, { minWidth: 150, minHeight: 64, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, selectedId === episode.id && styles.selectedEpisodeChip]}
           >
             <Pressable
               accessibilityRole="button"
@@ -129,7 +117,7 @@ export function EpisodeChips({
                   isWatched && selectedId !== episode.id && styles.watchedEpisodeText,
                 ]}
               >
-                E{String(episode.episodeNumber).padStart(2, '0')} ·{' '}
+                {String(episode.episodeNumber).padStart(2, '0')}{'\n'}
                 {isWatched
                   ? 'Watched'
                   : isDownloading
@@ -170,7 +158,7 @@ export function EpisodeChips({
                           ? 'refresh'
                           : 'download-outline'
                   }
-                  size={15}
+                  size={24}
                   color={theme.accent}
                 />
               </Pressable>
@@ -241,7 +229,7 @@ export function SeriesDownloadSheet({
         <SafeAreaView style={styles.sheet}>
           <View style={styles.grabBar} />
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Download season {season.seasonNumber}</Text>
+            <Text style={styles.headerTitle}>Download</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="Close downloads" onPress={onClose} style={styles.closeButton}>
               <Ionicons name="close" size={22} color={theme.text} />
             </Pressable>
@@ -293,8 +281,8 @@ export function SeriesDownloadSheet({
                       alreadyDownloaded
                         ? 'checkmark-circle'
                         : checked
-                          ? 'checkbox'
-                          : 'square-outline'
+                          ? 'checkmark-circle'
+                          : 'ellipse-outline'
                     }
                     size={21}
                     color={
@@ -309,7 +297,7 @@ export function SeriesDownloadSheet({
                     </Text>
                     <Text style={styles.episodeMeta}>
                       {episode.fileSizeBytes ? formatBytes(episode.fileSizeBytes) : 'Size unavailable'}
-                      {episode.runtimeMinutes ? ` · ${episode.runtimeMinutes} min` : ''}
+                      {episode.runtimeMinutes ? ` | ${episode.runtimeMinutes} min` : ''}
                       {record?.status === 'queued' ? ' · Queued' : ''}
                       {record?.status === 'downloading' ? ` · ${record.progress}%` : ''}
                       {record?.status === 'paused' ? ` · Paused at ${record.progress}%` : ''}
@@ -413,15 +401,15 @@ const styles = StyleSheet.create({
   episodeDownload: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   selectAll: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
   selectAllText: { color: theme.text, fontSize: 14, fontWeight: '600' },
-  episodeRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: theme.surface, borderRadius: 12, padding: 12, marginBottom: 8 },
+  episodeRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: 'transparent', borderRadius: 0, paddingVertical: 14, paddingHorizontal: 4, marginBottom: 0 },
   episodeCopy: { flex: 1 },
-  episodeTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
+  episodeTitle: { color: theme.text, fontSize: 17, fontWeight: '600' },
   episodeMeta: { color: theme.secondaryText, fontSize: 14, marginTop: 4 },
   progressTrack: { height: 4, backgroundColor: theme.surfaceSoft, borderRadius: 2, marginTop: 7 },
   progressFill: { height: 4, backgroundColor: theme.accent, borderRadius: 2 },
   cancelButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: theme.secondaryText, fontSize: 14, lineHeight: 20, paddingVertical: 18 },
-  primaryButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accent, borderRadius: 999, marginTop: 14 },
+  primaryButton: { minHeight: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accent, borderRadius: 12, marginTop: 14 },
   disabledButton: { backgroundColor: theme.surfaceSoft },
-  primaryText: { color: theme.background, fontSize: 15, fontWeight: '800' },
+  primaryText: { color: theme.background, fontSize: 17, fontWeight: '800' },
 });

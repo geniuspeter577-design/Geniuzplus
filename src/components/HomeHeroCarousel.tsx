@@ -98,46 +98,6 @@ export function HomeHeroCarousel({
         end={{ x: 0.5, y: 1 }}
         style={styles.bottomGradient}
       />
-      <View style={styles.meta}>
-        <Text
-          accessibilityLabel={`Slide ${index + 1} of ${items.length}`}
-          style={styles.newBadge}
-        >
-          New
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`View details for ${item.title}`}
-          onPress={() => router.push({ pathname: '/content/[id]', params: { id: item.id } })}
-        >
-          <Text numberOfLines={1} style={styles.title}>{item.title}</Text>
-          <Text numberOfLines={1} style={styles.subtitle}>
-            {formatGenres(item)} · {formatRating(item)}
-          </Text>
-        </Pressable>
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`View details for ${item.title}`}
-            onPress={() => router.push({ pathname: '/content/[id]', params: { id: item.id } })}
-            style={styles.detailsButton}
-          >
-            <Text style={styles.detailsText}>View details</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isInWatchlist(item.id) ? 'Remove from My List' : 'Add to My List'}
-            onPress={() => onToggleWatchlist(item)}
-            style={styles.addButton}
-          >
-            <Ionicons
-              name={isInWatchlist(item.id) ? 'checkmark' : 'add'}
-              size={21}
-              color={theme.text}
-            />
-          </Pressable>
-        </View>
-      </View>
     </View>
   );
 

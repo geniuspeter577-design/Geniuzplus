@@ -60,14 +60,13 @@ export function PosterCard({ item, onPress, compact = false, grid = false, fillC
           end={{ x: 0.5, y: 1 }}
           style={styles.metaWrap}
         >
-          <CategoryLabels categories={item.categories ?? []} />
           <Text style={styles.title} numberOfLines={1}>
             {item.title}
           </Text>
           <Text style={styles.meta}>
             {showReleaseDate && item.releaseDate
               ? `${item.releaseDate <= new Date().toISOString().slice(0, 10) ? 'Out' : 'Coming'} ${new Date(`${item.releaseDate}T00:00:00Z`).toLocaleDateString()}`
-              : `${item.year ?? '—'} • ${formatRuntime(item)}`}
+              : `${item.year ?? '—'}`}
           </Text>
         </LinearGradient>
         {typeof progress === 'number' ? (

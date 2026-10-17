@@ -426,10 +426,14 @@ export default function ContentDetailsScreen() {
           ) : null}
 
           {isSeries ? (
+            <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 16 }}>Resource</Text>
+          ) : null}
+          {isSeries ? (
             <View style={styles.seriesControls}>
               <View style={styles.seriesPill}>
                 <Ionicons name="volume-medium-outline" size={17} color={theme.accent} />
                 <Text style={styles.seriesPillText}>Original audio</Text>
+                <Ionicons name="chevron-down" size={17} color={theme.text} />
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -484,7 +488,7 @@ export default function ContentDetailsScreen() {
                   } else if (record?.status === 'downloaded') {
                     router.push({ pathname: '/watch/[id]', params: { id: episode.id } });
                   } else {
-                    void downloads.download(episode).catch((error: unknown) =>
+                    void downloads.download({ ...episode, posterUrl: media.posterUrl ?? episode.posterUrl, title: media.title + ' · S' + String(selectedSeason.seasonNumber).padStart(2, '0') + 'E' + String(episode.episodeNumber).padStart(2, '0') }).catch((error: unknown) =>
                       Alert.alert(
                         'Download error',
                         error instanceof Error ? error.message : 'The episode could not be downloaded.',
@@ -604,7 +608,7 @@ export default function ContentDetailsScreen() {
               )
             }
             onQueue={(episodes) => {
-              void downloads.downloadSequentially(episodes).catch((error: unknown) =>
+              void downloads.downloadSequentially(episodes.map((episode) => ({ ...episode, posterUrl: media.posterUrl ?? episode.posterUrl, title: media.title + ' · S' + String(selectedSeason.seasonNumber).padStart(2, '0') + 'E' + String(episode.episodeNumber).padStart(2, '0') }))).catch((error: unknown) =>
                 Alert.alert(
                   'Download error',
                   error instanceof Error ? error.message : 'The episode queue could not be started.',
@@ -693,7 +697,7 @@ const styles = StyleSheet.create({
   },
   genreText: { color: theme.text, fontSize: 14, fontWeight: '600' },
   emptyText: { color: theme.secondaryText, fontSize: 14, lineHeight: 20, paddingVertical: 18 },
-  seriesControls: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  seriesControls: { flexDirection: 'row', gap: 10, marginTop: 10 },
   seriesPill: {
     minHeight: 44,
     flexDirection: 'row',
@@ -702,8 +706,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
-    borderRadius: 999,
-    paddingHorizontal: 14,
+    borderRadius: 8,
+    paddingHorizontal: 16,
   },
   disabledPill: { opacity: 0.6 },
   seriesPillText: { color: theme.text, fontSize: 14, fontWeight: '700' },
