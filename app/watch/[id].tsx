@@ -1,7 +1,7 @@
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { StatusBar } from 'expo-status-bar';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { createVideoPlayer } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -48,7 +48,7 @@ export default function WatchScreen() {
   const { id: routeId, trailer: routeTrailer } = useLocalSearchParams<{ id: string; trailer?: string }>();
   const id = typeof routeId === 'string' ? routeId : '';
   const isTrailer = routeTrailer === '1';
-  const player = useMemo(() => createVideoPlayer(null), []);
+  const player = useVideoPlayer(null);
   const downloads = useDownloads();
   const auth = useAuth();
   const { continueWatching, isLoading: isLibraryLoading, recordProgress } = useLibrary();
@@ -252,9 +252,8 @@ export default function WatchScreen() {
       return;
     }
     playerReleasedRef.current = true;
-    saveProgressRef.current();
-    player.pause();
-    player.release();
+    try { saveProgressRef.current(); } catch {}
+    try { player.pause(); } catch {}
     setIsPlaying(false);
   }, [player]);
 
