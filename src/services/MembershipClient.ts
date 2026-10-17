@@ -94,14 +94,14 @@ export function loadMembershipStatus() {
   return request<MembershipStatus>('/api/membership/status', { authenticated: true });
 }
 
-export function createMemberCheckout() {
+export function createMemberCheckout(plan: string = 'monthly') {
   return request<{
     authorizationUrl: string;
     accessCode: string;
     reference: string;
     amountKobo: number;
     currency: 'NGN';
-  }>('/api/membership/create-checkout', { method: 'POST', authenticated: true });
+  }>('/api/membership/create-checkout', { method: 'POST', authenticated: true, body: { plan } });
 }
 
 export function createBoostCheckout(reelId: string, days: number) {

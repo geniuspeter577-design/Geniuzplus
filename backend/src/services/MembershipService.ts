@@ -25,8 +25,9 @@ export type PaystackEvent = {
 
 export interface MembershipOperations {
   getPlan(): ReturnType<MembershipService['getPlan']>;
+  getPlans(): ReturnType<MembershipService['getPlans']>;
   getStatus(client: SupabaseClient, userId: string): Promise<MembershipStatusResponse>;
-  createCheckout(userId: string, email: string): Promise<{
+  createCheckout(userId: string, email: string, planId?: string): Promise<{
     authorizationUrl: string;
     accessCode: string;
     reference: string;
@@ -70,6 +71,12 @@ export function getMembershipAccessStatus(
   return 'expired';
 }
 
+const PREMIUM_PLANS: Record<string, { label: string; priceNgn: number; intervalMonths: number }> = {
+  monthly: { label: 'Monthly', priceNgn: 919, intervalMonths: 1 },
+  quarterly: { label: 'Quarterly', priceNgn: 2298, intervalMonths: 3 },
+  yearly: { label: 'Yearly', priceNgn: 6616, intervalMonths: 12 },
+};
+
 export class MembershipService implements MembershipOperations {
   private readonly paystack: PaymentGateway;
   private readonly now: () => Date;
@@ -86,10 +93,22 @@ export class MembershipService implements MembershipOperations {
       id: 'member',
       name: 'Member',
       currency: 'NGN',
-      priceNgn: this.config.membershipPriceNgn,
-      amountKobo: this.config.membershipPriceNgn * 100,
+      priceNgn: PREMIUM_PLANS.monthly.priceNgn,
+      amountKobo: PREMIUM_PLANS.monthly.priceNgn * 100,
       intervalMonths: 1,
     };
+  }
+
+  getPlans() {
+    return Object.entries(PREMIUM_PLANS).map(([id, plan]) => ({
+      id,
+      name: 'Premium',
+      label: plan.label,
+      currency: 'NGN',
+      priceNgn: plan.priceNgn,
+      amountKobo: plan.priceNgn * 100,
+      intervalMonths: plan.intervalMonths,
+    }));
   }
 
   async getStatus(client: SupabaseClient, userId: string): Promise<MembershipStatusResponse> {
@@ -129,16 +148,23 @@ export class MembershipService implements MembershipOperations {
     };
   }
 
-  async createCheckout(userId: string, email: string) {
+  async createCheckout(userId: string, email: string, planId: string = 'monthly') {
     const admin = this.getAdminClient();
     this.requireTestPaystack();
-    const amountKobo = this.config.membershipPriceNgn * 100;
+    if (!Object.prototype.hasOwnProperty.call(PREMIUM_PLANS, planId)) {
+      throw new HttpError(400, 'INVALID_PLAN', 'Choose a valid Premium plan.');
+    }
+    const plan = PREMIUM_PLANS[planId];
+    const amountKobo = plan.priceNgn * 100;
+    const intervalMonths = plan.intervalMonths;
     const { data: existingPayment, error: lookupError } = await admin
       .from('payments')
       .select('reference,amount_kobo')
       .eq('user_id', userId)
       .eq('status', 'pending')
       .eq('purpose', 'membership')
+      .eq('amount_kobo', amountKobo)
+      .eq('interval_months', intervalMonths)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -159,6 +185,7 @@ export class MembershipService implements MembershipOperations {
         reference,
         user_id: userId,
         amount_kobo: amountKobo,
+        interval_months: intervalMonths,
         status: 'pending',
       });
       if (insertError) {

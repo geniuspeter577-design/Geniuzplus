@@ -1249,6 +1249,7 @@ async function handleRequest(
       plans: [
         { id: 'visitor', name: 'Visitor', priceNgn: 0, intervalMonths: 0 },
         membership.getPlan(),
+        ...membership.getPlans(),
       ],
     });
     return;
@@ -1277,7 +1278,14 @@ async function handleRequest(
     if (!email) {
       throw new HttpError(400, 'EMAIL_REQUIRED', 'Add an email address to your account before checkout.');
     }
-    writeJson(response, 201, await membership.createCheckout(userId, email));
+    let planId = 'monthly';
+    try {
+      const planBody = await readJson(request);
+      if (typeof planBody.plan === 'string') planId = planBody.plan.trim();
+    } catch {
+      // no body from older app versions: keep the monthly plan
+    }
+    writeJson(response, 201, await membership.createCheckout(userId, email, planId));
     return;
   }
 
