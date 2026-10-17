@@ -1012,6 +1012,11 @@ export class SupabaseMovieRepository {
           title: series.title.trim(),
           description: series.description.trim() || null,
           release_year: series.releaseYear ?? null,
+          release_date: series.releaseYear
+            ? `${series.releaseYear}-01-01`
+            : series.published
+              ? new Date().toISOString().slice(0, 10)
+              : null,
           genres: series.genres,
           categories: series.categories,
           poster_url: series.posterUrl?.trim() || null,

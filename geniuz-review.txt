@@ -1,0 +1,1234 @@
+]633;E;echo "== TYPECHECK ==";51556d26-3499-4238-b768-04848355baac]633;C== TYPECHECK ==
+
+===== src/components/detail/SeriesComponents.tsx =====
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import type { EpisodeItem, SeasonItem } from '../../models/content';
+import type { OfflineDownloadRecord } from '../../services/OfflineDownloadService';
+import { formatBytes } from '../../services/OfflineDownloadService';
+import { theme } from '../../theme';
+import { orderEpisodes, selectEpisodes, totalEpisodeSize } from '../../utils/episodeSelection';
+
+type SeasonSheetProps = {
+  visible: boolean;
+  seasons: SeasonItem[];
+  selectedSeasonId?: string;
+  onClose: () => void;
+  onSelect: (season: SeasonItem) => void;
+};
+
+export function SeasonSheet({
+  visible,
+  seasons,
+  selectedSeasonId,
+  onClose,
+  onSelect,
+}: SeasonSheetProps) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.backdrop}>
+        <Pressable style={styles.dismissArea} onPress={onClose} />
+        <SafeAreaView style={styles.sheet}>
+          <View style={styles.grabBar} />
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{seasons.length} seasons</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close seasons" onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={22} color={theme.text} />
+            </Pressable>
+          </View>
+          <ScrollView>
+            {seasons.map((season) => {
+              const selected = season.id === selectedSeasonId;
+              return (
+                <Pressable
+                  key={season.id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => onSelect(season)}
+                  style={[styles.seasonRow, selected && styles.selectedSeason]}
+                >
+                  <View style={styles.seasonNumber}>
+                    <Text style={[styles.seasonNumberText, selected && styles.selectedSeasonText]}>
+                      {season.seasonNumber}
+                    </Text>
+                  </View>
+                  <View style={styles.seasonCopy}>
+                    <Text style={styles.seasonTitle}>Season {season.seasonNumber}</Text>
+                    <Text style={styles.seasonMeta}>
+                      {season.episodes.length} episodes
+                      {season.year ? ` · ${season.year}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={[styles.viewEpisodes, selected && styles.selectedSeasonText]}>
+                    View episodes
+                  </Text>
+                </Pressable>
+              );
+            })}
+            {!seasons.length ? <Text style={styles.emptyText}>No seasons are available yet.</Text> : null}
+          </ScrollView>
+        </SafeAreaView>
+      </View>
+    </Modal>
+  );
+}
+
+type EpisodeChipsProps = {
+  episodes: EpisodeItem[];
+  records: OfflineDownloadRecord[];
+  watchedEpisodeIds: readonly string[];
+  selectedId?: string;
+  onPlay: (episode: EpisodeItem) => void;
+  onDownload: (episode: EpisodeItem) => void;
+};
+
+export function EpisodeChips({
+  episodes,
+  records,
+  watchedEpisodeIds,
+  selectedId,
+  onPlay,
+  onDownload,
+}: EpisodeChipsProps) {
+  const ordered = orderEpisodes(episodes);
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodeChipRow}>
+      <View style={[styles.episodeChip, { minWidth: 70, minHeight: 64, borderRadius: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }, !selectedId && styles.selectedEpisodeChip]}>
+        <Text style={[styles.episodeChipText, !selectedId && styles.selectedEpisodeText]}>All</Text>
+      </View>
+      {ordered.map((episode) => {
+        const record = records.find((candidate) => candidate.item.id === episode.id);
+        const isDownloading = record?.status === 'downloading';
+        const isPaused = record?.status === 'paused';
+        const isQueued = record?.status === 'queued';
+        const isDownloaded = record?.status === 'downloaded';
+        const hasFailed = record?.status === 'failed' || record?.status === 'canceled';
+        const isWatched = watchedEpisodeIds.includes(episode.id);
+        return (
+          <View
+            key={episode.id}
+            style={[styles.episodeChip, { minWidth: 150, minHeight: 64, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, selectedId === episode.id && styles.selectedEpisodeChip]}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Play episode ${episode.episodeNumber}, ${episode.title}${isWatched ? ', watched' : ''}`}
+              onPress={() => onPlay(episode)}
+              style={styles.episodePlay}
+            >
+              <Text
+                style={[
+                  styles.episodeChipText,
+                  selectedId === episode.id && styles.selectedEpisodeText,
+                  isWatched && selectedId !== episode.id && styles.watchedEpisodeText,
+                ]}
+              >
+                {String(episode.episodeNumber).padStart(2, '0')}{'\n'}
+                {isWatched
+                  ? 'Watched'
+                  : isDownloading
+                    ? `${record.progress}%`
+                    : isQueued
+                      ? 'Queued'
+                      : episode.fileSizeBytes
+                        ? formatBytes(episode.fileSizeBytes)
+                        : '—'}
+              </Text>
+            </Pressable>
+            {episode.availability.download ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isDownloading || isQueued
+                    ? `Cancel episode ${episode.episodeNumber} download`
+                    : isPaused
+                      ? `Resume episode ${episode.episodeNumber} download`
+                    : isDownloaded
+                      ? `Play downloaded episode ${episode.episodeNumber}`
+                      : hasFailed
+                        ? `Retry episode ${episode.episodeNumber} download`
+                        : `Download episode ${episode.episodeNumber}`
+                }
+                onPress={() => onDownload(episode)}
+                style={styles.episodeDownload}
+              >
+                <Ionicons
+                  name={
+                    isDownloaded
+                      ? 'checkmark-circle'
+                      : isDownloading || isQueued
+                        ? 'close'
+                          : isPaused
+                            ? 'play'
+                          : hasFailed
+                          ? 'refresh'
+                          : 'download-outline'
+                  }
+                  size={24}
+                  color={theme.accent}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+type SeriesDownloadSheetProps = {
+  visible: boolean;
+  season: SeasonItem;
+  records: OfflineDownloadRecord[];
+  watchedEpisodeIds: readonly string[];
+  onClose: () => void;
+  onQueue: (episodes: EpisodeItem[]) => void;
+  onCancel: (episodeId: string) => void;
+  onPause: (episodeId: string) => void;
+  onResume: (episodeId: string) => void;
+};
+
+export function SeriesDownloadSheet({
+  visible,
+  season,
+  records,
+  watchedEpisodeIds,
+  onClose,
+  onQueue,
+  onCancel,
+  onPause,
+  onResume,
+}: SeriesDownloadSheetProps) {
+  const downloadable = season.episodes.filter((episode) => episode.availability.download);
+  const queueable = downloadable.filter(
+    (episode) =>
+      !records.some(
+        (record) =>
+          record.item.id === episode.id &&
+          (record.status === 'queued' ||
+            record.status === 'downloading' ||
+            record.status === 'paused' ||
+            record.status === 'downloaded'),
+      ),
+  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(() =>
+    queueable.map((episode) => episode.id),
+  );
+  const selected = selectEpisodes(queueable, selectedIds);
+  const totalSize = totalEpisodeSize(selected);
+
+  const toggleEpisode = (episodeId: string) => {
+    setSelectedIds((ids) =>
+      ids.includes(episodeId) ? ids.filter((id) => id !== episodeId) : [...ids, episodeId],
+    );
+  };
+  const toggleAll = () => {
+    setSelectedIds((ids) =>
+      ids.length === queueable.length ? [] : queueable.map((item) => item.id),
+    );
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View style={styles.backdrop}>
+        <Pressable style={styles.dismissArea} onPress={onClose} />
+        <SafeAreaView style={styles.sheet}>
+          <View style={styles.grabBar} />
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Download season {season.seasonNumber}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Close downloads" onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={22} color={theme.text} />
+            </Pressable>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{
+                checked: queueable.length > 0 && selected.length === queueable.length,
+                disabled: queueable.length === 0,
+              }}
+              disabled={queueable.length === 0}
+              onPress={toggleAll}
+              style={styles.selectAll}
+            >
+              <Ionicons
+                name={
+                  queueable.length > 0 && selected.length === queueable.length
+                    ? 'checkbox'
+                    : 'square-outline'
+                }
+                size={21}
+                color={theme.accent}
+              />
+              <Text style={styles.selectAllText}>Select all available episodes</Text>
+            </Pressable>
+            {orderEpisodes(season.episodes).map((episode) => {
+              const record = records.find((download) => download.item.id === episode.id);
+              const alreadyDownloaded = record?.status === 'downloaded';
+              const isActive =
+                record?.status === 'queued' ||
+                record?.status === 'downloading' ||
+                record?.status === 'paused';
+              const checked = selected.some((selectedEpisode) => selectedEpisode.id === episode.id);
+              return (
+                <Pressable
+                  key={episode.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{
+                    checked: alreadyDownloaded || checked,
+                    disabled: !episode.availability.download || alreadyDownloaded || isActive,
+                  }}
+                  disabled={!episode.availability.download || alreadyDownloaded || isActive}
+                  onPress={() => toggleEpisode(episode.id)}
+                  style={styles.episodeRow}
+                >
+                  <Ionicons
+                    name={
+                      alreadyDownloaded
+                        ? 'checkmark-circle'
+                        : checked
+                          ? 'checkbox'
+                          : 'square-outline'
+                    }
+                    size={21}
+                    color={
+                      episode.availability.download || alreadyDownloaded
+                        ? theme.accent
+                        : theme.secondaryText
+                    }
+                  />
+                  <View style={styles.episodeCopy}>
+                    <Text style={styles.episodeTitle}>
+                      S{String(season.seasonNumber).padStart(2, '0')} E{String(episode.episodeNumber).padStart(2, '0')} · {episode.title}
+                    </Text>
+                    <Text style={styles.episodeMeta}>
+                      {episode.fileSizeBytes ? formatBytes(episode.fileSizeBytes) : 'Size unavailable'}
+                      {episode.runtimeMinutes ? ` · ${episode.runtimeMinutes} min` : ''}
+                      {record?.status === 'queued' ? ' · Queued' : ''}
+                      {record?.status === 'downloading' ? ` · ${record.progress}%` : ''}
+                      {record?.status === 'paused' ? ` · Paused at ${record.progress}%` : ''}
+                      {record?.status === 'downloaded' ? ' · Downloaded' : ''}
+                      {watchedEpisodeIds.includes(episode.id) ? ' · Watched' : ''}
+                      {record?.status === 'failed' ? ' · Failed · Retry' : ''}
+                      {!episode.availability.download ? ' · Downloads not available' : ''}
+                    </Text>
+                    {record?.status === 'downloading' || record?.status === 'paused' ? (
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${record.progress}%` }]} />
+                      </View>
+                    ) : null}
+                  </View>
+                  {record?.status === 'downloading' || record?.status === 'paused' ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        record.status === 'paused'
+                          ? `Resume episode ${episode.episodeNumber} download`
+                          : `Pause episode ${episode.episodeNumber} download`
+                      }
+                      onPress={() =>
+                        record.status === 'paused'
+                          ? onResume(episode.id)
+                          : onPause(episode.id)
+                      }
+                      style={styles.cancelButton}
+                    >
+                      <Ionicons
+                        name={record.status === 'paused' ? 'play' : 'pause'}
+                        size={17}
+                        color={theme.text}
+                      />
+                    </Pressable>
+                  ) : null}
+                  {isActive ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Cancel episode ${episode.episodeNumber} download`}
+                      onPress={() => onCancel(episode.id)}
+                      style={styles.cancelButton}
+                    >
+                      <Ionicons name="close" size={19} color={theme.text} />
+                    </Pressable>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            {!downloadable.length ? (
+              <Text style={styles.emptyText}>Downloads are not available for episodes in this season.</Text>
+            ) : null}
+          </ScrollView>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!selected.length}
+            onPress={() => onQueue(selected)}
+            style={[styles.primaryButton, !selected.length && styles.disabledButton]}
+          >
+            <Text style={styles.primaryText}>
+              Download ({selected.length}) · {formatBytes(totalSize)}
+            </Text>
+          </Pressable>
+        </SafeAreaView>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: theme.scrim },
+  dismissArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  sheet: {
+    maxHeight: '88%',
+    backgroundColor: theme.background,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  grabBar: { width: 42, height: 4, borderRadius: 2, backgroundColor: theme.secondaryText, alignSelf: 'center', marginTop: 10, marginBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  headerTitle: { color: theme.text, fontSize: 20, fontWeight: '800', flex: 1 },
+  closeButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.surface },
+  seasonRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.surface, borderRadius: 12, paddingHorizontal: 12, marginBottom: 10, borderWidth: 1, borderColor: 'transparent' },
+  selectedSeason: { backgroundColor: theme.surfaceAlt, borderColor: theme.accent },
+  seasonNumber: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: theme.background },
+  seasonNumberText: { color: theme.text, fontSize: 17, fontWeight: '800' },
+  selectedSeasonText: { color: theme.accent },
+  seasonCopy: { flex: 1 },
+  seasonTitle: { color: theme.text, fontSize: 15, fontWeight: '700' },
+  seasonMeta: { color: theme.secondaryText, fontSize: 14, marginTop: 4 },
+  viewEpisodes: { color: theme.secondaryText, fontSize: 14, fontWeight: '600' },
+  episodeChipRow: { gap: 8, paddingVertical: 12, paddingRight: 18 },
+  episodeChip: { minHeight: 44, flexDirection: 'row', alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 999, paddingLeft: 14, paddingRight: 8 },
+  selectedEpisodeChip: { backgroundColor: theme.accent, borderColor: theme.accent },
+  episodeChipText: { color: theme.text, fontSize: 14, fontWeight: '700' },
+  selectedEpisodeText: { color: theme.background },
+  watchedEpisodeText: { color: theme.accent },
+  episodePlay: { minHeight: 42, justifyContent: 'center' },
+  episodeDownload: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  selectAll: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  selectAllText: { color: theme.text, fontSize: 14, fontWeight: '600' },
+  episodeRow: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 11, backgroundColor: theme.surface, borderRadius: 12, padding: 12, marginBottom: 8 },
+  episodeCopy: { flex: 1 },
+  episodeTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
+  episodeMeta: { color: theme.secondaryText, fontSize: 14, marginTop: 4 },
+  progressTrack: { height: 4, backgroundColor: theme.surfaceSoft, borderRadius: 2, marginTop: 7 },
+  progressFill: { height: 4, backgroundColor: theme.accent, borderRadius: 2 },
+  cancelButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { color: theme.secondaryText, fontSize: 14, lineHeight: 20, paddingVertical: 18 },
+  primaryButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accent, borderRadius: 999, marginTop: 14 },
+  disabledButton: { backgroundColor: theme.surfaceSoft },
+  primaryText: { color: theme.background, fontSize: 15, fontWeight: '800' },
+});
+
+===== src/components/detail/DownloadSheet.tsx =====
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { isFeatureEnabled } from '../../config/features';
+import type { ContentItem } from '../../models/content';
+import type { OfflineDownloadRecord } from '../../services/OfflineDownloadService';
+import { formatBytes } from '../../services/OfflineDownloadService';
+import { theme } from '../../theme';
+import { getFileExtension, isVideoFormatLikelySupported } from '../../utils/videoFile';
+import { VersionsCard } from './DetailComponents';
+
+type DownloadSheetProps = {
+  visible: boolean;
+  item: ContentItem;
+  record?: OfflineDownloadRecord;
+  error?: string;
+  unavailableReason?: string;
+  onClose: () => void;
+  onDownload: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onCancel: () => void;
+  onPlayOffline: () => void;
+};
+
+export function DownloadSheet({
+  visible,
+  item,
+  record,
+  error,
+  unavailableReason,
+  onClose,
+  onDownload,
+  onPause,
+  onResume,
+  onCancel,
+  onPlayOffline,
+}: DownloadSheetProps) {
+  const extension = item.fileExtension ?? getFileExtension(item.mediaPath ?? '');
+  const platform =
+    Platform.OS === 'ios' || Platform.OS === 'android' || Platform.OS === 'web'
+      ? Platform.OS
+      : 'other';
+  const supported = isVideoFormatLikelySupported(extension, platform);
+  const allowed = item.availability.download;
+  const downloaded = record?.status === 'downloaded';
+  const downloading = record?.status === 'downloading';
+  const paused = record?.status === 'paused';
+  const queued = record?.status === 'queued';
+  const size = item.fileSizeBytes ? formatBytes(item.fileSizeBytes) : 'Size unavailable';
+  const stateMessage = unavailableReason ?? (!allowed
+    ? 'Downloads are not available for this title.'
+    : !supported
+      ? 'This video format may not play on this device.'
+      : platform === 'web'
+        ? 'Offline downloads need the Geniuzplus phone app; they are not available in a browser.'
+        : error ??
+        (paused
+          ? 'Download paused. Resume when you are ready.'
+          : record?.status === 'failed'
+          ? 'The download failed. Retry when your connection is available.'
+          : undefined));
+
+  let actionLabel = `Download (1) · ${size}`;
+  let action = onDownload;
+  let disabled = false;
+  if (downloaded) {
+    actionLabel = 'Play offline';
+    action = onPlayOffline;
+    disabled = false;
+  } else if (downloading) {
+    actionLabel = `Pause download (${record.progress}%)`;
+    action = onPause;
+    disabled = false;
+  } else if (paused) {
+    actionLabel = `Resume download (${record.progress}%)`;
+    action = onResume;
+    disabled = false;
+  } else if (queued) {
+    actionLabel = 'Cancel queued download';
+    action = onCancel;
+    disabled = false;
+  } else if (!allowed) {
+    actionLabel = 'Download unavailable';
+  } else if (!supported) {
+    actionLabel = 'Format may not play';
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <View style={styles.backdrop}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close download sheet"
+          onPress={onClose}
+          style={StyleSheet.absoluteFill}
+        />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.sheet}>
+            <View style={styles.grabBar} />
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>Download</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                onPress={onClose}
+                style={styles.closeButton}
+              >
+                <Ionicons name="close" size={22} color={theme.text} />
+              </Pressable>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <VersionsCard item={item} onDownload={onDownload} />
+              <View style={styles.qualityHeader}>
+                <Text style={styles.sectionLabel}>Quality</Text>
+                <View style={styles.qualityRow}>
+                  <View style={[styles.qualityChip, styles.selectedQuality]}>
+                    <Text style={styles.selectedQualityText}>Original</Text>
+                  </View>
+                  {isFeatureEnabled('qualityOptions') ? (
+                    (['720p', '1080p'] as const).map((quality) => (
+                      <Pressable
+                        key={quality}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: true }}
+                        disabled
+                        style={[styles.qualityChip, styles.disabledButton]}
+                      >
+                        <Ionicons name="ribbon" size={13} color={theme.gold} />
+                        <Text style={styles.qualityText}>{quality} · Not available yet</Text>
+                      </Pressable>
+                    ))
+                  ) : null}
+                </View>
+              </View>
+              <Text style={styles.sectionLabel}>Your download</Text>
+              <View style={styles.downloadRow}>
+                <View style={styles.rowIcon}>
+                  <Ionicons name="videocam-outline" size={20} color={theme.accent} />
+                </View>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.rowMeta}>
+                    {size}
+                    {downloading || paused ? ` · ${record.progress}%${paused ? ' · Paused' : ''}` : downloaded ? ' · Downloaded' : ''}
+                    {queued ? ' · Queued' : ''}
+                  </Text>
+                  {downloading || paused ? (
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${record.progress}%` }]} />
+                    </View>
+                  ) : null}
+                </View>
+                {downloaded ? <Ionicons name="checkmark-circle" size={22} color={theme.accent} /> : null}
+              </View>
+              {stateMessage ? <Text style={styles.helperText}>{stateMessage}</Text> : null}
+              {isFeatureEnabled('vipUpsell') ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
+                  disabled
+                  style={[styles.vipButton, styles.disabledButton]}
+                >
+                  <Ionicons name="ribbon" size={17} color={theme.gold} />
+                  <Text style={styles.vipText}>VIP features · Not available yet</Text>
+                </Pressable>
+              ) : null}
+            </ScrollView>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ disabled }}
+              disabled={disabled}
+              onPress={action}
+              style={[styles.primaryButton, disabled && styles.disabledButton]}
+            >
+              <Text style={styles.primaryText}>{actionLabel}</Text>
+            </Pressable>
+            {downloading || paused ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel download"
+                onPress={onCancel}
+                style={styles.secondaryButton}
+              >
+                <Text style={styles.secondaryText}>Cancel download</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </SafeAreaView>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: theme.scrim },
+  safeArea: { justifyContent: 'flex-end' },
+  sheet: {
+    maxHeight: '90%',
+    backgroundColor: theme.background,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  grabBar: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.secondaryText,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 12,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headerTitle: { color: theme.text, fontSize: 21, fontWeight: '800' },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.surface,
+  },
+  qualityHeader: { marginTop: 22, marginBottom: 20 },
+  sectionLabel: { color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 10 },
+  qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  qualityChip: {
+    minHeight: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+  },
+  selectedQuality: { backgroundColor: theme.accent, borderColor: theme.accent },
+  selectedQualityText: { color: theme.background, fontSize: 14, fontWeight: '800' },
+  qualityText: { color: theme.secondaryText, fontSize: 14 },
+  downloadRow: {
+    minHeight: 70,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: 12,
+  },
+  rowIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.background,
+  },
+  rowCopy: { flex: 1 },
+  rowTitle: { color: theme.text, fontSize: 14, fontWeight: '700' },
+  rowMeta: { color: theme.secondaryText, fontSize: 14, marginTop: 4 },
+  progressTrack: { height: 4, backgroundColor: theme.surfaceSoft, borderRadius: 2, marginTop: 8 },
+  progressFill: { height: 4, backgroundColor: theme.accent, borderRadius: 2 },
+  helperText: { color: theme.secondaryText, fontSize: 14, lineHeight: 20, marginTop: 12 },
+  vipButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.gold,
+  },
+  vipText: { color: theme.gold, fontSize: 14, fontWeight: '700' },
+  primaryButton: {
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.accent,
+    borderRadius: 999,
+    marginTop: 18,
+  },
+  secondaryButton: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  secondaryText: {
+    color: theme.secondaryText,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  disabledButton: { backgroundColor: theme.surfaceSoft },
+  primaryText: { color: theme.background, fontSize: 15, fontWeight: '800' },
+});
+
+===== app/membership.tsx =====
+import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import { router } from 'expo-router';
+import React, { useEffect, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ContentNotice } from '../src/components/ContentNotice';
+import { useMembership } from '../src/hooks/useMembership';
+import { createMemberCheckout } from '../src/services/MembershipClient';
+import { useAuth } from '../src/state/AuthContext';
+import { theme } from '../src/theme';
+import { getProfileInitial } from '../src/utils/accountAuth';
+import { formatMembershipDate } from '../src/utils/membership';
+
+export default function MembershipScreen() {
+  const auth = useAuth();
+  const membership = useMembership();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string>();
+  const paymentWasPending = useRef(false);
+  const currentStatus = membership.status;
+  const pendingReference = currentStatus?.pendingPayment?.reference;
+  const refreshMembership = membership.refresh;
+  const isOnline = membership.isOnline;
+  const hasMemberAccess = currentStatus?.status === 'active' || currentStatus?.status === 'grace';
+
+  useEffect(() => {
+    if (currentStatus?.pendingPayment) {
+      paymentWasPending.current = true;
+    }
+    if (paymentWasPending.current && hasMemberAccess && !currentStatus?.pendingPayment) {
+      paymentWasPending.current = false;
+      router.back();
+    }
+  }, [currentStatus, hasMemberAccess]);
+
+  useEffect(() => {
+    if (!pendingReference || !isOnline) {
+      return undefined;
+    }
+    const timer = setInterval(() => void refreshMembership(), 8_000);
+    return () => clearInterval(timer);
+  }, [isOnline, pendingReference, refreshMembership]);
+
+  const close = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/profile');
+    }
+  };
+
+  const handleMemberAction = async () => {
+    setCheckoutError(undefined);
+    if (!auth.session) {
+      auth.openSignInSheet('sign-in');
+      return;
+    }
+    if (hasMemberAccess) {
+      return;
+    }
+    if (!membership.isOnline) {
+      setCheckoutError('You’re offline. Reconnect to open secure checkout.');
+      return;
+    }
+    setIsCheckingOut(true);
+    try {
+      const checkout = await createMemberCheckout();
+      const checkoutUrl = new URL(checkout.authorizationUrl);
+      console.log("Checkout URL diagnostic:", { protocol: checkoutUrl.protocol, hostname: checkoutUrl.hostname });
+      const isPaystackUrl =
+        checkoutUrl.hostname === 'paystack.com' || checkoutUrl.hostname === 'flutterwave.com' || checkoutUrl.hostname.endsWith('.flutterwave.com') ||
+        checkoutUrl.hostname.endsWith('.paystack.com');
+      const isFlutterwaveUrl =
+        checkoutUrl.hostname === 'flutterwave.com' ||
+        checkoutUrl.hostname.endsWith('.flutterwave.com');
+
+      if (checkoutUrl.protocol !== 'https:' || (!isPaystackUrl && !isFlutterwaveUrl && !checkoutUrl.hostname.endsWith('.flutterwave.com.ng') && !checkoutUrl.hostname.endsWith('.dev-flutterwave.com'))) {
+        throw new Error('Invalid payment link: ' + checkoutUrl.protocol + '//' + checkoutUrl.hostname);
+      }
+      const paymentUrl = checkoutUrl.toString();
+      const browserResult = await WebBrowser.openBrowserAsync(paymentUrl);
+
+      if (browserResult.type === 'cancel' || browserResult.type === 'dismiss') {
+        // The user closed the checkout browser; keep the membership screen open.
+      }
+
+      const status = await membership.refresh();
+      if (status?.status === 'active' || status?.status === 'grace') {
+        close();
+      } else if (status?.pendingPayment) {
+        paymentWasPending.current = true;
+      }
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : 'Checkout could not be opened. Please retry.');
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
+  const displayName = auth.profile?.display_name || auth.session?.user.email || 'Visitor';
+  const priceText = membership.plan
+    ? `NGN ${new Intl.NumberFormat('en-NG', { maximumFractionDigits: 0 }).format(membership.plan.priceNgn)} / month`
+    : 'Membership price unavailable';
+  const membershipUntil = membership.status?.status === 'grace'
+    ? membership.status.graceUntil
+    : membership.status?.currentPeriodEnd;
+  const openLegalPage = async (url: string | undefined, title: string) => {
+    if (!url) {
+      setCheckoutError(`${title} is Coming soon.`);
+      return;
+    }
+    try {
+      await WebBrowser.openBrowserAsync(url);
+    } catch {
+      setCheckoutError(`${title} could not be opened.`);
+    }
+  };
+  const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL?.trim() || (process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '') ? `${process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '')}/legal/terms` : undefined);
+  const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || (process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '') ? `${process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '')}/legal/privacy` : undefined);
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.topBar}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close Member page" onPress={close} style={styles.closeButton}>
+          <Ionicons name="close" size={22} color={theme.text} />
+        </Pressable>
+      </View>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.hero}>
+          <View style={styles.avatar}>
+            {auth.profile?.avatar_url ? (
+              <Image source={{ uri: auth.profile.avatar_url }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitial}>{getProfileInitial(auth.profile?.display_name, auth.session?.user.email)}</Text>
+            )}
+          </View>
+          <View style={styles.memberBadge}>
+            <Ionicons name="star" size={14} color={theme.background} />
+            <Text style={styles.memberBadgeText}>MEMBER</Text>
+          </View>
+          <Text style={styles.personName} numberOfLines={1}>{displayName}</Text>
+        </View>
+
+        <Text style={styles.title}>Become a Member</Text>
+        <Text style={styles.price}>{priceText}</Text>
+        <Text style={[styles.priceNote, { textAlign: "center", width: "100%", alignSelf: "center" }]} numberOfLines={1} adjustsFontSizeToFit>Cancel anytime by not renewing · no automatic card charging</Text>
+
+        <View style={styles.benefits}>
+          <Text style={styles.sectionTitle}>Member benefits</Text>
+          <Benefit icon="eye-off-outline" text="Ad-free viewing" />
+          <Benefit icon="shield-checkmark-outline" text="Member badge on your profile" />
+          <Benefit icon="swap-horizontal-outline" text="Send and receive files between devices" />
+          <Benefit icon="cash-outline" text="Eligible members may earn USD from Reels" />
+          <Benefit icon="star-outline" text="Exclusive member status" />
+          <Benefit icon="trophy-outline" text="Premium creator recognition" />
+          <Benefit icon="lock-closed-outline" text="Access to member-only content" />
+          <Benefit icon="heart-outline" text="Support creators and the Geniuzplus community" />
+          <Benefit icon="rocket-outline" text="Early access to new features" />
+        </View>
+      </ScrollView>
+      <View style={styles.footer}>
+        {hasMemberAccess ? (
+          <Text style={styles.memberUntil}>
+            {membership.status?.status === 'grace' ? 'Grace period until ' : 'You are a Member until '}
+            {formatMembershipDate(membershipUntil)}
+          </Text>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            disabled={isCheckingOut || auth.isLoading || (Boolean(auth.session) && (!membership.isOnline || !membership.plan))}
+            onPress={() => void handleMemberAction()}
+            style={[styles.primaryButton, (isCheckingOut || auth.isLoading || (Boolean(auth.session) && (!membership.isOnline || !membership.plan))) && styles.disabled]}
+          >
+            <Text style={styles.primaryButtonText}>
+              {isCheckingOut ? 'Opening secure checkout…' : !auth.session ? 'Sign in to continue' : membership.status?.pendingPayment ? 'Continue payment' : 'Get Member badge'}
+            </Text>
+          </Pressable>
+        )}
+        {checkoutError ? (
+          <Text style={{ color: '#D64545', fontSize: 13, textAlign: 'center' }}>
+            {checkoutError}
+          </Text>
+        ) : null}
+        <Text style={styles.terms}>One-month membership. No automatic card charging. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
+        <View style={styles.legalLinks}>
+          <Pressable accessibilityRole="link" onPress={() => void openLegalPage(termsUrl, 'Terms')}><Text style={styles.legalLink}>Terms</Text></Pressable>
+          <Text style={styles.terms}>·</Text>
+          <Pressable accessibilityRole="link" onPress={() => void openLegalPage(privacyUrl, 'Privacy')}><Text style={styles.legalLink}>Privacy</Text></Pressable>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function Benefit({ icon, text }: { icon: keyof typeof Ionicons.glyphMap; text: string }) {
+  return (
+    <View style={styles.benefit}>
+      <Ionicons name={icon} size={20} color={theme.accent} />
+      <Text style={styles.benefitText}>{text}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { backgroundColor: theme.background, flex: 1 },
+  topBar: { alignItems: 'flex-end', paddingHorizontal: 18, paddingTop: 4 },
+  closeButton: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 22, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
+  content: { alignItems: 'center', gap: 10, paddingHorizontal: 22, paddingBottom: 16, paddingTop: 6 },
+  hero: { alignItems: 'center', gap: 5, marginBottom: 0, width: '100%' },
+  avatar: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.gold, borderRadius: 38, borderWidth: 2, height: 76, justifyContent: 'center', overflow: 'hidden', width: 76 },
+  avatarImage: { height: '100%', width: '100%' },
+  avatarInitial: { color: theme.text, fontSize: 27, fontWeight: '800' },
+  memberBadge: { alignItems: 'center', backgroundColor: theme.gold, borderRadius: 12, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
+  memberBadgeText: { color: theme.background, fontSize: 10, fontWeight: '900' },
+  personName: { color: theme.secondaryText, fontSize: 14, fontWeight: '600', maxWidth: '90%' },
+  title: { color: theme.text, fontSize: 27, fontWeight: '900', textAlign: 'center' },
+  price: { color: theme.gold, fontSize: 25, fontWeight: '900', textAlign: 'center' },
+  priceNote: { color: theme.secondaryText, fontSize: 13 },
+  benefits: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+    marginTop: 2,
+    padding: 14,
+  },
+  sectionTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
+  benefit: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  benefitText: { color: theme.text, flex: 1, fontSize: 14, lineHeight: 20 },
+  unavailableBenefit: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
+  unavailableText: { color: theme.secondaryText, flex: 1, fontSize: 13, lineHeight: 19 },
+  footer: { backgroundColor: theme.background, borderTopColor: theme.border, borderTopWidth: 1, gap: 9, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
+  primaryButton: { alignItems: 'center', backgroundColor: theme.gold, borderRadius: 10, justifyContent: 'center', minHeight: 52, paddingHorizontal: 16 },
+  primaryButtonText: { color: theme.background, fontSize: 15, fontWeight: '900' },
+  disabled: { opacity: 0.55 },
+  memberUntil: { color: theme.gold, fontSize: 16, fontWeight: '800', textAlign: 'center', paddingVertical: 10 },
+  terms: { color: theme.secondaryText, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  legalLinks: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' },
+  legalLink: { color: theme.accent, fontSize: 11, fontWeight: '700' },
+});
+
+===== app/(tabs)/search.tsx =====
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ContentNotice } from '../../src/components/ContentNotice';
+import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../../src/components/KeyboardAwareScrollView';
+import { OfflineState } from '../../src/components/OfflineState';
+import { PosterCard } from '../../src/components/PosterCard';
+import { SectionHeader } from '../../src/components/SectionHeader';
+import { useContentQuery } from '../../src/hooks/useContentQuery';
+import { MockContentRepository } from '../../src/repositories/MockContentRepository';
+import { supabaseMovieRepository } from '../../src/repositories/SupabaseMovieRepository';
+import { useNetwork } from '../../src/state/NetworkContext';
+import { theme } from '../../src/theme';
+import {
+  isDemoCatalogEnabled,
+  loadPublishedCatalog,
+  searchPublishedCatalog,
+  sortPublishedNewest,
+} from '../../src/utils/publishedCatalog';
+
+const demoRepository = new MockContentRepository();
+
+export default function SearchScreen() {
+  const { isOnline, retryConnection } = useNetwork();
+  const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [selectedGenre, setSelectedGenre] = useState('All');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const loadCatalog = useCallback(async () => {
+    const catalog = await loadPublishedCatalog(
+      () => {
+        if (!supabaseMovieRepository) {
+          throw new Error('Supabase catalog is not configured.');
+        }
+        return supabaseMovieRepository.getPublishedMovies();
+      },
+      () => {
+        if (!supabaseMovieRepository) {
+          throw new Error('Supabase catalog is not configured.');
+        }
+        return supabaseMovieRepository.getPublishedSeries();
+      },
+      () => {
+        if (!supabaseMovieRepository) {
+          throw new Error('Supabase catalog is not configured.');
+        }
+        return supabaseMovieRepository.getPublishedShorts();
+      },
+    );
+    if (
+      isDemoCatalogEnabled &&
+      !catalog.hasFailures &&
+      catalog.movies.length + catalog.series.length + catalog.shorts.length === 0
+    ) {
+      const demos = await demoRepository.getPopular();
+      return {
+        data: {
+          ...catalog,
+          movies: demos.filter((item) => item.type === 'movie'),
+          series: demos.filter((item) => item.type === 'series'),
+          shorts: [],
+          showingDemo: true,
+        },
+        source: 'mock' as const,
+      };
+    }
+    return { data: { ...catalog, showingDemo: false }, source: 'supabase' as const };
+  }, []);
+  const catalogQuery = useContentQuery('search-supabase-catalog', loadCatalog, isOnline);
+  const catalogItems = useMemo(
+    () => sortPublishedNewest([
+      ...(catalogQuery.data?.movies ?? []),
+      ...(catalogQuery.data?.series ?? []),
+      ...(catalogQuery.data?.shorts ?? []),
+    ]),
+    [catalogQuery.data],
+  );
+  const genres = useMemo(
+    () => [...new Set(catalogItems.flatMap((item) => item.genres))],
+    [catalogItems],
+  );
+  const visibleItems = useMemo(() => {
+    const searched = searchPublishedCatalog(catalogItems, debouncedQuery);
+    return selectedGenre === 'All'
+      ? searched
+      : searched.filter((item) =>
+          item.genres.some((genre) => genre.toLocaleLowerCase() === selectedGenre.toLocaleLowerCase()),
+        );
+  }, [catalogItems, debouncedQuery, selectedGenre]);
+  const retry = catalogQuery.retry;
+  const hasError = catalogQuery.error || catalogQuery.data?.hasFailures;
+
+  if (!isOnline) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <OfflineState onRetry={() => void retryConnection()} />
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={catalogQuery.isRefreshing}
+            onRefresh={retry}
+            tintColor={theme.accent}
+            colors={[theme.accent]}
+          />
+        }
+      >
+        <Text style={styles.header}>Discover</Text>
+
+        <View style={styles.searchContainer}>
+          <KeyboardAwareTextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search title, genre, or year"
+            placeholderTextColor={theme.secondaryText}
+            style={styles.input}
+            accessibilityLabel="Search titles, genres, and years"
+            returnKeyType="search"
+          />
+        </View>
+
+        {genres.length ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipRow}
+          >
+            {['All', ...genres].map((genre) => (
+              <Pressable
+                key={genre}
+                onPress={() => setSelectedGenre(genre)}
+                style={[styles.chip, selectedGenre === genre && styles.activeChip]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedGenre === genre }}
+              >
+                <Text style={[styles.chipText, selectedGenre === genre && styles.activeChipText]}>
+                  {genre}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        {hasError ? (
+          <ContentNotice
+            message={catalogQuery.error ?? 'Some titles could not be loaded. Please retry.'}
+            tone="error"
+            actionLabel="Retry"
+            onAction={retry}
+            autoHideMs={5000}
+          />
+        ) : null}
+        {catalogQuery.data?.showingDemo ? (
+          <ContentNotice message="Demo catalog — search results are sample content." />
+        ) : null}
+        {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
+        <SectionHeader title={debouncedQuery ? 'Results' : 'Published titles'} />
+
+        {!catalogQuery.isLoading && !hasError && visibleItems.length === 0 ? (
+          <ContentNotice message={catalogItems.length ? 'No results' : 'No titles yet'} />
+        ) : null}
+
+        <View style={styles.grid}>
+          {visibleItems.map((item) => (
+            <PosterCard
+              key={item.id}
+              item={item}
+              compact
+              onPress={() => router.push({ pathname: '/content/[id]', params: { id: item.id } })}
+            />
+          ))}
+        </View>
+      </KeyboardAwareScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: theme.background },
+  content: { paddingHorizontal: 18, paddingBottom: 30 },
+  header: {
+    color: theme.text,
+    fontSize: 30,
+    fontWeight: '800',
+    marginTop: 18,
+    marginBottom: 18,
+    letterSpacing: -0.9,
+  },
+  searchContainer: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  input: { color: theme.text, fontSize: 16, paddingVertical: 4 },
+  chipRow: { paddingVertical: 18, paddingRight: 18 },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginRight: 10,
+  },
+  activeChip: { backgroundColor: theme.accent, borderColor: theme.accent },
+  chipText: { color: theme.text, fontWeight: '700', fontSize: 12 },
+  activeChipText: { color: theme.background },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+  },
+});

@@ -95,6 +95,25 @@ function ConversionStatusBadge({ status }: { status?: ContentItem['conversionSta
   );
 }
 
+const readVideoDurationSeconds = (file: unknown): Promise<number | null> =>
+  new Promise((resolve) => {
+    if (typeof document === 'undefined' || typeof URL === 'undefined' || !(file instanceof Blob)) {
+      resolve(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    const finish = (value: number | null) => {
+      URL.revokeObjectURL(url);
+      resolve(value);
+    };
+    video.preload = 'metadata';
+    video.onloadedmetadata = () =>
+      finish(Number.isFinite(video.duration) ? Math.round(video.duration) : null);
+    video.onerror = () => finish(null);
+    video.src = url;
+  });
+
 type SelectedMovieFile = {
   file: File | ExpoFile;
   name: string;
@@ -461,6 +480,9 @@ export default function AdminScreen() {
   const [episodeTitle, setEpisodeTitle] = useState('');
   const [episodeDuration, setEpisodeDuration] = useState('');
   const [episodeFile, setEpisodeFile] = useState<SelectedMovieFile | null>(null);
+  const [episodeBatch, setEpisodeBatch] = useState<SelectedMovieFile[]>([]);
+  const [batchStatus, setBatchStatus] = useState('');
+  const [batchMeta, setBatchMeta] = useState<{ number: string; title: string }[]>([]);
   const [episodeRightsConfirmed, setEpisodeRightsConfirmed] = useState(false);
   const [episodeAllowDownload, setEpisodeAllowDownload] = useState(false);
   const [episodePublished, setEpisodePublished] = useState(true);
@@ -797,6 +819,59 @@ export default function AdminScreen() {
       setEpisodeFile(file);
     }
   }, [chooseVideoFile]);
+
+  const chooseEpisodeBatch = useCallback(async () => {
+    setFormError(undefined);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        multiple: true,
+        copyToCacheDirectory: false,
+        base64: false,
+      });
+      if (result.canceled) {
+        return;
+      }
+      const picked: SelectedMovieFile[] = [];
+      for (const asset of result.assets) {
+        const detectedType = detectVideoFileType(asset.name, asset.mimeType);
+        if (!detectedType) {
+          setFormError(`${asset.name} is not a supported video file.`);
+          return;
+        }
+        const file = asset.file ?? new ExpoFile(asset.uri);
+        const fileSize = typeof file.size === 'number' ? file.size : Number.NaN;
+        const sizeValidation = validateVideoFileSize(fileSize, MAX_VIDEO_FILE_SIZE_BYTES);
+        if (!sizeValidation.valid) {
+          setFormError(`${asset.name}: ${sizeValidation.message}`);
+          return;
+        }
+        picked.push({
+          file,
+          name: asset.name,
+          size: fileSize,
+          fileExtension: detectedType.originalExtension,
+          storageExtension: detectedType.extension,
+          mimeType: asset.mimeType?.trim() || detectedType.mimeType,
+          contentType: detectedType.mimeType,
+        });
+      }
+      picked.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+      const firstNumber = Number.isInteger(Number(episodeNumber)) && Number(episodeNumber) >= 1
+        ? Number(episodeNumber)
+        : 1;
+      setEpisodeBatch(picked);
+      setBatchMeta(
+        picked.map((_, index) => ({
+          number: String(firstNumber + index),
+          title: `Episode ${firstNumber + index}`,
+        })),
+      );
+    } catch (error) {
+      console.error('[AdminScreen] Batch video picker failed.', error);
+      setFormError('Could not open the video picker. Please try again.');
+    }
+  }, [episodeNumber]);
 
   const chooseTitleImage = useCallback(async (kind: 'poster' | 'cover', series = false) => {
     setFormError(undefined);
@@ -1434,6 +1509,134 @@ export default function AdminScreen() {
     episodeRightsConfirmed,
     episodeSeasonId,
     episodeTitle,
+    loadMovies,
+  ]);
+
+  const handleUploadEpisodeBatch = useCallback(async () => {
+    if (!supabaseMovieRepository || !supabase || !episodeBatch.length) {
+      setFormError('Choose the episode videos first.');
+      return;
+    }
+    if (!episodeSeasonId) {
+      setFormError('Choose a season for these episodes.');
+      return;
+    }
+    if (batchMeta.length !== episodeBatch.length) {
+      setFormError('Choose the videos again.');
+      return;
+    }
+    const numbers = batchMeta.map((entry) => Number(entry.number));
+    if (numbers.some((n) => !Number.isInteger(n) || n < 1) || new Set(numbers).size !== numbers.length) {
+      setFormError('Every video needs a different whole episode number.');
+      return;
+    }
+    if (batchMeta.some((entry) => !entry.title.trim())) {
+      setFormError('Every episode needs a title.');
+      return;
+    }
+    if (!episodeRightsConfirmed) {
+      setFormError('Confirm that you have the rights to distribute these episodes.');
+      return;
+    }
+
+    setIsUploading(true);
+    setProgress(0);
+    setFormError(undefined);
+    setFormMessage(undefined);
+    const abortController = new AbortController();
+    uploadAbortController.current = abortController;
+    const failed: string[] = [];
+    let uploaded = 0;
+    try {
+      for (let index = 0; index < episodeBatch.length; index += 1) {
+        const item = episodeBatch[index];
+        const number = Number(batchMeta[index].number);
+        const title = batchMeta[index].title.trim();
+        setUploadingFile(item);
+        setProgress(0);
+        setBatchStatus(`Uploading ${index + 1} of ${episodeBatch.length}: Episode ${number}`);
+        try {
+          const { data: sessionResult, error: sessionError } = await supabase.auth.getSession();
+          const accessToken = sessionResult.session?.access_token;
+          if (sessionError || !accessToken) {
+            throw new Error('Your admin session expired. Sign in again before uploading.');
+          }
+          const duration = (await readVideoDurationSeconds(item.file)) ?? Number(episodeDuration);
+          if (!Number.isInteger(duration) || duration < 1 || duration > 86400) {
+            throw new Error('Could not read the video duration.');
+          }
+          const storageKey = await uploadVideoToB2({
+            apiBaseUrl: process.env.EXPO_PUBLIC_GENIUZ_API_URL ?? '',
+            accessToken,
+            file: {
+              size: item.size,
+              readPart: (start, end, contentType) =>
+                readFilePartBytes(item.file, start, end, contentType),
+            },
+            fileName: item.name,
+            contentType: item.contentType,
+            objectType: 'episode',
+            signal: abortController.signal,
+            onProgress: setProgress,
+          });
+          if (abortController.signal.aborted) {
+            throw new Error('Upload canceled.');
+          }
+          await supabaseMovieRepository.createB2Episode(
+            {
+              seasonId: episodeSeasonId,
+              episodeNumber: number,
+              title,
+              durationSeconds: duration,
+              fileExtension: item.fileExtension,
+              mimeType: item.mimeType,
+              fileSizeBytes: item.size,
+              allowDownload: episodeAllowDownload,
+              published: episodePublished,
+            },
+            storageKey,
+          );
+          uploaded += 1;
+        } catch (error) {
+          if (abortController.signal.aborted) {
+            throw error;
+          }
+          console.error('[AdminScreen] Batch episode failed.', error);
+          failed.push(`Episode ${number} (${item.name})`);
+        }
+      }
+      setEpisodeBatch([]);
+      setBatchMeta([]);
+      setEpisodeNumber('');
+      setEpisodeDuration('');
+      setEpisodeRightsConfirmed(false);
+      setEpisodeAllowDownload(false);
+      setProgress(100);
+      setFormMessage(`${uploaded} of ${episodeBatch.length} episodes uploaded and saved.`);
+      if (failed.length) {
+        setFormError(`These failed, add them one by one: ${failed.join(', ')}`);
+      }
+      await loadMovies();
+    } catch (error) {
+      console.error('[AdminScreen] Batch upload stopped.', error);
+      setFormError(error instanceof Error ? error.message : 'The batch upload stopped. Retry.');
+    } finally {
+      if (uploadAbortController.current === abortController) {
+        uploadAbortController.current = null;
+      }
+      setUploadingFile(null);
+      setIsUploading(false);
+      setBatchStatus('');
+    }
+  }, [
+    episodeAllowDownload,
+    episodeBatch,
+    batchMeta,
+    episodeDuration,
+    episodeNumber,
+    episodePublished,
+    episodeRightsConfirmed,
+    episodeSeasonId,
     loadMovies,
   ]);
 
@@ -2543,6 +2746,41 @@ export default function AdminScreen() {
                     : 'Any video format up to 1 GB. MP4 is the most compatible.'}
                 </Text>
               </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isUploading}
+                onPress={() => void chooseEpisodeBatch()}
+                style={styles.filePicker}
+              >
+                <Text style={styles.filePickerTitle}>
+                  {episodeBatch.length ? `${episodeBatch.length} videos selected` : 'Choose many episode videos at once'}
+                </Text>
+                <Text style={styles.helper}>
+                  {episodeBatch.length
+                    ? episodeBatch.map((item) => item.name).join(', ')
+                    : 'Sorted by file name. You can edit each episode number and title below.'}
+                </Text>
+              </Pressable>
+              {episodeBatch.map((item, index) => (
+                <View key={`${item.name}-${index}`} style={styles.filePicker}>
+                  <Text style={styles.helper}>{item.name}</Text>
+                  <AdminTextField
+                    label="Episode number"
+                    value={batchMeta[index]?.number ?? ''}
+                    onChangeText={(value) =>
+                      setBatchMeta((current) => current.map((entry, i) => (i === index ? { ...entry, number: value } : entry)))
+                    }
+                    keyboardType="number-pad"
+                  />
+                  <AdminTextField
+                    label="Episode title"
+                    value={batchMeta[index]?.title ?? ''}
+                    onChangeText={(value) =>
+                      setBatchMeta((current) => current.map((entry, i) => (i === index ? { ...entry, title: value } : entry)))
+                    }
+                  />
+                </View>
+              ))}
               <AdminCheckbox
                 checked={episodeRightsConfirmed}
                 disabled={isUploading}
@@ -2568,6 +2806,16 @@ export default function AdminScreen() {
                 style={[styles.primaryButton, (isUploading || !episodeFile || !episodeTitle.trim() || !episodeSeasonId) && styles.disabledButton]}
               >
                 <Text style={styles.primaryButtonText}>{isUploading ? 'Uploading…' : 'Add episode'}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isUploading || !episodeBatch.length || !episodeSeasonId}
+                onPress={() => void handleUploadEpisodeBatch()}
+                style={[styles.primaryButton, (isUploading || !episodeBatch.length || !episodeSeasonId) && styles.disabledButton]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isUploading && batchStatus ? batchStatus : `Upload ${episodeBatch.length || ''} episodes`}
+                </Text>
               </Pressable>
             </View>
               </>
