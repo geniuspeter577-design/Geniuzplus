@@ -59,7 +59,8 @@
         "backgroundColor": "#020807",
         "foregroundImage": "./assets/new-logo/adaptive-icon-foreground.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "googleServicesFile": "./google-services.json"
     },
     "androidStatusBar": {
       "translucent": false

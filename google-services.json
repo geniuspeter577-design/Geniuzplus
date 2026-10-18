@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "978465890853",
+    "project_id": "geniuzplus-19373",
+    "storage_bucket": "geniuzplus-19373.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:978465890853:android:afeab52a404c6702ba95cc",
+        "android_client_info": {
+          "package_name": "com.geniuz.entertainment"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmkn9v5UzWy21Gus-C-OiXCF1NP6LsxHU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
