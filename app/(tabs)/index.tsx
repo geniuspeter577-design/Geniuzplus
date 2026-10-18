@@ -31,6 +31,7 @@ import { MockContentRepository } from '../../src/repositories/MockContentReposit
 import { useFootballMatches } from '../../src/state/FootballMatchesContext';
 import { useLibrary } from '../../src/state/LibraryContext';
 import { useNetwork } from '../../src/state/NetworkContext';
+import { useStudyMode } from '../../src/state/StudyModeContext';
 import { theme } from '../../src/theme';
 import { loadNotifications, getUnreadNotificationCount } from '../../src/services/NotificationsStore';
 import { formatRuntime } from '../../src/utils/contentPresentation';
@@ -150,12 +151,14 @@ export default function HomeScreen() {
     [movies, series, shorts],
   );
   const heroItems = useMemo(() => publishedItems.slice(0, 5), [publishedItems]);
-  const categoryTabs = useMemo(
+  const study = useStudyMode();
+  const allCategoryTabs = useMemo(
     () => [
       { key: 'Trending', label: 'Trending' },
       { key: 'Anime', label: 'Anime' },
       { key: 'Animation', label: 'Animation' },
       { key: 'Kids', label: 'Kids' },
+      { key: 'Education', label: 'Education' },
       { key: 'Reels', label: 'Reels' },
       { key: 'TV', label: 'TV' },
       { key: 'Nollywood', label: 'Nollywood' },
@@ -164,7 +167,17 @@ export default function HomeScreen() {
     ],
     [],
   );
+  const categoryTabs = useMemo(
+    () => (study.enabled ? [{ key: 'Education', label: 'Education' }, { key: 'Fun', label: 'Fun' }] : allCategoryTabs),
+    [allCategoryTabs, study.enabled],
+  );
   const [selectedCategory, setSelectedCategory] = useState('Trending');
+  const [kidsSub, setKidsSub] = useState<'All' | 'Movies' | 'Animation'>('All');
+  useEffect(() => {
+    if (study.enabled && selectedCategory !== 'Education' && selectedCategory !== 'Fun') {
+      setSelectedCategory('Education');
+    }
+  }, [study.enabled, selectedCategory]);
   const football = useFootballMatches();
   const footballToday = football.upcoming;
   const tabsScrollRef = useRef<ScrollView | null>(null);
@@ -184,7 +197,7 @@ export default function HomeScreen() {
   );
   useEffect(() => {
     setHomeBackHandler(() => {
-      if (selectedCategory !== 'Trending') {
+      if (!study.enabled && selectedCategory !== 'Trending') {
         setSelectedCategory('Trending');
         homeScrollRef.current?.scrollTo({ y: 0, animated: false });
         return true;
@@ -192,7 +205,7 @@ export default function HomeScreen() {
       return false;
     });
     return () => setHomeBackHandler(null);
-  }, [selectedCategory]);
+  }, [selectedCategory, study.enabled]);
   const activeCategoryItems = useMemo(
     () =>
       selectedCategory === 'Trending'
@@ -201,7 +214,11 @@ export default function HomeScreen() {
           ? getHomeCategoryItems(publishedItems, selectedCategory)
           : selectedCategory === 'Reels'
             ? shorts.filter((item) => item.availability.discoverable)
-            : getHomeCategoryItems(publishedItems, selectedCategory),
+            : selectedCategory === 'Fun'
+              ? sortPublishedNewest(publishedItems.filter((item) =>
+                  (item.categories ?? []).some((category) => ['animation', 'cartoon'].includes(category.toLocaleLowerCase())),
+                ))
+              : getHomeCategoryItems(publishedItems, selectedCategory),
     [publishedItems, selectedCategory, shorts],
   );
   const activeHeroItems = useMemo(
@@ -252,6 +269,28 @@ export default function HomeScreen() {
     ({ item }) => listedIds.has(item.id) || (catalogQuery.data?.showingDemo && item.source === 'mock'),
   );
   const categoryRows = useMemo(() => {
+    const isAnimated = (item: ContentItem) =>
+      (item.categories ?? []).some((category) => ['animation', 'cartoon'].includes(category.toLocaleLowerCase()));
+    const kidsRows = [
+      {
+        key: 'kids:movies',
+        title: 'Movies',
+        listKind: 'category',
+        listValue: 'Kids',
+        items: activeCategoryItems.filter((item) => !isAnimated(item)),
+        emptyMessage: 'Nothing here yet',
+        isLoading: false,
+      },
+      {
+        key: 'kids:animation',
+        title: 'Animation',
+        listKind: 'category',
+        listValue: 'Animation',
+        items: activeCategoryItems.filter(isAnimated),
+        emptyMessage: 'Nothing here yet',
+        isLoading: false,
+      },
+    ].filter((row) => row.items.length > 0 && (kidsSub === 'All' || row.title === kidsSub));
     const rows = selectedCategory === 'Trending'
       ? [
           {
@@ -299,6 +338,8 @@ export default function HomeScreen() {
             }))
             .filter(({ items }) => items.length > 0),
         ]
+      : selectedCategory === 'Kids' && activeCategoryItems.length
+        ? kidsRows
       : activeCategoryItems.length
         ? [{
             key: `category:${selectedCategory}`,
@@ -308,7 +349,7 @@ export default function HomeScreen() {
               : selectedCategory === 'Reels'
                 ? 'shorts'
                 : 'category',
-            listValue: selectedCategory,
+            listValue: selectedCategory === 'Fun' ? 'Animation' : selectedCategory,
             items: activeCategoryItems,
             emptyMessage: 'Nothing here yet',
             isLoading: catalogQuery.isLoading,
@@ -323,6 +364,7 @@ export default function HomeScreen() {
     selectedCategory,
     series,
     shuffleSeed,
+    kidsSub,
   ]);
   const retryCatalog = catalogQuery.retry;
   const refreshCatalog = useCallback(() => {
@@ -501,6 +543,25 @@ export default function HomeScreen() {
             </View>
           </ScrollView>
         ) : null}
+        {selectedCategory === 'Kids' ? (
+          <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 8 }}>
+            {(['All', 'Movies', 'Animation'] as const).map((name) => (
+              <Pressable
+                key={name}
+                accessibilityRole="button"
+                onPress={() => setKidsSub(name)}
+                style={{
+                  backgroundColor: kidsSub === name ? theme.accent : theme.surface,
+                  borderRadius: 18,
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ color: kidsSub === name ? theme.background : theme.text, fontSize: 13, fontWeight: '800' }}>{name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         {selectedCategory === 'Football' ? (
           <FootballMatchesPanel isOnline={isOnline} onRetryConnection={() => void retryConnection()} />
@@ -520,7 +581,7 @@ export default function HomeScreen() {
           <Text style={styles.emptyText}>Nothing here yet</Text>
         ) : null}
 
-        {selectedCategory !== 'Football' && footballToday ? (
+        {!study.enabled && selectedCategory !== 'Football' && footballToday ? (
           footballToday.matches.length ? (
             <>
               <SectionHeader title="Football" onSeeAll={() => setSelectedCategory('Football')} />
@@ -547,7 +608,7 @@ export default function HomeScreen() {
           ) : null
         ) : null}
 
-        {selectedCategory !== 'Football' && !footballToday.isLoading && !footballToday.error && footballToday.matches.length === 0 ? (
+        {!study.enabled && selectedCategory !== 'Football' && !footballToday.isLoading && !footballToday.error && footballToday.matches.length === 0 ? (
           <Text style={{ color: theme.secondaryText, marginHorizontal: 16, marginVertical: 8 }}>No upcoming matches right now</Text>
         ) : null}
 

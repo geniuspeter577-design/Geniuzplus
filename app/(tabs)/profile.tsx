@@ -24,6 +24,7 @@ import { theme } from '../../src/theme';
 import { getProfileInitial } from '../../src/utils/accountAuth';
 import { formatMembershipDate } from '../../src/utils/membership';
 import { getMeScreenData, getShortPublicId } from '../../src/utils/meScreen';
+import { StudyModeCard } from '../../src/components/StudyModeCard';
 
 type MeRowProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -217,6 +218,8 @@ export default function ProfileScreen() {
           <Text style={styles.visitorMemberTitle}>Geniuzplus Membership</Text>
           <Text style={styles.memberSubtitle}>{memberCardSubtitle}</Text>
         </Pressable> : null}
+
+        <StudyModeCard />
 
         <View style={styles.historySection}>
           <Pressable

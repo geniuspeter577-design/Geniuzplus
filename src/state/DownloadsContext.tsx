@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import type { ContentItem } from '../models/content';
 import { supabaseMovieRepository } from '../repositories/SupabaseMovieRepository';
@@ -144,6 +144,33 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       throw resumeError;
     }
   }, [enforceWifiPreference]);
+
+  const autoPausedRef = useRef<Set<string>>(new Set());
+  const recordsRef = useRef<OfflineDownloadRecord[]>([]);
+  recordsRef.current = records;
+
+  useEffect(() => {
+    if (!network.isReady) {
+      return;
+    }
+    if (!network.isOnline) {
+      for (const record of recordsRef.current) {
+        if (record.status === 'downloading') {
+          autoPausedRef.current.add(record.item.id);
+          void service.pause(record.item.id).catch(() => undefined);
+        }
+      }
+      return;
+    }
+    const ids = Array.from(autoPausedRef.current);
+    autoPausedRef.current.clear();
+    for (const id of ids) {
+      const record = recordsRef.current.find((candidate) => candidate.item.id === id);
+      if (record?.status === 'paused') {
+        void resume(id).catch(() => undefined);
+      }
+    }
+  }, [network.isReady, network.isOnline, resume]);
 
   const download = useCallback(async (item: ContentItem) => {
     setError(undefined);

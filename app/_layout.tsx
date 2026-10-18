@@ -8,7 +8,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { OfflineBanner } from '../src/components/OfflineBanner';
 import { UpdatePrompt } from '../src/components/UpdatePrompt';
+import { FirstOpenPrompt } from '../src/components/FirstOpenPrompt';
+import { StudyModeProvider } from '../src/state/StudyModeContext';
 import { FootballScorePin } from '../src/components/FootballScorePin';
+import { HideInStudyMode } from '../src/components/HideInStudyMode';
 import { AuthProvider } from '../src/state/AuthContext';
 import { prewarmContentApi } from '../src/services/createContentService';
 import { theme } from '../src/theme';
@@ -36,11 +39,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <NetworkProvider>
+        <StudyModeProvider>
           <LibraryProvider>
             <DownloadsProvider>
               <FootballMatchesProvider>
                   <StatusBar style="light" />
                   <UpdatePrompt />
+                  <FirstOpenPrompt />
                   <OfflineBanner />
                   <Stack
                     screenOptions={{
@@ -62,10 +67,11 @@ export default function RootLayout() {
                     <Stack.Screen name="shorts" options={{ presentation: 'fullScreenModal' }} />
                     <Stack.Screen name="+not-found" />
                   </Stack>
-                  <FootballScorePin />
+                  <HideInStudyMode><FootballScorePin /></HideInStudyMode>
               </FootballMatchesProvider>
             </DownloadsProvider>
           </LibraryProvider>
+        </StudyModeProvider>
         </NetworkProvider>
       </AuthProvider>
     </SafeAreaProvider>

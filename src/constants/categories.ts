@@ -13,6 +13,7 @@ export const TITLE_CATEGORIES = [
   'Horror',
   'Romance',
   'Kids',
+  'Education',
   'Football',
   'Reels',
 ] as const;

@@ -3,9 +3,11 @@ import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '../../src/theme';
+import { useStudyMode } from '../../src/state/StudyModeContext';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const study = useStudyMode();
   return (
     <Tabs backBehavior="history"
       screenOptions={({ route }) => ({
@@ -53,8 +55,8 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: 'Home' }} />
-      <Tabs.Screen name="search" options={{ title: 'Search' }} />
-      <Tabs.Screen name="library" options={{ title: 'Library' }} />
+      <Tabs.Screen name="search" options={{ title: 'Search', href: study.enabled ? null : undefined }} />
+      <Tabs.Screen name="library" options={{ title: 'Library', href: study.enabled ? null : undefined }} />
       <Tabs.Screen name="downloads" options={{ title: 'Downloads' }} />
       <Tabs.Screen name="profile" options={{ title: 'Me' }} />
     </Tabs>
