@@ -146,12 +146,18 @@ export default function HomeScreen() {
   const movies = catalogQuery.data?.movies ?? EMPTY_CONTENT_ITEMS;
   const series = catalogQuery.data?.series ?? EMPTY_CONTENT_ITEMS;
   const shorts = catalogQuery.data?.shorts ?? EMPTY_CONTENT_ITEMS;
-  const publishedItems = useMemo(
+  const study = useStudyMode();
+  const allPublishedItems = useMemo(
     () => sortPublishedNewest([...movies, ...series, ...shorts]),
     [movies, series, shorts],
   );
+  const publishedItems = useMemo(
+    () => (study.enabled
+      ? allPublishedItems
+      : allPublishedItems.filter((item) => !(item.categories ?? []).some((category) => category.toLocaleLowerCase() === 'education')) ),
+    [allPublishedItems, study.enabled],
+  );
   const heroItems = useMemo(() => publishedItems.slice(0, 5), [publishedItems]);
-  const study = useStudyMode();
   const allCategoryTabs = useMemo(
     () => [
       { key: 'Trending', label: 'Trending' },
@@ -218,8 +224,8 @@ export default function HomeScreen() {
               ? sortPublishedNewest(publishedItems.filter((item) =>
                   (item.categories ?? []).some((category) => ['animation', 'cartoon'].includes(category.toLocaleLowerCase())),
                 ))
-              : getHomeCategoryItems(publishedItems, selectedCategory),
-    [publishedItems, selectedCategory, shorts],
+              : getHomeCategoryItems(selectedCategory === 'Education' ? allPublishedItems : publishedItems, selectedCategory),
+    [publishedItems, allPublishedItems, selectedCategory, shorts],
   );
   const activeHeroItems = useMemo(
     () =>

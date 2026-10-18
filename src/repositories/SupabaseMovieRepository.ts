@@ -525,6 +525,17 @@ export class SupabaseMovieRepository {
       }
       return (data ?? []) as MovieRecord[];
     }, PUBLISHED_CATALOG_PAGE_SIZE);
+    if (contentType === 'series') {
+      const { data: seasonRows, error: seasonError } = await this.client
+        .from('seasons')
+        .select('series_id,episodes!inner(id)')
+        .eq('published', true)
+        .eq('episodes.published', true);
+      if (!seasonError && seasonRows) {
+        const withEpisodes = new Set(seasonRows.map((row: { series_id: string }) => row.series_id));
+        return records.filter((record) => withEpisodes.has(record.id)).map(toContentItem);
+      }
+    }
     return records.map(toContentItem);
   }
 
