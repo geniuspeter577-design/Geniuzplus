@@ -45,3 +45,7 @@ backend/.env.*
 # generated native folders
 /ios
 /android
+
+# Firebase private keys (never commit)
+*firebase-adminsdk*.json
+fcm-key*.json
