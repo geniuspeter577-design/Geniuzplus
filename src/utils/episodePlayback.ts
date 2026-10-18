@@ -1,5 +1,5 @@
 export const EPISODE_WATCHED_PROGRESS_PERCENT = 95;
-export const NEXT_EPISODE_COUNTDOWN_SECONDS = 10;
+export const NEXT_EPISODE_COUNTDOWN_SECONDS = 5;
 
 export function isEpisodeWatchedAtPosition(
   itemId: string,
