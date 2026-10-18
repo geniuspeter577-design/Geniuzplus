@@ -118,7 +118,7 @@ function getClientIp(request: IncomingMessage) {
 
 function applyRateLimit(request: IncomingMessage, pathname: string) {
   const isMediaUrl =
-    /^\/(movies|episodes)\/[^/]+\/play-url$/.test(pathname) ||
+    /^\/(movies|episodes|lessons)\/[^/]+\/play-url$/.test(pathname) ||
     pathname === '/api/subtitles' ||
     pathname === '/api/downloads/authorize';
   const limit = isMediaUrl ? PLAY_URL_RATE_LIMIT_PER_MINUTE : PUBLIC_RATE_LIMIT_PER_MINUTE;
@@ -794,6 +794,51 @@ async function handleRequest(
     const playbackUrl = await getStorage(config).createPlayUrl(data.storage_key, {
       routeKind: 'episode',
       contentId: episodeId,
+    });
+    writeJson(response, 200, { url: playbackUrl, expiresIn: 7200 });
+    return;
+  }
+
+  const lessonPlayUrlMatch = /^\/lessons\/([^/]+)\/play-url$/.exec(pathname);
+  if (lessonPlayUrlMatch) {
+    if (request.method !== 'GET') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { client, isAdmin } = await authenticatePlayback(config, request.headers.authorization);
+    let lessonId: string;
+    try {
+      lessonId = decodeURIComponent(lessonPlayUrlMatch[1]);
+    } catch {
+      throw new HttpError(400, 'INVALID_LESSON_ID', 'The lesson ID is invalid.');
+    }
+    if (!isMovieId(lessonId)) {
+      throw new HttpError(400, 'INVALID_LESSON_ID', 'The lesson ID is invalid.');
+    }
+    const { data, error } = await client
+      .from('education_lessons')
+      .select('storage_provider,storage_key,published')
+      .eq('id', lessonId)
+      .maybeSingle();
+    if (error) {
+      throw new HttpError(502, 'LESSON_LOOKUP_FAILED', 'Could not load this lesson.');
+    }
+    if (!data) {
+      throw new HttpError(
+        isAdmin ? 404 : 403,
+        isAdmin ? 'LESSON_NOT_FOUND' : 'ADMIN_REQUIRED',
+        isAdmin ? 'The requested lesson was not found.' : 'Admin access is required.',
+      );
+    }
+    requirePublishedOrAdmin(data.published === true, isAdmin);
+    if (data.storage_provider !== 'b2') {
+      throw new HttpError(409, 'NOT_B2_STORAGE', 'This lesson is not stored in Backblaze.');
+    }
+    if (typeof data.storage_key !== 'string' || !data.storage_key.trim()) {
+      throw new HttpError(404, 'PLAYBACK_FILE_MISSING', 'This lesson is missing its video file.');
+    }
+    const playbackUrl = await getStorage(config).createPlayUrl(data.storage_key, {
+      routeKind: 'episode',
+      contentId: lessonId,
     });
     writeJson(response, 200, { url: playbackUrl, expiresIn: 7200 });
     return;

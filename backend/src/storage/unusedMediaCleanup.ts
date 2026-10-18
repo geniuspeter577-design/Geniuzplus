@@ -4,7 +4,7 @@ import { HttpError } from '../http/errors';
 
 const MEDIA_PREFIXES = new Set(['movies', 'episodes', 'trailers', 'subtitles']);
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f\\]/;
-const REFERENCE_TABLES = ['movies', 'episodes'] as const;
+const REFERENCE_TABLES = ['movies', 'episodes', 'education_lessons'] as const;
 const REFERENCE_PAGE_SIZE = 1000;
 
 export type MediaObject = {
