@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { File as ExpoFile } from 'expo-file-system';
 import { readFilePartBytes } from '../src/utils/readFilePart';
@@ -346,6 +347,7 @@ export default function AdminScreen() {
   const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string>();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [title, setTitle] = useState('');
@@ -2136,6 +2138,7 @@ export default function AdminScreen() {
               textContentType="emailAddress"
               style={styles.input}
             />
+            <View style={{ position: 'relative', justifyContent: 'center' }}>
             <KeyboardAwareTextInput
               value={password}
               onChangeText={setPassword}
@@ -2143,10 +2146,14 @@ export default function AdminScreen() {
               placeholderTextColor={theme.secondaryText}
               autoCapitalize="none"
               autoComplete="password"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               textContentType="password"
-              style={styles.input}
+              style={[styles.input, { paddingRight: 48 }]}
             />
+            <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'} onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+            </Pressable>
+          </View>
             {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
             <Pressable
               accessibilityRole="button"
@@ -2220,6 +2227,7 @@ export default function AdminScreen() {
               textContentType="emailAddress"
               style={styles.input}
             />
+            <View style={{ position: 'relative', justifyContent: 'center' }}>
             <KeyboardAwareTextInput
               value={password}
               onChangeText={setPassword}
@@ -2227,10 +2235,14 @@ export default function AdminScreen() {
               placeholderTextColor={theme.secondaryText}
               autoCapitalize="none"
               autoComplete="password"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               textContentType="password"
-              style={styles.input}
+              style={[styles.input, { paddingRight: 48 }]}
             />
+            <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'} onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+            </Pressable>
+          </View>
             {authError ? <Text style={styles.errorText}>{authError}</Text> : null}
             <Pressable
               accessibilityRole="button"

@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { File as ExpoFile } from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -39,6 +40,7 @@ export default function EditProfileScreen() {
   const [isPasswordBusy, setIsPasswordBusy] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [deletionReason, setDeletionReason] = useState('');
   const [isDeletionBusy, setIsDeletionBusy] = useState(false);
   const [message, setMessage] = useState<string>();
@@ -380,28 +382,38 @@ export default function EditProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Change password</Text>
           <Text style={styles.helper}>Use at least 8 characters.</Text>
+          <View style={{ position: 'relative', justifyContent: 'center' }}>
           <KeyboardAwareTextInput
             accessibilityLabel="New password"
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
             autoComplete="new-password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             placeholder="New password"
             placeholderTextColor={theme.secondaryText}
-            style={styles.input}
+            style={[styles.input, { paddingRight: 48 }]}
           />
+          <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'} onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+          </Pressable>
+        </View>
+          <View style={{ position: 'relative', justifyContent: 'center' }}>
           <KeyboardAwareTextInput
             accessibilityLabel="Confirm new password"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             autoCapitalize="none"
             autoComplete="new-password"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             placeholder="Confirm new password"
             placeholderTextColor={theme.secondaryText}
-            style={styles.input}
+            style={[styles.input, { paddingRight: 48 }]}
           />
+          <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'} onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+            <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+          </Pressable>
+        </View>
           <Pressable accessibilityRole="button" disabled={isPasswordBusy || !password} onPress={() => void changePassword()} style={[styles.primaryButton, isPasswordBusy && styles.disabled]}>
             <Text style={styles.primaryButtonText}>{isPasswordBusy ? 'Updating…' : 'Update password'}</Text>
           </Pressable>

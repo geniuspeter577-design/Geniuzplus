@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
@@ -16,6 +17,7 @@ export default function PasswordRecoveryScreen() {
   const [isReady, setIsReady] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | undefined>(
     supabase ? undefined : 'Account service is not configured.',
@@ -101,29 +103,39 @@ export default function PasswordRecoveryScreen() {
         {message ? <ContentNotice message={message} tone="warning" /> : null}
         {isReady ? (
           <View style={styles.form}>
+            <View style={{ position: 'relative', justifyContent: 'center' }}>
             <KeyboardAwareTextInput
               accessibilityLabel="New password"
               value={password}
               onChangeText={setPassword}
               autoCapitalize="none"
               autoComplete="new-password"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               placeholder="New password"
               placeholderTextColor={theme.secondaryText}
-              style={styles.input}
+              style={[styles.input, { paddingRight: 48 }]}
             />
+            <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'} onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+            </Pressable>
+          </View>
             <Text style={styles.passwordHint}>Use at least 8 characters.</Text>
+            <View style={{ position: 'relative', justifyContent: 'center' }}>
             <KeyboardAwareTextInput
               accessibilityLabel="Confirm new password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               autoCapitalize="none"
               autoComplete="new-password"
-              secureTextEntry
+              secureTextEntry={!showPassword}
               placeholder="Confirm new password"
               placeholderTextColor={theme.secondaryText}
-              style={styles.input}
+              style={[styles.input, { paddingRight: 48 }]}
             />
+            <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'} onPress={() => setShowPassword((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+            </Pressable>
+          </View>
             <Pressable accessibilityRole="button" disabled={isSaving} onPress={() => void savePassword()} style={[styles.button, isSaving && styles.disabled]}>
               <Text style={styles.buttonText}>{isSaving ? 'Saving…' : 'Save new password'}</Text>
             </Pressable>

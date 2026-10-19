@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
@@ -8,6 +9,7 @@ export function StudyModeCard() {
   const study = useStudyMode();
   const [open, setOpen] = useState(false);
   const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState(false);
 
@@ -62,15 +64,20 @@ export function StudyModeCard() {
         <View style={styles.backdrop}>
           <View style={styles.dialog}>
             <Text style={styles.dialogTitle}>{study.enabled ? 'Enter PIN to turn off' : 'Choose a 4-digit PIN'}</Text>
+            <View style={{ position: 'relative', justifyContent: 'center' }}>
             <TextInput
               autoFocus
               keyboardType="number-pad"
               maxLength={4}
               onChangeText={(text) => setPin(text.replace(/[^0-9]/g, ''))}
-              secureTextEntry
-              style={styles.input}
+              secureTextEntry={!showPin}
+              style={[styles.input, { paddingRight: 48 }]}
               value={pin}
             />
+            <Pressable accessibilityRole="button" accessibilityLabel={showPin ? 'Hide PIN' : 'Show PIN'} onPress={() => setShowPin((v) => !v)} hitSlop={10} style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}>
+              <Ionicons name={showPin ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+            </Pressable>
+            </View>
             {message ? <Text style={styles.error}>{message}</Text> : null}
             <Pressable accessibilityRole="button" disabled={busy} onPress={() => void submit()} style={styles.primary}>
               <Text style={styles.primaryText}>{study.enabled ? 'Turn off' : 'Turn on'}</Text>
