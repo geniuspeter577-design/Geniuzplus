@@ -599,7 +599,7 @@ export default function HomeScreen() {
                 date={football.today}
                 goalSignals={football.goalSignals}
                 isOffline={!isOnline}
-                onOpenFootball={() => setSelectedCategory('Football')}
+                onOpenFootball={() => { football.selectDate(football.today); setSelectedCategory('Football'); }}
                 onPin={(match, date) => football.pinMatch(match, date)}
               />
             </>
