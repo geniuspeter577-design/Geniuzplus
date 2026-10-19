@@ -114,8 +114,11 @@ export class FootballDataProvider implements SportsProvider {
     private readonly timeoutMs = 8_000,
   ) {}
 
-  getMatches(date: string) {
-    return this.getMatchesRange(date, date);
+  async getMatches(date: string) {
+    const next = new Date(`${date}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const matches = await this.getMatchesRange(date, next.toISOString().slice(0, 10));
+    return matches.filter((match) => match.startsAt.slice(0, 10) === date);
   }
 
   async getMatchesRange(dateFrom: string, dateTo: string) {

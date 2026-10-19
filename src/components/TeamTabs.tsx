@@ -128,10 +128,14 @@ export function PlayerStatsTab({ team }: { team: string }) {
     .map((s, i): Row => ({ pos: i + 1, name: s.name, logoUrl: s.logoUrl, sub: sub(s), value: String(s.goals), me: s.team === team }));
   const assists = [...data.scorers].filter((s) => s.assists > 0).sort((a, b) => b.assists - a.assists)
     .map((s, i): Row => ({ pos: i + 1, name: s.name, logoUrl: s.logoUrl, sub: sub(s), value: String(s.assists), me: s.team === team }));
+  const perGame = [...data.scorers].filter((s) => s.played > 0)
+    .sort((x, y) => y.goals / y.played - x.goals / x.played)
+    .map((s, i): Row => ({ pos: i + 1, name: s.name, logoUrl: s.logoUrl, sub: sub(s), value: (s.goals / s.played).toFixed(2), me: s.team === team }));
   return (
     <View style={{ gap: 16, paddingTop: 8 }}>
       <RankCard title="Top scorers" rows={pick(goals, 10)} />
-      <RankCard title="Most assists (among top scorers)" rows={pick(assists, 10)} />
+      {assists.length > 0 && <RankCard title="Most assists (among top scorers)" rows={pick(assists, 10)} />}
+      <RankCard title="Goals per game (among top scorers)" rows={pick(perGame, 10)} />
     </View>
   );
 }
