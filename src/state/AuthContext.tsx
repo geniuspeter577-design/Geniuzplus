@@ -2,6 +2,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { registerPushNotifications } from '../services/PushNotificationRegistration';
 import { Platform } from 'react-native';
 
 import type { AccountProfile } from '../models/profile';
@@ -50,6 +51,15 @@ if (Platform.OS === 'web') {
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
+  const signedInUserId = session?.user.id;
+  useEffect(() => {
+    if (!signedInUserId) {
+      return;
+    }
+    void registerPushNotifications(signedInUserId).catch((pushError) => {
+      console.warn('[Push] Phone registration failed.', pushError instanceof Error ? pushError.message : 'unknown');
+    });
+  }, [signedInUserId]);
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(supabase));
   const [profileError, setProfileError] = useState<string>();
