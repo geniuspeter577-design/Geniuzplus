@@ -1,3 +1,4 @@
+import { getScorers, getStandings } from '../providers/FootballTables';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -182,6 +183,7 @@ function isRealCalendarDate(value: string) {
 }
 
 const teamCache = new Map<string, { team: unknown; expiresAt: number }>();
+const tableCache = new Map<string, { data: unknown; expiresAt: number }>();
 
 function mapFootballProviderError(error: unknown): HttpError {
   if (!(error instanceof SportsProviderError)) {
@@ -451,6 +453,35 @@ async function handleRequest(
       const team = await new FootballDataProvider(config.footballDataApiKey).getTeam(teamName);
       teamCache.set(cacheKey, { team, expiresAt: Date.now() + 30 * 60_000 });
       writeJson(response, 200, team);
+    } catch (error) {
+      throw mapFootballProviderError(error);
+    }
+    return;
+  }
+
+  if (pathname === '/football/standings' || pathname === '/football/scorers') {
+    if (request.method !== 'GET') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    if (!config.footballDataApiKey) {
+      throw new HttpError(503, 'FOOTBALL_NOT_CONFIGURED', 'Football scores are not configured.');
+    }
+    const code = (url.searchParams.get('code') ?? 'PL').toUpperCase();
+    if (!/^[A-Z0-9]{2,5}$/.test(code)) {
+      throw new HttpError(400, 'INVALID_COMPETITION', 'The code query parameter is invalid.');
+    }
+    const key = `${pathname}:${code}`;
+    const hit = tableCache.get(key);
+    if (hit && hit.expiresAt > Date.now()) {
+      writeJson(response, 200, hit.data);
+      return;
+    }
+    try {
+      const data = pathname === '/football/standings'
+        ? await getStandings(config.footballDataApiKey, code)
+        : await getScorers(config.footballDataApiKey, code);
+      tableCache.set(key, { data, expiresAt: Date.now() + 30 * 60_000 });
+      writeJson(response, 200, data);
     } catch (error) {
       throw mapFootballProviderError(error);
     }

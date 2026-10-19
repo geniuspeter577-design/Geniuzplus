@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
+import { StandingsTab, PlayerStatsTab, TeamStatsTab } from './TeamTabs';
 
 const C = {
   bg: '#131313', low: '#1c1b1b', mid: '#201f1f', high: '#2a2a2a', variant: '#353534',
@@ -116,7 +117,13 @@ const outcome = (m: M) => {
 const oc = (o: string) => (o === 'W' ? C.green : o === 'L' ? C.red : C.outline);
 const T = (p: any) => <Text {...p} style={[{ color: C.on, fontSize: 14 }, p.style]} />;
 
+let LOGOS: Record<string, string> = {};
 function Crest({ name, size = 24 }: { name: string; size?: number }) {
+  const [bad, setBad] = useState(false);
+  const url = LOGOS[name];
+  if (url && !bad) {
+    return <Image source={{ uri: url }} onError={() => setBad(true)} resizeMode="contain" style={{ width: size, height: size }} />;
+  }
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: C.high, alignItems: 'center', justifyContent: 'center' }}>
       <Ionicons name={name === L ? 'shield' : 'football'} size={size * 0.62} color={TC[name] || C.dim} />
@@ -515,6 +522,13 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
   FIXTURES = (team?.fixtures ?? []).map(toM);
   COMPS = ['All Competitions', ...Array.from(new Set([...RESULTS, ...FIXTURES].map((m) => m.comp)))];
   COACH = team?.coach ?? '';
+  const logoOf = (t: any) => t?.logoUrl ?? t?.crest ?? t?.logo ?? t?.image;
+  LOGOS = {};
+  [...(team?.results ?? []), ...(team?.fixtures ?? [])].forEach((x: any) => {
+    [x.homeTeam, x.awayTeam].forEach((t: any) => { const u = logoOf(t); if (t?.name && u) LOGOS[t.name] = u; });
+  });
+  const ownLogo = logoOf(team);
+  if (ownLogo) LOGOS[L] = ownLogo;
   const titles = ['Goalkeepers', 'Defenders', 'Midfielders', 'Attackers'];
   SQUAD = titles.map((title, gi) => ({
     title,
@@ -531,9 +545,7 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
             <Pressable onPress={onBack} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name="arrow-back" size={20} color={C.on} />
             </Pressable>
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.high, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-              <Ionicons name="shield" size={22} color={C.green} />
-            </View>
+            <View style={{ marginRight: 8 }}><Crest name={L} size={36} /></View>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Text style={{ color: C.on, fontSize: 16, fontWeight: '600' }}>{L}</Text>
@@ -563,7 +575,9 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
         {ok && tab === 'Overview' && <Overview go={setTab} />}
         {ok && tab === 'Fixtures' && <Fixtures />}
         {ok && tab === 'Results' && <Results />}
-        {ok && (tab === 'Standings' || tab === 'Player Stats' || tab === 'Team Stats') && <Soon />}
+        {ok && tab === 'Standings' && <StandingsTab team={L} />}
+        {ok && tab === 'Player Stats' && <PlayerStatsTab team={L} />}
+        {ok && tab === 'Team Stats' && <TeamStatsTab team={L} />}
         {ok && tab === 'Squad' && <Squad />}
       </ScrollView>
     </View>
