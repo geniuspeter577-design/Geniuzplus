@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -285,16 +286,16 @@ export function FootballMatchesPanel({
                   </View>
                   <View style={styles.divider} />
                   <View style={styles.teamsCol}>
-                    <View style={styles.teamLine}>
+                    <Pressable onPress={() => router.push({ pathname: '/team', params: { name: match.homeTeam.name } } as any)} style={styles.teamLine}>
                       <TeamMark team={match.homeTeam} />
                       <Text style={styles.teamName} numberOfLines={1}>{match.homeTeam.name}</Text>
                       {match.status !== 'scheduled' ? <Text style={styles.score}>{match.homeScore ?? '–'}</Text> : null}
-                    </View>
-                    <View style={styles.teamLine}>
+                    </Pressable>
+                    <Pressable onPress={() => router.push({ pathname: '/team', params: { name: match.awayTeam.name } } as any)} style={styles.teamLine}>
                       <TeamMark team={match.awayTeam} />
                       <Text style={styles.teamName} numberOfLines={1}>{match.awayTeam.name}</Text>
                       {match.status !== 'scheduled' ? <Text style={styles.score}>{match.awayScore ?? '–'}</Text> : null}
-                    </View>
+                    </Pressable>
                   </View>
                   {match.status === 'live' ? (
                     <Pressable

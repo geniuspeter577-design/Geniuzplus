@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -251,13 +252,13 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
                 onPress={() => onOpenFootball(date)}
                 style={styles.body}
               >
-                <View style={styles.team}>
+                <Pressable onPress={() => router.push({ pathname: '/team', params: { name: match.homeTeam.name } } as any)} style={styles.team}>
                   <View style={styles.badgeWrap}>
                     <TeamBadge logoUrl={match.homeTeam.logoUrl} name={match.homeTeam.name} />
                     <FootballGoalBalls count={goals?.home ?? 0} token={goals?.createdAt} />
                   </View>
                   <Text style={styles.teamName} numberOfLines={2}>{match.homeTeam.name}</Text>
-                </View>
+                </Pressable>
                 <View style={styles.center}>
                   {live ? (
                     <>
@@ -277,13 +278,13 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
                   )}
                   {isOffline ? <Text style={styles.offline}>Offline</Text> : null}
                 </View>
-                <View style={styles.team}>
+                <Pressable onPress={() => router.push({ pathname: '/team', params: { name: match.awayTeam.name } } as any)} style={styles.team}>
                   <View style={styles.badgeWrap}>
                     <TeamBadge logoUrl={match.awayTeam.logoUrl} name={match.awayTeam.name} />
                     <FootballGoalBalls count={goals?.away ?? 0} token={goals?.createdAt} direction="down" />
                   </View>
                   <Text style={styles.teamName} numberOfLines={2}>{match.awayTeam.name}</Text>
-                </View>
+                </Pressable>
               </Pressable>
               {live ? (
                 <Pressable
