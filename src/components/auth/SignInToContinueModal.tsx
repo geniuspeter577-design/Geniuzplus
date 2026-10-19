@@ -35,6 +35,7 @@ export function SignInToContinueModal({
   const [mode, setMode] = useState<SignInSheetMode>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [googleNeedsDateOfBirth, setGoogleNeedsDateOfBirth] = useState(false);
@@ -195,17 +196,28 @@ export function SignInToContinueModal({
             />
             {mode !== 'reset-password' ? (
               <>
-                <KeyboardAwareTextInput
-                  accessibilityLabel="Password"
-                  value={password}
-                  onChangeText={setPassword}
-                  autoCapitalize="none"
-                  autoComplete={mode === 'create-account' ? 'new-password' : 'password'}
-                  secureTextEntry
-                  placeholder="Password"
-                  placeholderTextColor={theme.secondaryText}
-                  style={styles.input}
-                />
+                <View style={{ position: 'relative', justifyContent: 'center' }}>
+                  <KeyboardAwareTextInput
+                    accessibilityLabel="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    autoCapitalize="none"
+                    autoComplete={mode === 'create-account' ? 'new-password' : 'password'}
+                    secureTextEntry={!showPassword}
+                    placeholder="Password"
+                    placeholderTextColor={theme.secondaryText}
+                    style={[styles.input, { paddingRight: 48 }]}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    onPress={() => setShowPassword((value) => !value)}
+                    hitSlop={10}
+                    style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}
+                  >
+                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color={theme.secondaryText} />
+                  </Pressable>
+                </View>
                 {mode === 'create-account' ? (
                   <Text style={styles.passwordHint}>Use at least 8 characters.</Text>
                 ) : null}

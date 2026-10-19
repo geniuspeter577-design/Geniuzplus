@@ -281,9 +281,7 @@ export function FootballMatchesPanel({
                     ) : (
                       <Text style={styles.timeText}>
                         {match.status === 'scheduled'
-                          ? getWestAfricaDate(new Date(match.startsAt)) === football.selectedDate
-                            ? formatWestAfricaKickoff(match.startsAt)
-                            : `${formatWestAfricaDate(match.startsAt)}\n${formatWestAfricaKickoff(match.startsAt)}`
+                          ? `${formatWestAfricaDate(match.startsAt)}\n${formatWestAfricaKickoff(match.startsAt)}`
                           : match.status === 'finished'
                             ? 'FT'
                             : getMatchStatus(match)}
