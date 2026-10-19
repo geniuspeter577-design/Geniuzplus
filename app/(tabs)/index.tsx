@@ -22,6 +22,7 @@ import { ContentRail } from '../../src/components/ContentRail';
 import { FootballHomeCard } from '../../src/components/FootballHomeCard';
 import { FootballMatchesPanel } from '../../src/components/FootballMatchesPanel';
 import { HomeHeroCarousel } from '../../src/components/HomeHeroCarousel';
+import { EducationHub } from '../../src/components/EducationHub';
 import { OfflineState } from '../../src/components/OfflineState';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
@@ -569,11 +570,13 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {selectedCategory === 'Education' ? <EducationHub /> : null}
+
         {selectedCategory === 'Football' ? (
           <FootballMatchesPanel isOnline={isOnline} onRetryConnection={() => void retryConnection()} />
         ) : null}
 
-        {selectedCategory !== 'Football' && activeHeroItems.length ? (
+        {selectedCategory !== 'Football' && selectedCategory !== 'Education' && activeHeroItems.length ? (
           <HomeHeroCarousel
             items={activeHeroItems}
             isLoading={catalogQuery.isLoading}
@@ -582,12 +585,12 @@ export default function HomeScreen() {
           />
         ) : null}
         {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
-        {noTitles && selectedCategory !== 'Football' ? <Text style={styles.emptyText}>Nothing here yet</Text> : null}
-        {!catalogQuery.isLoading && !catalogQuery.data?.hasFailures && selectedCategory !== 'Trending' && selectedCategory !== 'Football' && activeCategoryItems.length === 0 ? (
+        {noTitles && selectedCategory !== 'Football' && selectedCategory !== 'Education' ? <Text style={styles.emptyText}>Nothing here yet</Text> : null}
+        {!catalogQuery.isLoading && !catalogQuery.data?.hasFailures && selectedCategory !== 'Trending' && selectedCategory !== 'Football' && selectedCategory !== 'Education' && activeCategoryItems.length === 0 ? (
           <Text style={styles.emptyText}>Nothing here yet</Text>
         ) : null}
 
-        {!study.enabled && selectedCategory !== 'Football' && footballToday ? (
+        {!study.enabled && selectedCategory !== 'Football' && selectedCategory !== 'Education' && footballToday ? (
           footballToday.matches.length ? (
             <>
               <SectionHeader title="Football" onSeeAll={() => setSelectedCategory('Football')} />
