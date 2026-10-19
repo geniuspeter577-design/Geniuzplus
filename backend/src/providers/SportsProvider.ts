@@ -53,3 +53,14 @@ export class UnconfiguredSportsProvider implements SportsProvider {
     throw new SportsProviderError('NOT_CONFIGURED');
   }
 }
+
+export type FootballTeamDetails = {
+  name: string;
+  crest?: string;
+  venue: string | null;
+  founded: number | null;
+  coach: string | null;
+  squad: { name: string; position: string | null; nationality: string | null }[];
+  results: FootballMatch[];
+  fixtures: FootballMatch[];
+};

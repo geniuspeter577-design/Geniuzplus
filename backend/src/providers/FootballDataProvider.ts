@@ -2,6 +2,7 @@ import {
   SportsProviderError,
   type FootballMatch,
   type FootballMatchStatus,
+  type FootballTeamDetails,
   type SportsProvider,
 } from './SportsProvider';
 
@@ -164,5 +165,86 @@ export class FootballDataProvider implements SportsProvider {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private async fetchJson(path: string): Promise<Record<string, unknown>> {
+    if (!this.apiKey) {
+      throw new SportsProviderError('NOT_CONFIGURED');
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetchImplementation(new URL(`https://api.football-data.org/v4${path}`), {
+        headers: { 'X-Auth-Token': this.apiKey },
+        signal: controller.signal,
+      });
+      if (response.status === 429) {
+        throw new SportsProviderError('RATE_LIMITED');
+      }
+      if (!response.ok) {
+        throw new SportsProviderError('UNAVAILABLE');
+      }
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new SportsProviderError('INVALID_RESPONSE');
+      }
+      if (!isRecord(payload)) {
+        throw new SportsProviderError('INVALID_RESPONSE');
+      }
+      return payload;
+    } catch (error) {
+      if (error instanceof SportsProviderError) {
+        throw error;
+      }
+      if (controller.signal.aborted) {
+        throw new SportsProviderError('TIMEOUT');
+      }
+      throw new SportsProviderError('UNAVAILABLE');
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  async getTeam(name: string): Promise<FootballTeamDetails> {
+    const norm = (v: unknown) =>
+      String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const wanted = norm(name);
+    const list = await this.fetchJson('/teams?limit=500');
+    const teams = Array.isArray(list.teams) ? list.teams : [];
+    const found = teams.find(
+      (t) => isRecord(t) && [t.name, t.shortName, t.tla].some((v) => norm(v) === wanted),
+    );
+    if (!isRecord(found) || typeof found.id !== 'number') {
+      throw new SportsProviderError('INVALID_RESPONSE');
+    }
+    const id = found.id;
+    const detail = await this.fetchJson(`/teams/${id}`);
+    const finished = await this.fetchJson(`/teams/${id}/matches?status=FINISHED`);
+    const scheduled = await this.fetchJson(`/teams/${id}/matches?status=SCHEDULED`);
+    const toMatches = (payload: Record<string, unknown>) =>
+      (Array.isArray(payload.matches) ? payload.matches : []).flatMap((item) => {
+        try {
+          return [parseMatch(item)];
+        } catch {
+          return [];
+        }
+      });
+    const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+    return {
+      name: requiredText(detail.shortName ?? detail.name),
+      ...(optionalLogo(detail.crest) ? { crest: optionalLogo(detail.crest) } : {}),
+      venue: text(detail.venue),
+      founded: Number.isInteger(detail.founded) ? Number(detail.founded) : null,
+      coach: isRecord(detail.coach) ? text(detail.coach.name) : null,
+      squad: (Array.isArray(detail.squad) ? detail.squad : []).flatMap((p) =>
+        isRecord(p) && text(p.name)
+          ? [{ name: String(text(p.name)), position: text(p.position), nationality: text(p.nationality) }]
+          : [],
+      ),
+      results: toMatches(finished).slice(-5).reverse(),
+      fixtures: toMatches(scheduled).slice(0, 5),
+    };
   }
 }

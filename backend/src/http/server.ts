@@ -181,6 +181,8 @@ function isRealCalendarDate(value: string) {
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+const teamCache = new Map<string, { team: unknown; expiresAt: number }>();
+
 function mapFootballProviderError(error: unknown): HttpError {
   if (!(error instanceof SportsProviderError)) {
     return new HttpError(502, 'FOOTBALL_UNAVAILABLE', 'Football scores are temporarily unavailable.');
@@ -422,6 +424,33 @@ async function handleRequest(
     }
     try {
       writeJson(response, 200, await footballMatches.getMatches(date));
+    } catch (error) {
+      throw mapFootballProviderError(error);
+    }
+    return;
+  }
+
+  if (pathname === '/football/team') {
+    if (request.method !== 'GET') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const teamName = url.searchParams.get('name')?.trim() ?? '';
+    if (!teamName || teamName.length > 80) {
+      throw new HttpError(400, 'INVALID_TEAM_NAME', 'The name query parameter is required.');
+    }
+    if (!config.footballDataApiKey) {
+      throw new HttpError(503, 'FOOTBALL_NOT_CONFIGURED', 'Football scores are not configured.');
+    }
+    const cacheKey = teamName.toLowerCase();
+    const hit = teamCache.get(cacheKey);
+    if (hit && hit.expiresAt > Date.now()) {
+      writeJson(response, 200, hit.team);
+      return;
+    }
+    try {
+      const team = await new FootballDataProvider(config.footballDataApiKey).getTeam(teamName);
+      teamCache.set(cacheKey, { team, expiresAt: Date.now() + 30 * 60_000 });
+      writeJson(response, 200, team);
     } catch (error) {
       throw mapFootballProviderError(error);
     }

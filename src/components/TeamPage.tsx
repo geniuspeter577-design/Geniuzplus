@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 
 const C = {
   bg: '#131313', low: '#1c1b1b', mid: '#201f1f', high: '#2a2a2a', variant: '#353534',
@@ -9,15 +10,29 @@ const C = {
   red: '#ffb4ab', blue: '#0284C7', orange: '#EA580C', tert: '#ffb69b',
 };
 const TABS = ['Overview', 'Fixtures', 'Results', 'Standings', 'Squad', 'Player Stats', 'Team Stats'];
-const L = 'Liverpool';
+let L = 'Liverpool';
 const TC: Record<string, string> = {
   Liverpool: C.green, 'Man City': '#6CADDF', 'Manchester City': '#6CADDF', Arsenal: '#EF0107', Brighton: '#0057B8',
   Chelsea: '#034694', Brentford: '#e30613', Leeds: '#FFCD00', Everton: '#003399', Hull: '#F5971E', Ipswich: '#003399',
   Newcastle: '#9A9A9A', 'Aston Villa': '#b0366b', 'Man Utd': '#DA291C', 'Manchester United': '#DA291C', 'Crystal Palace': '#1B458F',
 };
 
+const API = (process.env.EXPO_PUBLIC_GENIUZ_API_URL ?? '').trim().replace(/\/+$/, '');
+const fmtDate = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'short' }).format(new Date(iso)).toUpperCase();
+const fmtTime = (iso: string) => new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+const toM = (x: any) => ({
+  comp: x.competition?.name ?? '', round: x.round ?? '', date: fmtDate(x.startsAt), time: fmtTime(x.startsAt),
+  home: x.homeTeam?.name ?? '', away: x.awayTeam?.name ?? '', hs: x.homeScore ?? 0, as: x.awayScore ?? 0,
+});
+const grp = (p: string) => (/keeper/i.test(p) ? 0 : /back|defen/i.test(p) ? 1 : /midfield/i.test(p) ? 2 : 3);
+const ABBR: Record<string, string> = {
+  Goalkeeper: 'GK', 'Centre-Back': 'CB', 'Left-Back': 'LB', 'Right-Back': 'RB', Defence: 'DF', 'Defensive Midfield': 'DM',
+  'Central Midfield': 'CM', 'Attacking Midfield': 'AM', Midfield: 'MF', 'Left Winger': 'LW', 'Right Winger': 'RW',
+  'Centre-Forward': 'CF', Offence: 'FW',
+};
+
 type M = { comp: string; round: string; date: string; time?: string; home: string; away: string; hs?: number; as?: number };
-const RESULTS: M[] = [
+let RESULTS: M[] = [
   { comp: 'Premier League', round: 'Matchday 8', date: '17 OCT', home: 'Brentford', away: L, hs: 1, as: 2 },
   { comp: 'Champions League', round: 'Group Stage', date: '14 OCT', home: 'LASK', away: L, hs: 3, as: 6 },
   { comp: 'Premier League', round: 'Matchday 7', date: '11 OCT', home: L, away: 'Manchester City', hs: 0, as: 3 },
@@ -26,7 +41,7 @@ const RESULTS: M[] = [
   { comp: 'Premier League', round: 'Matchday 5', date: '12 SEP', home: L, away: 'Fulham', hs: 0, as: 0 },
   { comp: 'Champions League', round: 'Group Stage', date: '09 SEP', home: L, away: 'Atletico Madrid', hs: 2, as: 1 },
 ];
-const FIXTURES: M[] = [
+let FIXTURES: M[] = [
   { comp: 'Champions League', round: '', date: '20 OCT', time: '20:00', home: L, away: 'Villarreal' },
   { comp: 'Premier League', round: '', date: '25 OCT', time: '15:00', home: L, away: 'Brighton' },
   { comp: 'EFL Cup', round: '', date: '28 OCT', time: '21:00', home: L, away: 'Chelsea' },
@@ -42,7 +57,8 @@ const TABLE = [
 ] as [string, number, number, number, number][];
 
 type P = [string, string, string, string, string, boolean?, string?];
-const SQUAD: { title: string; list: P[] }[] = [
+let COACH = '';
+let SQUAD: { title: string; list: P[] }[] = [
   { title: 'Goalkeepers', list: [
     ['1', 'Alisson', '🇧🇷', 'Brazil', 'GK', true], ['25', 'Giorgi Mamardashvili', '🇬🇪', 'Georgia', 'GK'],
     ['28', 'Freddie Woodman', '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'England', 'GK'], ['56', 'Vítězslav Jaroš', '🇨🇿', 'Czech Republic', 'GK'],
@@ -204,16 +220,16 @@ function Overview({ go }: { go: (t: string) => void }) {
           <H2>Upcoming fixture</H2><Arrow onPress={() => go('Fixtures')} />
         </View>
         <View style={{ backgroundColor: C.mid, borderRadius: 8, padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flex: 1, alignItems: 'center', gap: 8 }}><Crest name={L} size={48} /><T style={{ fontSize: 16, fontWeight: '600' }}>Liverpool</T></View>
+          <View style={{ flex: 1, alignItems: 'center', gap: 8 }}><Crest name={FIXTURES[0]?.home ?? L} size={48} /><T style={{ fontSize: 16, fontWeight: '600' }}>{FIXTURES[0]?.home ?? L}</T></View>
           <View style={{ alignItems: 'center', paddingHorizontal: 12 }}>
-            <Text style={{ color: C.on, fontSize: 32, fontWeight: '700' }}>20:00</Text><Label>20 Oct</Label>
+            <Text style={{ color: C.on, fontSize: 32, fontWeight: '700' }}>{FIXTURES[0]?.time ?? '--:--'}</Text><Label>{FIXTURES[0]?.date ?? ''}</Label>
           </View>
-          <View style={{ flex: 1, alignItems: 'center', gap: 8 }}><Crest name="Villarreal" size={48} /><T style={{ fontSize: 16, fontWeight: '600' }}>Villarreal</T></View>
+          <View style={{ flex: 1, alignItems: 'center', gap: 8 }}><Crest name={FIXTURES[0]?.away ?? ''} size={48} /><T style={{ fontSize: 16, fontWeight: '600' }}>{FIXTURES[0]?.away ?? 'TBC'}</T></View>
         </View>
       </Card>
       <Card>
         <H2>Results</H2>
-        <Text style={{ color: C.dim, fontSize: 12 }}>Catch up on the latest Liverpool matches</Text>
+        <Text style={{ color: C.dim, fontSize: 12 }}>Catch up on the latest {L} matches</Text>
         <View style={{ gap: 8, marginTop: 12 }}>
           {RESULTS.slice(0, 5).map((m) => {
             const o = outcome(m);
@@ -241,41 +257,11 @@ function Overview({ go }: { go: (t: string) => void }) {
           <T style={{ fontSize: 16, fontWeight: '600' }}>View all recent results</T>
         </Pressable>
       </Card>
-      <StatCard boxed title="Goals" badge="xG" cols={['G', 'xG', '+/-']} rows={PS_GOALS} onArrow={() => go('Player Stats')} />
-      <StatCard boxed title="Goals" badge="xG" cols={['G', 'xG', '+/-']} rows={TS_GOALS} onArrow={() => go('Team Stats')} />
-      <Card>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12 }}>
-          <View><H2>Standings</H2><Text style={{ color: C.dim, fontSize: 12 }}>Current Premier League table</Text></View>
-          <Arrow onPress={() => go('Standings')} />
-        </View>
-        <View style={{ flexDirection: 'row', paddingHorizontal: 8, paddingBottom: 8 }}>
-          <Label style={{ width: 40, textAlign: 'center' }}>#</Label><Label style={{ flex: 1 }}>Team</Label>
-          {['P', 'GD', 'PTS'].map((c) => <Label key={c} style={{ width: 40, textAlign: 'right' }}>{c}</Label>)}
-        </View>
-        <View style={{ gap: 4 }}>
-          {[3, 4, 5].map((i) => {
-            const [n, p, gd, pts] = TABLE[i]; const me = n === L;
-            return (
-              <View key={n} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8, borderRadius: 8, backgroundColor: me ? C.high : C.mid, overflow: 'hidden' }}>
-                {i < 5 && <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: i === 3 ? '#3198dc' : '#ff8d5f' }} />}
-                <Text style={{ width: 40, textAlign: 'center', color: me ? C.green : C.on, fontSize: 12, fontWeight: '700' }}>{i + 1}</Text>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  {me && <Ionicons name="shield" size={16} color={C.green} />}
-                  <Text numberOfLines={1} style={{ color: C.on, fontSize: me ? 16 : 14, fontWeight: me ? '600' : '400' }}>{n}</Text>
-                </View>
-                <Text style={{ width: 40, textAlign: 'right', color: C.dim }}>{p}</Text>
-                <Text style={{ width: 40, textAlign: 'right', color: C.dim }}>{gd}</Text>
-                <Text style={{ width: 40, textAlign: 'right', color: me ? C.green : C.on, fontSize: 16, fontWeight: '700' }}>{pts}</Text>
-              </View>
-            );
-          })}
-        </View>
-      </Card>
     </View>
   );
 }
 
-const COMPS = ['All Competitions', 'Premier League', 'Champions League', 'EFL Cup'];
+let COMPS = ['All Competitions'];
 
 function Fixtures() {
   const [c, setC] = useState(COMPS[0]);
@@ -449,8 +435,7 @@ function Squad() {
                 <Ionicons name="person" size={22} color={C.dim} />
               </View>
               <View>
-                <T style={{ fontSize: 16, fontWeight: '600' }}>Andoni Iraola</T>
-                <Text style={{ color: C.dim, fontSize: 12, marginTop: 2 }}>🇪🇸  Spain</Text>
+                <T style={{ fontSize: 16, fontWeight: '600' }}>{COACH || 'Not listed'}</T>
               </View>
             </View>
             <Text style={{ color: C.dim, fontSize: 10, fontWeight: '700', backgroundColor: C.variant, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 99, overflow: 'hidden' }}>Manager</Text>
@@ -501,9 +486,43 @@ function Filters() {
   );
 }
 
+function Soon() {
+  return (
+    <View style={{ alignItems: 'center', paddingVertical: 48 }}>
+      <T style={{ fontSize: 16, fontWeight: '600' }}>Details coming soon</T>
+    </View>
+  );
+}
+
 export default function TeamPage({ onBack }: { onBack?: () => void }) {
   const [tab, setTab] = useState('Overview');
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ name?: string | string[] }>();
+  const teamName = (Array.isArray(params.name) ? params.name[0] : params.name) ?? '';
+  const [team, setTeam] = useState<any>(null);
+  const [status, setStatus] = useState<'loading' | 'error' | 'ok'>('loading');
+  useEffect(() => {
+    let off = false;
+    setStatus('loading');
+    fetch(`${API}/football/team?name=${encodeURIComponent(teamName)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('bad'))))
+      .then((d) => { if (!off) { setTeam(d); setStatus('ok'); } })
+      .catch(() => { if (!off) setStatus('error'); });
+    return () => { off = true; };
+  }, [teamName]);
+  L = team?.name ?? teamName;
+  RESULTS = (team?.results ?? []).map(toM);
+  FIXTURES = (team?.fixtures ?? []).map(toM);
+  COMPS = ['All Competitions', ...Array.from(new Set([...RESULTS, ...FIXTURES].map((m) => m.comp)))];
+  COACH = team?.coach ?? '';
+  const titles = ['Goalkeepers', 'Defenders', 'Midfielders', 'Attackers'];
+  SQUAD = titles.map((title, gi) => ({
+    title,
+    list: (team?.squad ?? [])
+      .filter((x: any) => grp(x.position ?? '') === gi)
+      .map((x: any) => ['-', x.name, '', x.nationality ?? '', ABBR[x.position ?? ''] ?? String(x.position ?? '').slice(0, 3).toUpperCase()] as P),
+  })).filter((g) => g.list.length > 0);
+  const ok = status === 'ok';
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={{ paddingTop: insets.top, backgroundColor: C.bg }}>
@@ -517,10 +536,10 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
             </View>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={{ color: C.on, fontSize: 16, fontWeight: '600' }}>Liverpool</Text>
+                <Text style={{ color: C.on, fontSize: 16, fontWeight: '600' }}>{L}</Text>
                 <Label color={C.green}>{tab}</Label>
               </View>
-              <Text style={{ color: C.dim, fontSize: 12 }}>England</Text>
+              <Text style={{ color: C.dim, fontSize: 12 }}>{team?.venue ?? ''}</Text>
             </View>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -539,25 +558,13 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
         </ScrollView>
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-        {tab === 'Overview' && <Overview go={setTab} />}
-        {tab === 'Fixtures' && <Fixtures />}
-        {tab === 'Results' && <Results />}
-        {tab === 'Standings' && <Standings />}
-        {tab === 'Squad' && <Squad />}
-        {tab === 'Player Stats' && (
-          <View><Filters /><View style={{ gap: 12 }}>
-            <StatCard title="Goals" badge="xG" cols={['G', 'xG', '+/-']} rows={PS_GOALS} />
-            <StatCard title="Assists" badge="xA" cols={['A', 'xA', '+/-']} rows={PS_ASSISTS} />
-            <StatCard title="Shots on target" cols={['pG', 'SoT']} rows={PS_SOT} />
-          </View></View>
-        )}
-        {tab === 'Team Stats' && (
-          <View><Filters /><View style={{ gap: 12 }}>
-            <StatCard rad={16} title="Goals" badge="xG" cols={['G', 'xG', '+/-']} rows={TS_GOALS} />
-            <StatCard rad={16} title="Assists" badge="xA" cols={['A', 'xA', '+/-']} rows={TS_ASSISTS} />
-            <StatCard rad={16} title="Shots on target" cols={['pG', 'SoT']} rows={TS_SOT} />
-          </View></View>
-        )}
+        {status === 'loading' && <Text style={{ color: C.dim, textAlign: 'center', paddingVertical: 48 }}>Loading team...</Text>}
+        {status === 'error' && <Text style={{ color: C.dim, textAlign: 'center', paddingVertical: 48 }}>Details for this team are not available yet.</Text>}
+        {ok && tab === 'Overview' && <Overview go={setTab} />}
+        {ok && tab === 'Fixtures' && <Fixtures />}
+        {ok && tab === 'Results' && <Results />}
+        {ok && (tab === 'Standings' || tab === 'Player Stats' || tab === 'Team Stats') && <Soon />}
+        {ok && tab === 'Squad' && <Squad />}
       </ScrollView>
     </View>
   );
