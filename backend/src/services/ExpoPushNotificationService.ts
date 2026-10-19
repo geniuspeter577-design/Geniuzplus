@@ -8,6 +8,7 @@ type PushQueueRow = {
   title: string;
   body: string;
   content_id: string | null;
+  image_url: string | null;
   attempts: number;
 };
 
@@ -49,7 +50,7 @@ export class ExpoPushNotificationService {
       const staleClaim = new Date(Date.now() - 5 * 60_000).toISOString();
       const { data, error } = await this.client
         .from('notification_push_queue')
-        .select('id,user_id,title,body,content_id,attempts')
+        .select('id,user_id,title,body,content_id,image_url,attempts')
         .is('sent_at', null)
         .lt('attempts', 5)
         .or(`claimed_at.is.null,claimed_at.lt.${staleClaim}`)
@@ -107,6 +108,7 @@ export class ExpoPushNotificationService {
           sound: 'default',
           title: row.title,
           body: row.body,
+          ...(row.image_url ? { richContent: { image: row.image_url } } : {}),
           data: row.content_id ? { contentId: row.content_id } : {},
         }))),
         signal: AbortSignal.timeout(12_000),
