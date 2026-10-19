@@ -248,6 +248,9 @@ export class FootballDataProvider implements SportsProvider {
       venue: text(detail.venue),
       founded: Number.isInteger(detail.founded) ? Number(detail.founded) : null,
       coach: isRecord(detail.coach) ? text(detail.coach.name) : null,
+      competitions: (Array.isArray(detail.runningCompetitions) ? detail.runningCompetitions : [])
+        .flatMap((c: unknown) => (isRecord(c) && typeof c.code === 'string' && typeof c.name === 'string'
+          ? [{ code: c.code, name: c.name }] : [])),
       competitionCode: (Array.isArray(detail.runningCompetitions) ? detail.runningCompetitions : [])
         .flatMap((c: unknown) => (isRecord(c) && typeof c.code === 'string' ? [c.code] : []))
         .find((c: string) => ['PL', 'PD', 'SA', 'BL1', 'FL1', 'DED', 'PPL', 'ELC', 'BSA'].includes(c)) ?? null,

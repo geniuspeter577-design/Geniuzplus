@@ -480,7 +480,7 @@ async function handleRequest(
       const data = pathname === '/football/standings'
         ? await getStandings(config.footballDataApiKey, code)
         : await getScorers(config.footballDataApiKey, code);
-      tableCache.set(key, { data, expiresAt: Date.now() + 30 * 60_000 });
+      tableCache.set(key, { data, expiresAt: Date.now() + 5 * 60_000 });
       writeJson(response, 200, data);
     } catch (error) {
       throw mapFootballProviderError(error);

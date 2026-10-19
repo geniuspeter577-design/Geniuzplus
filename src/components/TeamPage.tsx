@@ -504,10 +504,15 @@ function Soon() {
 export default function TeamPage({ onBack }: { onBack?: () => void }) {
   const [tab, setTab] = useState('Overview');
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ name?: string | string[] }>();
+  const params = useLocalSearchParams<{ name?: string | string[]; code?: string | string[] }>();
   const teamName = (Array.isArray(params.name) ? params.name[0] : params.name) ?? '';
   const [team, setTeam] = useState<any>(null);
   const [status, setStatus] = useState<'loading' | 'error' | 'ok'>('loading');
+  const [pickedCode, setPickedCode] = useState<string | null>(null);
+  const teamComps: { code: string; name: string }[] = team?.competitions ?? [];
+  const wantedCode = (Array.isArray(params.code) ? params.code[0] : params.code) ?? '';
+  const activeCode: string = [pickedCode, wantedCode, team?.competitionCode]
+    .find((c) => !!c && teamComps.some((x) => x.code === c)) ?? teamComps[0]?.code ?? team?.competitionCode ?? 'PL';
   useEffect(() => {
     let off = false;
     setStatus('loading');
@@ -575,9 +580,18 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
         {ok && tab === 'Overview' && <Overview go={setTab} />}
         {ok && tab === 'Fixtures' && <Fixtures />}
         {ok && tab === 'Results' && <Results />}
-        {ok && tab === 'Standings' && <StandingsTab team={L} code={team?.competitionCode ?? 'PL'} />}
-        {ok && tab === 'Player Stats' && <PlayerStatsTab team={L} code={team?.competitionCode ?? 'PL'} />}
-        {ok && tab === 'Team Stats' && <TeamStatsTab team={L} code={team?.competitionCode ?? 'PL'} />}
+        {ok && ['Standings', 'Player Stats', 'Team Stats'].includes(tab) && teamComps.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+            {teamComps.map((c) => (
+              <Pressable key={c.code} onPress={() => setPickedCode(c.code)} style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, marginRight: 8, backgroundColor: c.code === activeCode ? C.green : C.high }}>
+                <Text style={{ color: c.code === activeCode ? C.onGreen : C.on, fontSize: 12, fontWeight: '700' }}>{c.name}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+        {ok && tab === 'Standings' && <StandingsTab team={L} code={activeCode} />}
+        {ok && tab === 'Player Stats' && <PlayerStatsTab team={L} code={activeCode} />}
+        {ok && tab === 'Team Stats' && <TeamStatsTab team={L} code={activeCode} />}
         {ok && tab === 'Squad' && <Squad />}
       </ScrollView>
     </View>

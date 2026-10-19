@@ -94,7 +94,7 @@ export function StandingsTab({ team, code = 'PL' }: { team: string; code?: strin
           const me = r.team === team;
           return (
             <View key={r.team} style={{ flexDirection: 'row', alignItems: 'center', height: 44, paddingHorizontal: 8, backgroundColor: me ? C.high : 'transparent' }}>
-              {i < 5 && <View style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 4, borderTopRightRadius: 4, borderBottomRightRadius: 4, backgroundColor: i < 4 ? C.blue : C.orange }} />}
+              {i < 5 && ['PL', 'PD', 'SA', 'BL1'].includes(code) && <View style={{ position: 'absolute', left: 0, top: 4, bottom: 4, width: 4, borderTopRightRadius: 4, borderBottomRightRadius: 4, backgroundColor: i < 4 ? C.blue : C.orange }} />}
               {cell(28, r.position, true, me ? C.green : C.on)}
               <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 4 }}>
                 <Logo url={r.logoUrl} />
@@ -108,7 +108,7 @@ export function StandingsTab({ team, code = 'PL' }: { team: string; code?: strin
         })}
       </View>
       <View style={{ flexDirection: 'row', gap: 16, marginTop: 12, paddingHorizontal: 8 }}>
-        {[[C.blue, 'Champions League'], [C.orange, 'Europa League']].map(([c, t]) => (
+        {(['PL', 'PD', 'SA', 'BL1'].includes(code) ? [[C.blue, 'Champions League'], [C.orange, 'Europa League']] : [] as string[][]).map(([c, t]) => (
           <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c }} />
             <Text style={{ color: C.dim, fontSize: 10, fontWeight: '700' }}>{t.toUpperCase()}</Text>
