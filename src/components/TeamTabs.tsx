@@ -74,8 +74,8 @@ function RankCard({ title, rows }: { title: string; rows: Row[] }) {
   );
 }
 
-export function StandingsTab({ team }: { team: string }) {
-  const { data, state } = useData<Standings>('/football/standings?code=PL');
+export function StandingsTab({ team, code = 'PL' }: { team: string; code?: string }) {
+  const { data, state } = useData<Standings>(`/football/standings?code=${code}`);
   if (state === 'loading') return <Notice text="Loading table..." />;
   if (state === 'error' || !data) return <Notice text="The table is not available right now." />;
   const cell = (w: number, t: string | number, bold = false, color = C.dim) => (
@@ -119,8 +119,8 @@ export function StandingsTab({ team }: { team: string }) {
   );
 }
 
-export function PlayerStatsTab({ team }: { team: string }) {
-  const { data, state } = useData<{ scorers: Scorer[] }>('/football/scorers?code=PL');
+export function PlayerStatsTab({ team, code = 'PL' }: { team: string; code?: string }) {
+  const { data, state } = useData<{ scorers: Scorer[] }>(`/football/scorers?code=${code}`);
   if (state === 'loading') return <Notice text="Loading player stats..." />;
   if (state === 'error' || !data) return <Notice text="Player stats are not available right now." />;
   const sub = (s: Scorer) => `${s.team}${s.position ? ' · ' + s.position : ''}`;
@@ -140,8 +140,8 @@ export function PlayerStatsTab({ team }: { team: string }) {
   );
 }
 
-export function TeamStatsTab({ team }: { team: string }) {
-  const { data, state } = useData<Standings>('/football/standings?code=PL');
+export function TeamStatsTab({ team, code = 'PL' }: { team: string; code?: string }) {
+  const { data, state } = useData<Standings>(`/football/standings?code=${code}`);
   if (state === 'loading') return <Notice text="Loading team stats..." />;
   if (state === 'error' || !data) return <Notice text="Team stats are not available right now." />;
   const make = (val: (r: TableRow) => number, desc: boolean, fmt: (n: number) => string = String) =>

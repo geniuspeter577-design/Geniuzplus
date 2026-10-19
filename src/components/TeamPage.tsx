@@ -575,9 +575,9 @@ export default function TeamPage({ onBack }: { onBack?: () => void }) {
         {ok && tab === 'Overview' && <Overview go={setTab} />}
         {ok && tab === 'Fixtures' && <Fixtures />}
         {ok && tab === 'Results' && <Results />}
-        {ok && tab === 'Standings' && <StandingsTab team={L} />}
-        {ok && tab === 'Player Stats' && <PlayerStatsTab team={L} />}
-        {ok && tab === 'Team Stats' && <TeamStatsTab team={L} />}
+        {ok && tab === 'Standings' && <StandingsTab team={L} code={team?.competitionCode ?? 'PL'} />}
+        {ok && tab === 'Player Stats' && <PlayerStatsTab team={L} code={team?.competitionCode ?? 'PL'} />}
+        {ok && tab === 'Team Stats' && <TeamStatsTab team={L} code={team?.competitionCode ?? 'PL'} />}
         {ok && tab === 'Squad' && <Squad />}
       </ScrollView>
     </View>

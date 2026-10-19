@@ -115,10 +115,17 @@ export class FootballDataProvider implements SportsProvider {
   ) {}
 
   async getMatches(date: string) {
-    const next = new Date(`${date}T00:00:00Z`);
-    next.setUTCDate(next.getUTCDate() + 1);
-    const matches = await this.getMatchesRange(date, next.toISOString().slice(0, 10));
-    return matches.filter((match) => match.startsAt.slice(0, 10) === date);
+    const day = (offset: number) => {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + offset);
+      return d.toISOString().slice(0, 10);
+    };
+    // Match days follow West Africa time (UTC+1), so late UTC kick-offs fall on the next local day.
+    const matches = await this.getMatchesRange(day(-1), day(1));
+    return matches.filter((match) => {
+      const t = Date.parse(match.startsAt);
+      return !Number.isNaN(t) && new Date(t + 3_600_000).toISOString().slice(0, 10) === date;
+    });
   }
 
   async getMatchesRange(dateFrom: string, dateTo: string) {
@@ -241,6 +248,9 @@ export class FootballDataProvider implements SportsProvider {
       venue: text(detail.venue),
       founded: Number.isInteger(detail.founded) ? Number(detail.founded) : null,
       coach: isRecord(detail.coach) ? text(detail.coach.name) : null,
+      competitionCode: (Array.isArray(detail.runningCompetitions) ? detail.runningCompetitions : [])
+        .flatMap((c: unknown) => (isRecord(c) && typeof c.code === 'string' ? [c.code] : []))
+        .find((c: string) => ['PL', 'PD', 'SA', 'BL1', 'FL1', 'DED', 'PPL', 'ELC', 'BSA'].includes(c)) ?? null,
       squad: (Array.isArray(detail.squad) ? detail.squad : []).flatMap((p) =>
         isRecord(p) && text(p.name)
           ? [{ name: String(text(p.name)), position: text(p.position), nationality: text(p.nationality) }]

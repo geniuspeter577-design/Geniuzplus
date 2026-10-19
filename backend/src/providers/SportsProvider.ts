@@ -60,6 +60,7 @@ export type FootballTeamDetails = {
   venue: string | null;
   founded: number | null;
   coach: string | null;
+  competitionCode: string | null;
   squad: { name: string; position: string | null; nationality: string | null }[];
   results: FootballMatch[];
   fixtures: FootballMatch[];
