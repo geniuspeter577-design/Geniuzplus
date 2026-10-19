@@ -50,11 +50,16 @@ export function getKickoffPresentation(value: string, now = new Date()) {
 }
 
 export function sortHomeFootballMatches(matches: FootballMatch[]) {
-  const priority = (match: FootballMatch) => match.status === 'live' ? 0 : 1;
+  const priority = (match: FootballMatch) =>
+    match.status === 'live' ? 0 : match.status === 'scheduled' ? 1 : 2;
   return matches
-    .filter((match) => match.status === 'live' || match.status === 'scheduled')
+    .filter((match) => match.status === 'live' || match.status === 'scheduled' || match.status === 'finished')
     .slice()
-    .sort((left, right) => priority(left) - priority(right) || left.startsAt.localeCompare(right.startsAt));
+    .sort((left, right) =>
+      priority(left) - priority(right) ||
+      (priority(left) === 2
+        ? right.startsAt.localeCompare(left.startsAt)
+        : left.startsAt.localeCompare(right.startsAt)));
 }
 
 export function getGoalBallCounts(previous: FootballMatch | undefined, current: FootballMatch) {
@@ -71,3 +76,15 @@ export function getGoalBallCounts(previous: FootballMatch | undefined, current: 
   };
 }
 
+
+const WEST_AFRICA_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEST_AFRICA_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function formatWestAfricaDate(value: string) {
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) {
+    return '';
+  }
+  const local = new Date(time + 60 * 60 * 1000);
+  return `${WEST_AFRICA_DAYS[local.getUTCDay()]} ${local.getUTCDate()} ${WEST_AFRICA_MONTHS[local.getUTCMonth()]}`;
+}

@@ -236,6 +236,7 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
       >
         {ordered.map((match) => {
           const live = match.status === 'live';
+          const finished = match.status === 'finished';
           const goals = goalSignals[match.id];
           const celebrating = celebration && celebration.matchId === match.id ? celebration : null;
           const scoringTeam = celebrating && celebrating.team === 'away' ? match.awayTeam : match.homeTeam;
@@ -262,6 +263,11 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
                     <>
                       <Text style={styles.centerMain}>{match.homeScore ?? '-'} - {match.awayScore ?? '-'}</Text>
                       <LiveClock key={`${match.id}-${match.minute ?? 'x'}`} match={match} />
+                    </>
+                  ) : finished ? (
+                    <>
+                      <Text style={styles.centerMain}>{match.homeScore ?? '-'} - {match.awayScore ?? '-'}</Text>
+                      <Text style={styles.centerSub}>FT · {formatLagosDate(match.startsAt)}</Text>
                     </>
                   ) : (
                     <>

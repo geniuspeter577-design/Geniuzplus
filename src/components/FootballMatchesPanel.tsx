@@ -5,7 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import type { FootballMatch, FootballTeam } from '../models/football';
 import { useFootballMatches } from '../state/FootballMatchesContext';
 import { theme } from '../theme';
-import { formatWestAfricaKickoff } from '../utils/footballScores';
+import { formatWestAfricaDate, formatWestAfricaKickoff, getWestAfricaDate } from '../utils/footballScores';
 import type { GoalBallCounts } from '../utils/footballPin';
 import { ContentNotice } from './ContentNotice';
 import { FootballGoalBalls } from './FootballGoalBalls';
@@ -43,6 +43,34 @@ function groupByCompetition(matches: FootballMatch[]) {
     competitions.set(match.competition.id, group);
   }
   return [...competitions.values()];
+}
+
+function shiftDate(date: string, days: number) {
+  const next = new Date(`${date}T00:00:00.000Z`);
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+function dayLabel(date: string, today: string) {
+  if (date === today) {
+    return 'Today';
+  }
+  if (date === shiftDate(today, 1)) {
+    return 'Tomorrow';
+  }
+  if (date === shiftDate(today, -1)) {
+    return 'Yesterday';
+  }
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' })
+    .format(new Date(`${date}T00:00:00.000Z`));
+}
+
+function groupAll(matches: FootballMatch[]) {
+  const sorted = matches.slice().sort((left, right) => {
+    const rank = (match: FootballMatch) => (match.status === 'live' ? 0 : 1);
+    return rank(left) - rank(right) || left.startsAt.localeCompare(right.startsAt);
+  });
+  return sorted.length ? [{ title: '', competitions: groupByCompetition(sorted) }] : [];
 }
 
 function groupByStatus(matches: FootballMatch[]) {
@@ -146,14 +174,55 @@ export function FootballMatchesPanel({
   onRetryConnection: () => void;
 }) {
   const football = useFootballMatches();
-  const query = football.upcoming;
-  const matchGroups = useMemo(
-    () => groupByStatus(query.matches),
-    [query.matches],
-  );
+  const query: typeof football.upcoming = football.entries[football.selectedDate] ?? {
+    matches: [],
+    stale: false,
+    isLoading: true,
+  };
+  const { selectDate, selectedDate } = football;
+  useEffect(() => {
+    selectDate(selectedDate);
+  }, [selectDate, selectedDate]);
+  const matchGroups = useMemo(() => {
+    const groups: { title: string; competitions: ReturnType<typeof groupByCompetition> }[] = [];
+    if (football.selectedDate !== football.today) {
+      const liveNow = (football.entries[football.today]?.matches ?? []).filter((match) => match.status === 'live');
+      if (liveNow.length) {
+        groups.push({ title: 'Live', competitions: groupByCompetition(liveNow) });
+      }
+    }
+    groups.push(...groupAll(query.matches));
+    const shown = new Set(groups.flatMap((group) => group.competitions.flatMap((c) => c.matches.map((m) => m.id))));
+    const upcoming = football.upcoming.matches
+      .filter((match) => match.status === 'scheduled' && !shown.has(match.id))
+      .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+    if (upcoming.length) {
+      groups.push({ title: 'Upcoming', competitions: groupByCompetition(upcoming) });
+    }
+    return groups;
+  }, [query.matches, football.entries, football.selectedDate, football.today, football.upcoming.matches]);
 
   return (
     <View style={styles.section}>
+      <View style={styles.dateBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Previous day"
+          onPress={() => football.selectDate(shiftDate(football.selectedDate, -1))}
+          style={styles.dateArrow}
+        >
+          <Ionicons name="chevron-back" size={20} color={theme.text} />
+        </Pressable>
+        <Text style={styles.dateTitle}>{dayLabel(football.selectedDate, football.today)}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Next day"
+          onPress={() => football.selectDate(shiftDate(football.selectedDate, 1))}
+          style={styles.dateArrow}
+        >
+          <Ionicons name="chevron-forward" size={20} color={theme.text} />
+        </Pressable>
+      </View>
       <View style={styles.headingRow}>
         <View>
           <Text style={styles.heading}>Matches</Text>
@@ -176,7 +245,7 @@ export function FootballMatchesPanel({
           message="Football scores could not be loaded. Please retry."
           tone="error"
           actionLabel="Retry"
-          onAction={() => football.retryUpcoming()}
+          onAction={() => football.retryDate()}
         />
       ) : null}
       {isOnline && query.stale ? (
@@ -188,7 +257,7 @@ export function FootballMatchesPanel({
 
       {matchGroups.map((group) => (
         <View key={group.title} style={styles.matchGroup}>
-          <Text style={styles.groupHeading}>{group.title}</Text>
+          {group.title ? <Text style={styles.groupHeading}>{group.title}</Text> : null}
           {group.competitions.map((competition) => (
             <View key={`${group.title}:${competition.name}`} style={styles.competition}>
               <View style={styles.competitionHeading}>
@@ -199,41 +268,44 @@ export function FootballMatchesPanel({
               </View>
               {competition.matches.map((match) => (
                 <View key={match.id} style={styles.matchRow}>
-                  <View style={styles.team}>
-                    <TeamMark team={match.homeTeam} />
-                    <Text style={styles.teamName} numberOfLines={2}>{match.homeTeam.name}</Text>
-                  </View>
-                  <View style={styles.scoreBlock}>
-                    {match.status === 'scheduled' ? (
-                      <Text style={styles.kickoff}>{formatWestAfricaKickoff(match.startsAt)}</Text>
-                    ) : (
-                      <Text style={styles.score}>
-                        {match.homeScore ?? '–'} <Text style={styles.scoreSeparator}>:</Text> {match.awayScore ?? '–'}
-                      </Text>
-                    )}
+                  <View style={styles.timeCol}>
                     {match.status === 'live' ? (
                       <LiveClock key={`${match.id}-${match.minute ?? 'x'}`} match={match} />
-                    ) : match.status !== 'scheduled' ? (
-                      <Text style={styles.matchStatus}>
-                        {getMatchStatus(match)}
+                    ) : (
+                      <Text style={styles.timeText}>
+                        {match.status === 'scheduled'
+                          ? getWestAfricaDate(new Date(match.startsAt)) === football.selectedDate
+                            ? formatWestAfricaKickoff(match.startsAt)
+                            : `${formatWestAfricaDate(match.startsAt)}\n${formatWestAfricaKickoff(match.startsAt)}`
+                          : match.status === 'finished'
+                            ? 'FT'
+                            : getMatchStatus(match)}
                       </Text>
-                    ) : null}
-                    {match.status === 'live' ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Pin ${match.homeTeam.name} versus ${match.awayTeam.name} live score`}
-                        onPress={() => football.pinMatch(match, football.today)}
-                        style={styles.pinButton}
-                      >
-                        <Ionicons name="pin-outline" size={11} color={theme.accent} />
-                        <Text style={styles.pinText}>Pin</Text>
-                      </Pressable>
-                    ) : null}
+                    )}
                   </View>
-                  <View style={[styles.team, styles.awayTeam]}>
-                    <Text style={styles.teamName} numberOfLines={2}>{match.awayTeam.name}</Text>
-                    <TeamMark team={match.awayTeam} />
+                  <View style={styles.divider} />
+                  <View style={styles.teamsCol}>
+                    <View style={styles.teamLine}>
+                      <TeamMark team={match.homeTeam} />
+                      <Text style={styles.teamName} numberOfLines={1}>{match.homeTeam.name}</Text>
+                      {match.status !== 'scheduled' ? <Text style={styles.score}>{match.homeScore ?? '–'}</Text> : null}
+                    </View>
+                    <View style={styles.teamLine}>
+                      <TeamMark team={match.awayTeam} />
+                      <Text style={styles.teamName} numberOfLines={1}>{match.awayTeam.name}</Text>
+                      {match.status !== 'scheduled' ? <Text style={styles.score}>{match.awayScore ?? '–'}</Text> : null}
+                    </View>
                   </View>
+                  {match.status === 'live' ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Pin ${match.homeTeam.name} versus ${match.awayTeam.name} live score`}
+                      onPress={() => football.pinMatch(match, football.selectedDate)}
+                      style={styles.pinButton}
+                    >
+                      <Ionicons name="pin-outline" size={14} color={theme.accent} />
+                    </Pressable>
+                  ) : null}
                   {match.status === 'live' ? (
                     <GoalOverlay match={match} goal={football.goalSignals[match.id]} />
                   ) : null}
@@ -248,6 +320,24 @@ export function FootballMatchesPanel({
 }
 
 const styles = StyleSheet.create({
+  dateBar: {
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+  },
+  dateArrow: { alignItems: 'center', height: 40, justifyContent: 'center', width: 40 },
+  dateTitle: { color: theme.text, fontSize: 15, fontWeight: '800' },
+  timeCol: { alignItems: 'center', justifyContent: 'center', width: 56 },
+  timeText: { color: theme.text, textAlign: 'center', fontSize: 13, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  divider: { alignSelf: 'stretch', backgroundColor: theme.border, marginHorizontal: 10, width: StyleSheet.hairlineWidth },
+  teamsCol: { flex: 1, gap: 8, minWidth: 0 },
+  teamLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   section: { gap: 12, marginBottom: 18 },
   headingRow: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between' },
   heading: { color: theme.text, fontSize: 19, fontWeight: '800' },
@@ -314,7 +404,8 @@ const styles = StyleSheet.create({
   teamName: { color: theme.text, flex: 1, fontSize: 12, fontWeight: '600', minWidth: 0 },
   scoreBlock: { alignItems: 'center', minWidth: 64, paddingHorizontal: 4 },
   score: { color: theme.text, fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  kickoff: { color: theme.text, fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  kickoff: { color: theme.text, fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'], textAlign: 'center' },
+  kickoffDate: { color: theme.secondaryText, fontSize: 11, fontWeight: '600' },
   scoreSeparator: { color: theme.secondaryText },
   matchStatus: { color: theme.secondaryText, fontSize: 10, marginTop: 2 },
   liveStatus: { color: theme.accent, fontWeight: '800' },

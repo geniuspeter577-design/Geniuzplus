@@ -158,7 +158,7 @@ export default function HomeScreen() {
       : allPublishedItems.filter((item) => !(item.categories ?? []).some((category) => category.toLocaleLowerCase() === 'education')) ),
     [allPublishedItems, study.enabled],
   );
-  const heroItems = useMemo(() => publishedItems.slice(0, 5), [publishedItems]);
+  const heroItems = useMemo(() => sortPublishedNewest(publishedItems).slice(0, 20), [publishedItems]);
   const allCategoryTabs = useMemo(
     () => [
       { key: 'Trending', label: 'Trending' },

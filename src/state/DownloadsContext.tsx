@@ -1,4 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useStudyMode } from './StudyModeContext';
+
+const STUDY_DOWNLOADS_KEY = 'geniuz.study.downloads';
 import { File, Paths } from 'expo-file-system';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -62,6 +65,7 @@ const service = new OfflineDownloadService(
 
 type DownloadsContextValue = {
   records: OfflineDownloadRecord[];
+  studyDownloadIds: string[];
   availableSpaceBytes: number | null;
   isLoading: boolean;
   isRefreshing: boolean;
@@ -83,6 +87,39 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   const auth = useAuth();
   const network = useNetwork();
   const [records, setRecords] = useState<OfflineDownloadRecord[]>([]);
+  const study = useStudyMode();
+  const studyEnabledRef = useRef(study.enabled);
+  studyEnabledRef.current = study.enabled;
+  const [studyDownloadIds, setStudyDownloadIds] = useState<string[]>([]);
+  const studyIdsRef = useRef<string[]>([]);
+  studyIdsRef.current = studyDownloadIds;
+
+  useEffect(() => {
+    void AsyncStorage.getItem(STUDY_DOWNLOADS_KEY)
+      .then((raw) => {
+        const list = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(list)) {
+          setStudyDownloadIds(list.filter((value): value is string => typeof value === 'string'));
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const saveStudyIds = useCallback((next: string[]) => {
+    setStudyDownloadIds(next);
+    void AsyncStorage.setItem(STUDY_DOWNLOADS_KEY, JSON.stringify(next)).catch(() => undefined);
+  }, []);
+
+  const markStudy = useCallback(
+    (ids: readonly string[]) => {
+      if (!studyEnabledRef.current) {
+        return;
+      }
+      const next = Array.from(new Set([...studyIdsRef.current, ...ids]));
+      saveStudyIds(next);
+    },
+    [saveStudyIds],
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string>();
@@ -176,6 +213,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setError(undefined);
     try {
       await enforceWifiPreference();
+      markStudy([item.id]);
       await service.download(item);
     } catch (downloadError) {
       console.error('[Downloads] Could not download this title.', downloadError);
@@ -199,6 +237,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setError(undefined);
     try {
       await enforceWifiPreference();
+      markStudy(items.map((entry) => entry.id));
       await service.downloadSequentially(items);
     } catch (queueError) {
       console.error('[Downloads] Could not complete the queued downloads.');
@@ -230,6 +269,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setError(undefined);
     try {
       await service.delete(itemId);
+      saveStudyIds(studyIdsRef.current.filter((id) => id !== itemId));
     } catch (deleteError) {
       console.error('[Downloads] Could not delete this download.', deleteError);
       setError('The downloaded file could not be deleted. Please try again.');
@@ -256,6 +296,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     <DownloadsContext.Provider
       value={{
         records,
+        studyDownloadIds,
         availableSpaceBytes: Number.isFinite(Paths.availableDiskSpace)
           ? Paths.availableDiskSpace
           : null,

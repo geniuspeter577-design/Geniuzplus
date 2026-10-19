@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ContentNotice } from '../../src/components/ContentNotice';
 import { DeviceTransferPanel } from '../../src/components/downloads/DeviceTransferPanel';
 import { formatBytes, type OfflineDownloadRecord } from '../../src/services/OfflineDownloadService';
+import { useStudyMode } from '../../src/state/StudyModeContext';
 import { useDownloads } from '../../src/state/DownloadsContext';
 import { useLibrary } from '../../src/state/LibraryContext';
 import { useNetwork } from '../../src/state/NetworkContext';
@@ -65,7 +66,8 @@ export default function DownloadsScreen() {
   const { isOnline } = useNetwork();
   const library = useLibrary();
   const {
-    records,
+    records: allRecords,
+    studyDownloadIds,
     availableSpaceBytes,
     isLoading,
     isRefreshing,
@@ -82,6 +84,16 @@ export default function DownloadsScreen() {
   const [localVideosPermission, setLocalVideosPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown');
   const [localVideosError, setLocalVideosError] = useState<string>();
   const selectedTab: DownloadTab = tab === 'local' || tab === 'received' ? tab : 'geniuz';
+  const study = useStudyMode();
+  const records = useMemo(
+    () =>
+      allRecords.filter((record) =>
+        study.enabled
+          ? studyDownloadIds.includes(record.item.id)
+          : !studyDownloadIds.includes(record.item.id),
+      ),
+    [allRecords, study.enabled, studyDownloadIds],
+  );
   const watchHistory = useMemo(
     () => getMeScreenData({ watchlist: [], continueWatching: library.continueWatching }, []).watchHistory,
     [library.continueWatching],
