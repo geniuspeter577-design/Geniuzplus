@@ -515,10 +515,10 @@ async function handleRequest(
     if (access.status !== 'active' && access.status !== 'grace') {
       throw new HttpError(403, 'MEMBERS_ONLY', 'Live scores are for members.');
     }
-    if (!config.apiSportsKey) {
+    if (!config.footballDataApiKey) {
       throw new HttpError(503, 'FOOTBALL_NOT_CONFIGURED', 'Live scores are not configured.');
     }
-    const memberFootball = getMemberFootball(config.apiSportsKey);
+    const memberFootball = getMemberFootball(config.footballDataApiKey);
     try {
       if (pathname === '/api/member/football/upcoming') {
         writeJson(response, 200, await memberFootball.getUpcoming());
