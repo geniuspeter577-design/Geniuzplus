@@ -428,7 +428,7 @@ export function TitleTrailerHero({
           ) : isTrailerUnavailable ? (
             <Text style={styles.trailerNote}>Trailer unavailable</Text>
           ) : null}
-          {trailerEnded ? (
+          {trailerEnded && hasTrailer ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Replay trailer"

@@ -1,9 +1,9 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { StatusBar } from 'expo-status-bar';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
@@ -36,7 +36,10 @@ import {
   type PlayerFitMode,
 } from '../../src/utils/playerControls';
 import { backOrReplace } from '../../src/utils/navigation';
-import { nextEpisodeInSeries } from '../../src/utils/episodeSelection';
+import { nextEpisodeInSeries, orderEpisodes } from '../../src/utils/episodeSelection';
+import { TitleImage } from '../../src/components/TitleImage';
+import { PosterGrid } from '../../src/components/detail/DetailComponents';
+import { formatBytes } from '../../src/services/OfflineDownloadService';
 import {
   NEXT_EPISODE_COUNTDOWN_SECONDS,
   isEpisodeWatchedAtPosition,
@@ -66,6 +69,43 @@ export default function WatchScreen() {
     error?: string;
   }>();
   const [seriesEpisodeRetryAttempt, setSeriesEpisodeRetryAttempt] = useState(0);
+  const [moreLikeThis, setMoreLikeThis] = useState<ContentItem[]>([]);
+  const movieGenresKey = (movie?.genres ?? []).join('|');
+  useEffect(() => {
+    let active = true;
+    const currentId = movie?.id;
+    const genres = movie?.genres ?? [];
+    if (!isOnline || !currentId || !genres.length || !supabaseMovieRepository) {
+      setMoreLikeThis([]);
+      return;
+    }
+    void supabaseMovieRepository
+      .getPublished()
+      .then((items) => {
+        if (!active) {
+          return;
+        }
+        setMoreLikeThis(
+          items.filter(
+            (candidate) =>
+              candidate.id !== currentId &&
+              candidate.id !== movie?.parentSeriesId &&
+              candidate.genres.some((genre) =>
+                genres.some((g) => g.toLocaleLowerCase() === genre.toLocaleLowerCase()),
+              ),
+          ),
+        );
+      })
+      .catch(() => {
+        if (active) {
+          setMoreLikeThis([]);
+        }
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, movie?.id, movieGenresKey]);
   const [playbackUrl, setPlaybackUrl] = useState<string>();
   const [isOfflinePlayback, setIsOfflinePlayback] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -537,16 +577,8 @@ export default function WatchScreen() {
     void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
     return () => {
       void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-      StatusBar.setHidden(false, 'fade');
     };
   }, []);
-
-  useEffect(() => {
-    StatusBar.setHidden(isLandscape, 'fade');
-    return () => {
-      StatusBar.setHidden(false, 'fade');
-    };
-  }, [isLandscape]);
 
   useEffect(() => {
     setPlayerTimeUpdateInterval(player, 0.25);
@@ -923,8 +955,18 @@ export default function WatchScreen() {
 
   const activeSubtitleText = findSubtitleCue(subtitleCues, currentTime)?.text;
 
+  const orderedForList = orderEpisodes(episodeCandidates);
+  const currentIndexForList = orderedForList.findIndex((episode) => episode.id === movie?.id);
+  const upcomingEpisodes =
+    movie?.parentSeriesId && currentIndexForList >= 0
+      ? orderedForList.slice(currentIndexForList + 1)
+      : [];
+
   return (
-    <SafeAreaView style={[styles.safeArea, isLandscape && styles.landscapeSafeArea]}>
+    <SafeAreaView
+      style={[styles.safeArea, isLandscape && styles.landscapeSafeArea]}
+      edges={isLandscape ? [] : ['top']}
+    >
       <Stack.Screen
         options={{
           orientation: 'all',
@@ -979,6 +1021,8 @@ export default function WatchScreen() {
         onSelect={selectSubtitleTrack}
         onRetry={() => setSubtitleRetryAttempt((attempt) => attempt + 1)}
       />
+      {!isLandscape ? (
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
       {!isLandscape && !isTrailer && movie?.parentSeriesId ? (
         <View style={styles.nextEpisodeCard}>
           <View style={styles.nextEpisodeCopy}>
@@ -1038,6 +1082,58 @@ export default function WatchScreen() {
           ) : null}
         </View>
       ) : null}
+      {!isLandscape && !isTrailer && upcomingEpisodes.length > 0 ? (
+        <View style={styles.upcomingWrap}>
+          <Text style={styles.upcomingHeading}>Next Episodes ({upcomingEpisodes.length} left)</Text>
+          {upcomingEpisodes.map((episode, index) => {
+            const downloaded = downloads.records.some(
+              (record) => record.status === 'downloaded' && record.item.id === episode.id,
+            );
+            const canOpen = isOnline || downloaded;
+            const sizeText = episode.fileSizeBytes ? formatBytes(episode.fileSizeBytes) : '';
+            const meta = [
+              episode.runtimeMinutes ? `${episode.runtimeMinutes} min` : '',
+              sizeText,
+              downloaded ? 'Downloaded' : '',
+            ]
+              .filter(Boolean)
+              .join('  ·  ');
+            return (
+              <Pressable
+                key={episode.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Play episode ${episode.episodeNumber}, ${episode.title}`}
+                disabled={!canOpen}
+                onPress={() => router.replace({ pathname: '/watch/[id]', params: { id: episode.id } })}
+                style={[styles.upcomingRow, !canOpen && styles.disabledButton]}
+              >
+                {index === 0 ? <View style={styles.upcomingAccent} /> : null}
+                <TitleImage
+                  uri={episode.posterUrl ?? movie?.posterUrl}
+                  style={styles.upcomingThumb}
+                  iconSize={24}
+                />
+                <View style={styles.upcomingBody}>
+                  {index === 0 ? <Text style={styles.upcomingTag}>UP NEXT</Text> : null}
+                  <Text style={styles.upcomingTitle} numberOfLines={2}>
+                    {`E${String(episode.episodeNumber ?? 0).padStart(2, '0')} · ${episode.title}`}
+                  </Text>
+                  {meta ? <Text style={styles.upcomingMeta}>{meta}</Text> : null}
+                </View>
+                <View style={styles.upcomingPlay}>
+                  <Ionicons name="play" size={18} color={theme.accent} />
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      {!isLandscape && !isTrailer && moreLikeThis.length > 0 ? (
+        <View style={styles.moreWrap}>
+          <Text style={styles.upcomingHeading}>More like this</Text>
+          <PosterGrid items={moreLikeThis} currentId={movie?.id ?? ''} />
+        </View>
+      ) : null}
       {!isLandscape && !isTrailer && movie?.availability.download ? (
         <Pressable
           accessibilityRole="button"
@@ -1082,6 +1178,8 @@ export default function WatchScreen() {
             ? 'Playing the saved file on this device.'
             : 'Playback is available for movies uploaded by an authorized Geniuzplus administrator.'}
         </Text>
+      ) : null}
+      </ScrollView>
       ) : null}
     </SafeAreaView>
   );
@@ -1202,6 +1300,25 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.55,
   },
+  moreWrap: { gap: 10, marginHorizontal: 18, marginTop: 18 },
+  upcomingWrap: { gap: 8, marginHorizontal: 18, marginTop: 14 },
+  upcomingHeading: { color: theme.text, fontSize: 16, fontWeight: '700' },
+  upcomingRow: {
+    alignItems: 'center',
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 12,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  upcomingAccent: { backgroundColor: theme.accent, bottom: 0, left: 0, position: 'absolute', top: 0, width: 4 },
+  upcomingThumb: { backgroundColor: theme.surfaceAlt, borderRadius: 8, height: 72, width: 52 },
+  upcomingBody: { flex: 1, gap: 2 },
+  upcomingTag: { color: theme.accent, fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  upcomingTitle: { color: theme.text, fontSize: 14, fontWeight: '600' },
+  upcomingMeta: { color: theme.secondaryText, fontSize: 12 },
+  upcomingPlay: { alignItems: 'center', backgroundColor: theme.surfaceAlt, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   disclaimer: {
     color: theme.secondaryText,
     fontSize: 12,

@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../src/services/supabase';
 
 type Course = { id: string; title: string; description: string | null; level: string | null; subject: string | null; poster_url: string | null };
-type Lesson = { id: string; lesson_number: number; title: string; duration_seconds: number | null };
+type Lesson = { id: string; lesson_number: number; title: string; duration_seconds: number | null; poster_url: string | null; file_size_bytes: number | null };
 
 const C = {
   bg: '#111317',
@@ -30,6 +30,15 @@ function formatDuration(seconds: number | null) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function formatSize(bytes: number | null) {
+  if (!bytes || bytes <= 0) {
+    return '';
+  }
+  return bytes >= 1024 * 1024 * 1024
+    ? `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
+    : `${Math.max(1, Math.round(bytes / (1024 * 1024)))} MB`;
 }
 
 function formatTotal(seconds: number) {
@@ -107,7 +116,7 @@ export default function EducationScreen() {
     setLoading(true);
     supabase
       .from('education_lessons')
-      .select('id,lesson_number,title,duration_seconds')
+      .select('id,lesson_number,title,duration_seconds,poster_url,file_size_bytes')
       .eq('course_id', course.id)
       .eq('published', true)
       .order('lesson_number', { ascending: true })
@@ -174,13 +183,6 @@ export default function EducationScreen() {
         <ScrollView contentContainerStyle={styles.page}>
           <View style={{ height: heroHeight, width }}>
             <Poster uri={openCourse.poster_url} style={{ backgroundColor: C.card, height: heroHeight, width }} />
-            {lessons.length > 0 ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Play first lesson" onPress={() => playLesson(lessons[0])} style={styles.heroPlayWrap}>
-                <View style={styles.heroPlay}>
-                  <Ionicons name="play" size={28} color={C.onGreen} />
-                </View>
-              </Pressable>
-            ) : null}
           </View>
           <View style={styles.info}>
             <View style={styles.chipRow}>
@@ -204,10 +206,10 @@ export default function EducationScreen() {
             {lessons.length === 0 ? <Text style={styles.muted}>No lessons yet.</Text> : null}
             {lessons.map((lesson) => (
               <Pressable key={lesson.id} accessibilityRole="button" onPress={() => playLesson(lesson)} style={styles.row}>
-                <Text style={styles.number}>{String(lesson.lesson_number).padStart(2, '0')}</Text>
+                <Poster uri={lesson.poster_url ?? openCourse.poster_url} style={styles.rowThumb} />
                 <View style={styles.rowBody}>
                   <Text style={styles.rowTitle} numberOfLines={2}>{lesson.title}</Text>
-                  {lesson.duration_seconds ? <Text style={styles.muted}>{formatDuration(lesson.duration_seconds)}</Text> : null}
+                  <Text style={styles.muted}>{[formatDuration(lesson.duration_seconds), formatSize(lesson.file_size_bytes)].filter(Boolean).join('  ·  ')}</Text>
                 </View>
                 <View style={styles.rowPlay}>
                   <Ionicons name="play" size={18} color={C.green} />
@@ -301,7 +303,11 @@ const styles = StyleSheet.create({
   row: { alignItems: 'center', backgroundColor: C.card, borderRadius: 12, flexDirection: 'row', gap: 14, padding: 14 },
   number: { color: C.green, fontSize: 16, fontWeight: '700', minWidth: 26 },
   rowBody: { flex: 1, gap: 2 },
+  rowThumb: { backgroundColor: C.highest, borderRadius: 8, height: 72, width: 52 },
   rowTitle: { color: C.text, fontSize: 14, fontWeight: '600' },
   rowPlay: { alignItems: 'center', backgroundColor: C.highest, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   muted: { color: C.muted, fontSize: 12 },
+  lessonRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+  lessonChip: { alignItems: 'center', backgroundColor: C.card, borderColor: C.highest, borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', minHeight: 64, minWidth: 130, paddingHorizontal: 14, paddingVertical: 10 },
+  lessonChipText: { color: C.text, fontSize: 14, fontWeight: '700' },
 });

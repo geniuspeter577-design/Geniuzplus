@@ -1328,8 +1328,12 @@ export class SupabaseMovieRepository {
     return this.getApiPlaybackUrl(resource, item.id.replace(/^geniuz:(?:movie|series|short):/, ''), 'trailer');
   }
 
+  async getLessonPlaybackUrl(lessonId: string) {
+    return this.getApiPlaybackUrl('lessons', lessonId);
+  }
+
   private async getApiPlaybackUrl(
-    resource: 'movies' | 'episodes' | 'series',
+    resource: 'movies' | 'episodes' | 'series' | 'lessons',
     id: string,
     kind: 'video' | 'trailer' = 'video',
     action: 'play' | 'download' = 'play',

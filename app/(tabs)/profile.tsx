@@ -25,6 +25,12 @@ import { getProfileInitial } from '../../src/utils/accountAuth';
 import { formatMembershipDate } from '../../src/utils/membership';
 import { getMeScreenData, getShortPublicId } from '../../src/utils/meScreen';
 import { StudyModeCard } from '../../src/components/StudyModeCard';
+import { HideInStudyMode } from '../../src/components/HideInStudyMode';
+import { StudyGate } from '../../src/components/StudyGate';
+import { useStudyMode } from '../../src/state/StudyModeContext';
+import { loadStudyHistory, type StudyHistoryEntry } from '../../src/state/studyHistory';
+import { useFocusEffect as useStudyFocusEffect } from 'expo-router';
+import { useCallback as useStudyCallback, useState as useStudyState } from 'react';
 
 type MeRowProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -221,50 +227,9 @@ export default function ProfileScreen() {
 
         <StudyModeCard />
 
-        <View style={styles.historySection}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push('/(tabs)/library')}
-            style={styles.sectionHeadingRow}
-          >
-            <Text style={styles.sectionHeading}>Watch History</Text>
-            <Ionicons name="chevron-forward" size={19} color={theme.secondaryText} />
-          </Pressable>
-          {library.isLoading ? (
-            <Text style={styles.emptyText}>Loading your watch history…</Text>
-          ) : meData.watchHistory.length ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.historyStrip}
-            >
-              {meData.watchHistory.map(({ item, progress }) => (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Continue watching ${item.title}, ${progress}% complete`}
-                  onPress={() => router.push({ pathname: '/watch/[id]', params: { id: item.id } })}
-                  style={styles.historyItem}
-                >
-                  {item.posterUrl ? (
-                    <Image source={{ uri: item.posterUrl }} style={styles.poster} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.poster, styles.posterPlaceholder]}>
-                      <Ionicons name="film-outline" size={24} color={theme.secondaryText} />
-                    </View>
-                  )}
-                  <Text style={styles.historyTitle} numberOfLines={1}>{item.title}</Text>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${progress}%` }]} />
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={styles.emptyText}>Your watch history will appear here.</Text>
-          )}
-        </View>
+        <WatchHistorySection entries={meData.watchHistory} isLoading={library.isLoading} />
 
+        <HideInStudyMode>
         <View style={styles.section}>
           <MeRow
             icon="bookmark-outline"
@@ -274,7 +239,9 @@ export default function ProfileScreen() {
             trailing={<Text style={styles.count}>{meData.myListCount}</Text>}
           />
         </View>
+        </HideInStudyMode>
 
+        <StudyGate showInStudy={Boolean(auth.isAdmin)}>
         <View style={styles.section}>
           {auth.isAdmin ? (
             <MeRow
@@ -284,6 +251,7 @@ export default function ProfileScreen() {
               onPress={() => router.push('/admin')}
             />
           ) : null}
+          <HideInStudyMode>
           <MeRow
             icon="chatbubble-ellipses-outline"
             title="Messages"
@@ -297,8 +265,11 @@ export default function ProfileScreen() {
               ) : undefined
             }
           />
+          </HideInStudyMode>
         </View>
+        </StudyGate>
 
+        <HideInStudyMode>
         <View style={styles.section}>
           <MeRow
             icon="swap-horizontal-outline"
@@ -307,7 +278,9 @@ export default function ProfileScreen() {
             onPress={() => router.push({ pathname: '/(tabs)/downloads', params: { tab: 'received' } })}
           />
         </View>
+        </HideInStudyMode>
 
+        <HideInStudyMode>
         {auth.session ? (
           <View style={styles.section}>
             <MeRow
@@ -318,8 +291,99 @@ export default function ProfileScreen() {
             />
           </View>
         ) : null}
+        </HideInStudyMode>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+type HistoryRow = {
+  key: string;
+  title: string;
+  posterUrl?: string;
+  progress: number;
+  open: () => void;
+};
+
+function WatchHistorySection({
+  entries,
+  isLoading,
+}: {
+  entries: ReadonlyArray<{ item: { id: string; title: string; posterUrl?: string }; progress: number }>;
+  isLoading: boolean;
+}) {
+  const study = useStudyMode();
+  const [studyEntries, setStudyEntries] = useStudyState<StudyHistoryEntry[]>([]);
+  useStudyFocusEffect(
+    useStudyCallback(() => {
+      let active = true;
+      void loadStudyHistory().then((list) => {
+        if (active) {
+          setStudyEntries(list);
+        }
+      });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+  const rows: HistoryRow[] = study.enabled
+    ? studyEntries.map((entry) => ({
+        key: entry.id,
+        title: entry.title,
+        posterUrl: entry.posterUrl ?? undefined,
+        progress: entry.progress,
+        open: () => router.push({ pathname: '/lesson-player', params: { id: entry.id, title: entry.title } }),
+      }))
+    : entries.map(({ item, progress }) => ({
+        key: item.id,
+        title: item.title,
+        posterUrl: item.posterUrl,
+        progress,
+        open: () => router.push({ pathname: '/watch/[id]', params: { id: item.id } }),
+      }));
+  return (
+    <View style={styles.historySection}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={study.enabled ? undefined : () => router.push('/(tabs)/library')}
+        style={styles.sectionHeadingRow}
+      >
+        <Text style={styles.sectionHeading}>Watch History</Text>
+        {study.enabled ? null : <Ionicons name="chevron-forward" size={19} color={theme.secondaryText} />}
+      </Pressable>
+      {isLoading && !study.enabled ? (
+        <Text style={styles.emptyText}>Loading your watch history…</Text>
+      ) : rows.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.historyStrip}>
+          {rows.map((row) => (
+            <Pressable
+              key={row.key}
+              accessibilityRole="button"
+              accessibilityLabel={`Continue watching ${row.title}, ${row.progress}% complete`}
+              onPress={row.open}
+              style={styles.historyItem}
+            >
+              {row.posterUrl ? (
+                <Image source={{ uri: row.posterUrl }} style={styles.poster} resizeMode="cover" />
+              ) : (
+                <View style={[styles.poster, styles.posterPlaceholder]}>
+                  <Ionicons name="film-outline" size={24} color={theme.secondaryText} />
+                </View>
+              )}
+              <Text style={styles.historyTitle} numberOfLines={1}>{row.title}</Text>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { width: `${row.progress}%` }]} />
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : (
+        <Text style={styles.emptyText}>
+          {study.enabled ? 'Lessons you watch will appear here.' : 'Your watch history will appear here.'}
+        </Text>
+      )}
+    </View>
   );
 }
 

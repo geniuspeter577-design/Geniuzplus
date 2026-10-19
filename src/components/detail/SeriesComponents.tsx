@@ -14,6 +14,7 @@ import type { EpisodeItem, SeasonItem } from '../../models/content';
 import type { OfflineDownloadRecord } from '../../services/OfflineDownloadService';
 import { formatBytes } from '../../services/OfflineDownloadService';
 import { theme } from '../../theme';
+import { TitleImage } from '../TitleImage';
 import { orderEpisodes, selectEpisodes, totalEpisodeSize } from '../../utils/episodeSelection';
 
 type SeasonSheetProps = {
@@ -69,6 +70,7 @@ export function SeasonSheet({
 }
 
 type EpisodeChipsProps = {
+  fallbackPosterUrl?: string;
   episodes: EpisodeItem[];
   records: OfflineDownloadRecord[];
   watchedEpisodeIds: readonly string[];
@@ -84,13 +86,11 @@ export function EpisodeChips({
   selectedId,
   onPlay,
   onDownload,
+  fallbackPosterUrl,
 }: EpisodeChipsProps) {
   const ordered = orderEpisodes(episodes);
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.episodeChipRow}>
-      <View style={[styles.episodeChip, { minWidth: 70, minHeight: 64, borderRadius: 8, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }, !selectedId && styles.selectedEpisodeChip]}>
-        <Text style={[styles.episodeChipText, !selectedId && styles.selectedEpisodeText]}>All</Text>
-      </View>
+    <View style={{ gap: 8, paddingVertical: 12 }}>
       {ordered.map((episode) => {
         const record = records.find((candidate) => candidate.item.id === episode.id);
         const isDownloading = record?.status === 'downloading';
@@ -99,35 +99,46 @@ export function EpisodeChips({
         const isDownloaded = record?.status === 'downloaded';
         const hasFailed = record?.status === 'failed' || record?.status === 'canceled';
         const isWatched = watchedEpisodeIds.includes(episode.id);
+        const sizeText = episode.fileSizeBytes ? formatBytes(episode.fileSizeBytes) : '';
+        const meta = isWatched
+          ? 'Watched'
+          : isDownloading
+            ? `${record.progress}%`
+            : isQueued
+              ? 'Queued'
+              : episode.runtimeMinutes
+                ? `${episode.runtimeMinutes} min`
+                : episode.fileSizeBytes
+                  ? formatBytes(episode.fileSizeBytes)
+                  : '';
         return (
           <View
             key={episode.id}
-            style={[styles.episodeChip, { minWidth: 150, minHeight: 64, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, selectedId === episode.id && styles.selectedEpisodeChip]}
+            style={[
+              { alignItems: 'center', backgroundColor: theme.surface, borderRadius: 12, flexDirection: 'row', gap: 14, padding: 14, borderWidth: 1, borderColor: 'transparent' },
+              selectedId === episode.id && { borderColor: theme.accent },
+            ]}
           >
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Play episode ${episode.episodeNumber}, ${episode.title}${isWatched ? ', watched' : ''}`}
               onPress={() => onPlay(episode)}
-              style={styles.episodePlay}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 }}
             >
-              <Text
-                style={[
-                  styles.episodeChipText,
-                  selectedId === episode.id && styles.selectedEpisodeText,
-                  isWatched && selectedId !== episode.id && styles.watchedEpisodeText,
-                ]}
-              >
-                {String(episode.episodeNumber).padStart(2, '0')}{'\n'}
-                {isWatched
-                  ? 'Watched'
-                  : isDownloading
-                    ? `${record.progress}%`
-                    : isQueued
-                      ? 'Queued'
-                      : episode.fileSizeBytes
-                        ? formatBytes(episode.fileSizeBytes)
-                        : '—'}
-              </Text>
+              <TitleImage
+                uri={episode.posterUrl ?? fallbackPosterUrl}
+                style={{ backgroundColor: theme.surfaceAlt, borderRadius: 8, height: 72, width: 52 }}
+                iconSize={24}
+              />
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }} numberOfLines={2}>
+                  {episode.title}
+                </Text>
+                {meta || sizeText ? <Text style={{ color: theme.secondaryText, fontSize: 12 }}>{[meta, meta === sizeText ? '' : sizeText].filter(Boolean).join('  ·  ')}</Text> : null}
+              </View>
+              <View style={{ alignItems: 'center', backgroundColor: theme.surfaceAlt, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 }}>
+                <Ionicons name="play" size={18} color={theme.accent} />
+              </View>
             </Pressable>
             {episode.availability.download ? (
               <Pressable
@@ -137,14 +148,14 @@ export function EpisodeChips({
                     ? `Cancel episode ${episode.episodeNumber} download`
                     : isPaused
                       ? `Resume episode ${episode.episodeNumber} download`
-                    : isDownloaded
-                      ? `Play downloaded episode ${episode.episodeNumber}`
-                      : hasFailed
-                        ? `Retry episode ${episode.episodeNumber} download`
-                        : `Download episode ${episode.episodeNumber}`
+                      : isDownloaded
+                        ? `Play downloaded episode ${episode.episodeNumber}`
+                        : hasFailed
+                          ? `Retry episode ${episode.episodeNumber} download`
+                          : `Download episode ${episode.episodeNumber}`
                 }
                 onPress={() => onDownload(episode)}
-                style={styles.episodeDownload}
+                style={{ alignItems: 'center', height: 40, justifyContent: 'center', width: 40 }}
               >
                 <Ionicons
                   name={
@@ -152,11 +163,11 @@ export function EpisodeChips({
                       ? 'checkmark-circle'
                       : isDownloading || isQueued
                         ? 'close'
-                          : isPaused
-                            ? 'play'
+                        : isPaused
+                          ? 'play'
                           : hasFailed
-                          ? 'refresh'
-                          : 'download-outline'
+                            ? 'refresh'
+                            : 'download-outline'
                   }
                   size={24}
                   color={theme.accent}
@@ -166,7 +177,7 @@ export function EpisodeChips({
           </View>
         );
       })}
-    </ScrollView>
+    </View>
   );
 }
 

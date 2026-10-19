@@ -459,6 +459,7 @@ export default function ContentDetailsScreen() {
           {isSeries && selectedSeason ? (
             <>
               <EpisodeChips
+                fallbackPosterUrl={media.posterUrl}
                 episodes={selectedSeason.episodes}
                 records={downloads.records}
                 watchedEpisodeIds={library.watchedEpisodeIds}

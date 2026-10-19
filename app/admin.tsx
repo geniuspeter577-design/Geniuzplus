@@ -2267,6 +2267,13 @@ export default function AdminScreen() {
             >
               <Text style={styles.secondaryButtonText}>System status</Text>
             </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/admin-education')}
+              style={styles.secondaryButton}
+            >
+              <Text style={styles.secondaryButtonText}>Education admin</Text>
+            </Pressable>
               </>
             ) : null}
             {room === 'upload' ? (
