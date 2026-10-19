@@ -67,11 +67,17 @@ function dayLabel(date: string, today: string) {
 }
 
 function groupAll(matches: FootballMatch[]) {
-  const sorted = matches.slice().sort((left, right) => {
-    const rank = (match: FootballMatch) => (match.status === 'live' ? 0 : 1);
-    return rank(left) - rank(right) || left.startsAt.localeCompare(right.startsAt);
-  });
-  return sorted.length ? [{ title: '', competitions: groupByCompetition(sorted) }] : [];
+  const byTime = matches.slice().sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+  const live = byTime.filter((match) => match.status === 'live');
+  const rest = byTime.filter((match) => match.status !== 'live');
+  const groups: { title: string; competitions: ReturnType<typeof groupByCompetition> }[] = [];
+  if (live.length) {
+    groups.push({ title: 'Live', competitions: groupByCompetition(live) });
+  }
+  if (rest.length) {
+    groups.push({ title: '', competitions: groupByCompetition(rest) });
+  }
+  return groups;
 }
 
 function groupByStatus(matches: FootballMatch[]) {
