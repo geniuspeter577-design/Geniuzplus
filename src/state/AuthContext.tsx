@@ -2,7 +2,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { registerPushNotifications } from '../services/PushNotificationRegistration';
+import { registerGuestPushNotifications, registerPushNotifications } from '../services/PushNotificationRegistration';
 import { Platform } from 'react-native';
 
 import type { AccountProfile } from '../models/profile';
@@ -64,6 +64,14 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(Boolean(supabase));
   const [profileError, setProfileError] = useState<string>();
   const [signInSheetMode, setSignInSheetMode] = useState<SignInSheetMode | null>(null);
+  useEffect(() => {
+    if (isLoading || signedInUserId) {
+      return;
+    }
+    void registerGuestPushNotifications().catch((pushError) => {
+      console.warn('[Push] Guest registration failed.', pushError instanceof Error ? pushError.message : 'unknown');
+    });
+  }, [isLoading, signedInUserId]);
 
   const loadProfile = useCallback(async (userId: string) => {
     if (!profileRepository) {
