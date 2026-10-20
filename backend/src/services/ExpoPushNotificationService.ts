@@ -4,7 +4,8 @@ import type { Config } from '../config/config';
 
 type PushQueueRow = {
   id: number;
-  user_id: string;
+  user_id: string | null;
+  expo_push_token: string | null;
   title: string;
   body: string;
   content_id: string | null;
@@ -50,7 +51,7 @@ export class ExpoPushNotificationService {
       const staleClaim = new Date(Date.now() - 5 * 60_000).toISOString();
       const { data, error } = await this.client
         .from('notification_push_queue')
-        .select('id,user_id,title,body,content_id,image_url,attempts')
+        .select('id,user_id,expo_push_token,title,body,content_id,image_url,attempts')
         .is('sent_at', null)
         .lt('attempts', 5)
         .or(`claimed_at.is.null,claimed_at.lt.${staleClaim}`)
@@ -85,14 +86,19 @@ export class ExpoPushNotificationService {
     }
 
     try {
-      const { data: tokenRows, error: tokenError } = await this.client
-        .from('device_push_tokens')
-        .select('expo_push_token')
-        .eq('user_id', row.user_id);
-      if (tokenError) {
-        throw tokenError;
+      let tokens: PushTokenRow[] = [];
+      if (row.expo_push_token) {
+        tokens = [{ expo_push_token: row.expo_push_token }];
+      } else if (row.user_id) {
+        const { data: tokenRows, error: tokenError } = await this.client
+          .from('device_push_tokens')
+          .select('expo_push_token')
+          .eq('user_id', row.user_id);
+        if (tokenError) {
+          throw tokenError;
+        }
+        tokens = (tokenRows ?? []) as PushTokenRow[];
       }
-      const tokens = (tokenRows ?? []) as PushTokenRow[];
       if (tokens.length === 0) {
         await this.client.from('notification_push_queue')
           .update({ sent_at: new Date().toISOString(), claimed_at: null })
@@ -125,6 +131,7 @@ export class ExpoPushNotificationService {
       );
       if (invalidTokens.length) {
         await this.client.from('device_push_tokens').delete().in('expo_push_token', invalidTokens);
+        await this.client.from('guest_push_tokens').delete().in('expo_push_token', invalidTokens);
       }
       const failed = result.data.filter((ticket) => ticket.status === 'error' && ticket.details?.error !== 'DeviceNotRegistered');
       await this.client.from('notification_push_queue').update({
