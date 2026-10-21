@@ -67,7 +67,7 @@ export async function listAdminUsers(config: Config, search: string, membersOnly
   const pageSize = 50;
   const pageNumber = Math.max(page, 1);
   const start = (pageNumber - 1) * pageSize;
-  return { total: all.length, page: pageNumber, pageSize, users: all.slice(start, start + pageSize) };
+  const [deviceTokens, guestTokens] = await Promise.all([admin.from('device_push_tokens').select('expo_push_token'), admin.from('guest_push_tokens').select('expo_push_token')]); const signedInPhones = new Set((deviceTokens.data ?? []).map((row: { expo_push_token: string }) => row.expo_push_token)).size; const visitorPhones = new Set((guestTokens.data ?? []).map((row: { expo_push_token: string }) => row.expo_push_token)).size; return { total: all.length, appStats: { signedInAccounts: authUsers.length, signedInPhones, visitorPhones }, page: pageNumber, pageSize, users: all.slice(start, start + pageSize) };
 }
 
 export async function deleteAdminUser(config: Config, actingUserId: string, targetId: string, confirmPaid: boolean) {

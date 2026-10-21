@@ -14,7 +14,7 @@ type AdminUser = {
   hasBadge: boolean;
 };
 
-type UsersResponse = { total: number; page: number; pageSize: number; users: AdminUser[] };
+type UsersResponse = { total: number; appStats?: { signedInAccounts: number; signedInPhones: number; visitorPhones: number }; page: number; pageSize: number; users: AdminUser[] };
 
 const COLORS = { text: '#FFFFFF', muted: '#9CA3AF', card: '#1F2937', border: '#374151', gold: '#F5C451', error: '#F87171' };
 
@@ -157,7 +157,7 @@ export function UsersPanel() {
 
   return (
     <View style={{ gap: 10 }}>
-      <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700' }}>Users{data ? ` (${data.total})` : ''}</Text>
+      <Text style={{ color: COLORS.text, fontSize: 18, fontWeight: '700' }}>Users{data ? ` (${data.total})` : ''}{data?.appStats ? <Text style={{ color: COLORS.muted, fontSize: 12, fontWeight: '400' }}>{`  Accounts ${data.appStats.signedInAccounts} - Phones ${data.appStats.signedInPhones} - Visitor phones ${data.appStats.visitorPhones}`}</Text> : null}</Text>
       <TextInput
         value={search}
         onChangeText={setSearch}
