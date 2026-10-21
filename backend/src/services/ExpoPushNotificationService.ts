@@ -111,7 +111,7 @@ export class ExpoPushNotificationService {
         headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         body: JSON.stringify(tokens.map(({ expo_push_token }) => ({
           to: expo_push_token,
-          sound: 'default',
+          sound: 'default', priority: 'high',
           title: row.title,
           body: row.body,
           ...(row.image_url ? { richContent: { image: row.image_url } } : {}),
