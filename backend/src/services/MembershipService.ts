@@ -86,6 +86,7 @@ export class MembershipService implements MembershipOperations {
       ? new FlutterwaveGateway(new FlutterwaveService(config.flutterwaveSecretKey, config.flutterwaveRedirectUrl))
       : new PaystackService(config.paystackSecretKey));
     this.now = options.now ?? (() => new Date());
+    console.log("[payments] provider=" + config.paymentProvider + " keyPrefix=" + (config.flutterwaveSecretKey ? config.flutterwaveSecretKey.slice(0, 8) : "MISSING") + " redirectSet=" + Boolean(config.flutterwaveRedirectUrl));
   }
 
   getPlan() {
