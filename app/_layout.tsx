@@ -1,5 +1,5 @@
 import { useBackToPrevious } from '../src/hooks/useBackToPrevious';
-import { Stack, router as ebRouter, type ErrorBoundaryProps } from 'expo-router';
+import { Stack, router as ebRouter, type ErrorBoundaryProps, usePathname } from 'expo-router';
 import { Pressable as EBPressable, ScrollView as EBScroll, Text as EBText, View as EBView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -23,6 +23,8 @@ import { useGlobalAndroidBackNavigation } from '../src/utils/navigation';
 
 export default function RootLayout() {
   useBackToPrevious();
+  const pathname = usePathname();
+  const isWideRoute = pathname.startsWith('/watch');
   // useGlobalAndroidBackNavigation();
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#000000' }}><View style={{ flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : undefined, backgroundColor: theme.background }}><SafeAreaProvider>
+    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#000000' }}><View style={{ flex: 1, width: '100%', maxWidth: Platform.OS === 'web' && !isWideRoute ? 480 : undefined, backgroundColor: theme.background }}><SafeAreaProvider>
       <AuthProvider>
         <NetworkProvider>
         <StudyModeProvider>

@@ -9,3 +9,9 @@ export function useWindowDimensions() {
   }
   return dimensions;
 }
+
+export const WEB_PLAYER_MAX_WIDTH = 960;
+
+export function getWebPlayerWidth(width: number): number | undefined {
+  return Platform.OS === 'web' ? Math.min(width, WEB_PLAYER_MAX_WIDTH) : undefined;
+}

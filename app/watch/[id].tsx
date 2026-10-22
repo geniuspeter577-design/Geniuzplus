@@ -575,9 +575,9 @@ export default function WatchScreen() {
   }, [releasePlayer]);
 
   useEffect(() => {
-    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => undefined);
     return () => {
-      void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+      void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT).catch(() => undefined);
     };
   }, []);
 
@@ -1023,7 +1023,7 @@ export default function WatchScreen() {
         onRetry={() => setSubtitleRetryAttempt((attempt) => attempt + 1)}
       />
       {!isLandscape ? (
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40, width: '100%', maxWidth: 960, alignSelf: 'center' }}>
       {!isLandscape && !isTrailer && movie?.parentSeriesId ? (
         <View style={styles.nextEpisodeCard}>
           <View style={styles.nextEpisodeCopy}>

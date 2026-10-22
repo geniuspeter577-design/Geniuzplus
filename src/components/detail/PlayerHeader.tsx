@@ -1,4 +1,5 @@
-import { useWindowDimensions } from '../../hooks/useColumnWindow';
+import { useWindowDimensions } from 'react-native';
+import { getWebPlayerWidth } from '../../hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Brightness from 'expo-brightness';
@@ -346,6 +347,7 @@ export function PlayerHeader({
     setGestureHud(null);
   };
 
+  const portraitWidth = getWebPlayerWidth(windowWidth);
   const playerContainerStyle: ViewStyle = isLandscape
     ? {
         ...styles.container,
@@ -357,8 +359,9 @@ export function PlayerHeader({
     : {
         ...styles.container,
         backgroundColor: '#000000',
-        width: '100%',
-        height: windowWidth * (9 / 16),
+        width: portraitWidth ?? '100%',
+        height: (portraitWidth ?? windowWidth) * (9 / 16),
+        alignSelf: 'center',
         aspectRatio: undefined,
       };
 
@@ -781,7 +784,7 @@ const styles = StyleSheet.create({
     aspectRatio: undefined,
   },
   video: {
-    ...StyleSheet.absoluteFill,
+    position: "absolute", top: 0, left: 0, width: "100%", height: "100%",
   },
   subtitleOverlay: {
     alignItems: 'center',
