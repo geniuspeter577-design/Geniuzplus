@@ -1,8 +1,9 @@
+import { useWindowDimensions } from '../src/hooks/useColumnWindow';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PlayerHeader } from '../src/components/detail/PlayerHeader';

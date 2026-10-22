@@ -1,7 +1,8 @@
+import { useWindowDimensions } from '../hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import type { ImageStyle, NativeScrollEvent, NativeSyntheticEvent, StyleProp } from 'react-native';
 
 import { supabase } from '../services/supabase';

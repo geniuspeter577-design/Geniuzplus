@@ -1,6 +1,7 @@
+import { useWindowDimensions } from '../src/hooks/useColumnWindow';
 import { Stack, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ShortsFeed } from '../src/components/ShortsFeed';

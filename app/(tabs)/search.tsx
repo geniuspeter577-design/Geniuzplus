@@ -1,3 +1,4 @@
+import { useWindowDimensions } from '../../src/hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -9,8 +10,7 @@ import {
   Text,
   Keyboard,
   View,
-  useWindowDimensions,
-} from 'react-native';
+  } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';

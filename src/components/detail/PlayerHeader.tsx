@@ -1,3 +1,4 @@
+import { useWindowDimensions } from '../../hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Brightness from 'expo-brightness';
@@ -11,7 +12,6 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
   type GestureResponderEvent,
   type LayoutChangeEvent,
   type ViewStyle,

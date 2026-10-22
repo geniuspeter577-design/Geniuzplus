@@ -1,3 +1,4 @@
+import { useWindowDimensions } from '../hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -8,8 +9,7 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
-} from 'react-native';
+  } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getUserAppSettings, setUserAppSettings } from '../services/TrailerAutoplayPreference';

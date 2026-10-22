@@ -3,7 +3,7 @@ import { Stack, router as ebRouter, type ErrorBoundaryProps } from 'expo-router'
 import { Pressable as EBPressable, ScrollView as EBScroll, Text as EBText, View as EBView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { OfflineBanner } from '../src/components/OfflineBanner';
@@ -36,7 +36,7 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
+    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#000000' }}><View style={{ flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : undefined, backgroundColor: theme.background }}><SafeAreaProvider>
       <AuthProvider>
         <NetworkProvider>
         <StudyModeProvider>
@@ -74,7 +74,7 @@ export default function RootLayout() {
         </StudyModeProvider>
         </NetworkProvider>
       </AuthProvider>
-    </SafeAreaProvider>
+    </SafeAreaProvider></View></View>
   );
 }
 

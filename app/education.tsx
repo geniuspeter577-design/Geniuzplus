@@ -1,7 +1,8 @@
+import { useWindowDimensions } from '../src/hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import type { ImageStyle, NativeScrollEvent, NativeSyntheticEvent, StyleProp } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

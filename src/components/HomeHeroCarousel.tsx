@@ -1,3 +1,4 @@
+import { useWindowDimensions } from '../hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +9,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,

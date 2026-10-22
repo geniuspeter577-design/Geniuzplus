@@ -1,9 +1,10 @@
+import { useWindowDimensions } from '../../src/hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
