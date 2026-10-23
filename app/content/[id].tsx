@@ -1,3 +1,4 @@
+import { useState as useWebBusyState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -53,6 +54,7 @@ export default function ContentDetailsScreen() {
   const id = typeof routeId === 'string' ? routeId : '';
   const library = useLibrary();
   const downloads = useDownloads();
+  const [webBusy, setWebBusy] = useWebBusyState(false);
   const { isOnline, retryConnection } = useNetwork();
   const localDownload = downloads.records.find(
     (record) => record.item.id === id && record.status === 'downloaded',
@@ -183,7 +185,7 @@ export default function ContentDetailsScreen() {
           media.fileExtension ?? getFileExtension(media.mediaPath ?? ''),
           downloadPlatform,
         ),
-        availableBytes: Paths.availableDiskSpace,
+        availableBytes: Platform.OS === 'web' ? Number.POSITIVE_INFINITY : Paths.availableDiskSpace,
         fileSize: media.fileSizeBytes,
       })
     : undefined;
@@ -197,7 +199,7 @@ export default function ContentDetailsScreen() {
       ? 'Queued'
       : downloadRecord?.status === 'failed'
         ? 'Retry download'
-        : 'Download';
+        : webBusy ? 'Downloading...' : 'Download';
   if (content.isLoading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -291,7 +293,8 @@ export default function ContentDetailsScreen() {
     if (downloadUnavailableReason) {
       return;
     }
-    void downloads.download(media).catch((error: unknown) =>
+    setWebBusy(true);
+    void downloads.download(media).finally(() => { setTimeout(() => setWebBusy(false), 4000); }).catch((error: unknown) =>
       Alert.alert(
         'Download error',
         error instanceof Error ? error.message : 'The download could not be started.',
@@ -395,7 +398,7 @@ export default function ContentDetailsScreen() {
           </View>
           <ActionChips
             saved={saved}
-            downloadLabel={isSeries ? 'Download season' : downloadLabel}
+            downloadLabel={isSeries ? (webBusy ? 'Downloading...' : 'Download season') : downloadLabel}
             onToggleList={() => void library.toggleWatchlist(media)}
             onShare={() => void handleShare()}
             onDownload={() =>
@@ -489,7 +492,7 @@ export default function ContentDetailsScreen() {
                   } else if (record?.status === 'downloaded') {
                     router.push({ pathname: '/watch/[id]', params: { id: episode.id } });
                   } else {
-                    void downloads.download({ ...episode, posterUrl: media.posterUrl ?? episode.posterUrl, title: media.title + ' · S' + String(selectedSeason.seasonNumber).padStart(2, '0') + 'E' + String(episode.episodeNumber).padStart(2, '0') }).catch((error: unknown) =>
+                    setWebBusy(true); void downloads.download({ ...episode, posterUrl: media.posterUrl ?? episode.posterUrl, title: media.title + ' · S' + String(selectedSeason.seasonNumber).padStart(2, '0') + 'E' + String(episode.episodeNumber).padStart(2, '0') }).finally(() => { setTimeout(() => setWebBusy(false), 4000); }).catch((error: unknown) =>
                       Alert.alert(
                         'Download error',
                         error instanceof Error ? error.message : 'The episode could not be downloaded.',
@@ -609,7 +612,7 @@ export default function ContentDetailsScreen() {
               )
             }
             onQueue={(episodes) => {
-              void downloads.downloadSequentially(episodes.map((episode) => ({ ...episode, posterUrl: media.posterUrl ?? episode.posterUrl, title: media.title + ' · S' + String(selectedSeason.seasonNumber).padStart(2, '0') + 'E' + String(episode.episodeNumber).padStart(2, '0') }))).catch((error: unknown) =>
+              setWebBusy(true); void downloads.downloadSequentially(episodes.map((episode) => ({ ...episode, posterUrl: media.posterUrl ?? episode.posterUrl, title: media.title + ' · S' + String(selectedSeason.seasonNumber).padStart(2, '0') + 'E' + String(episode.episodeNumber).padStart(2, '0') }))).finally(() => { setTimeout(() => setWebBusy(false), 4000); }).catch((error: unknown) =>
                 Alert.alert(
                   'Download error',
                   error instanceof Error ? error.message : 'The episode queue could not be started.',

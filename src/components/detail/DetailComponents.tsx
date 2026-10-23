@@ -107,7 +107,7 @@ function ActionChip({ icon, label, onPress, disabled = false }: ActionChipProps)
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={[styles.actionChip, disabled && styles.disabled]}
+      style={({ pressed }) => [styles.actionChip, disabled && styles.disabled, pressed && { opacity: 0.55, transform: [{ scale: 0.95 }] }]}
     >
       <Ionicons name={icon} size={17} color={disabled ? theme.secondaryText : theme.text} />
       <Text style={[styles.actionText, disabled && styles.mutedText]}>{label}</Text>

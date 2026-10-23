@@ -3,6 +3,8 @@ import { useStudyMode } from './StudyModeContext';
 
 const STUDY_DOWNLOADS_KEY = 'geniuz.study.downloads';
 import { File, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
+import { webDownload } from '../utils/webDownload';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import type { ContentItem } from '../models/content';
@@ -214,6 +216,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     try {
       await enforceWifiPreference();
       markStudy([item.id]);
+      if (Platform.OS === 'web') { await webDownload(item); return; }
       await service.download(item);
     } catch (downloadError) {
       console.error('[Downloads] Could not download this title.', downloadError);
@@ -238,6 +241,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     try {
       await enforceWifiPreference();
       markStudy(items.map((entry) => entry.id));
+      if (Platform.OS === 'web') { for (const entry of items) { await webDownload(entry); } return; }
       await service.downloadSequentially(items);
     } catch (queueError) {
       console.error('[Downloads] Could not complete the queued downloads.');
@@ -297,7 +301,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       value={{
         records,
         studyDownloadIds,
-        availableSpaceBytes: Number.isFinite(Paths.availableDiskSpace)
+        availableSpaceBytes: Platform.OS !== 'web' && Number.isFinite(Paths.availableDiskSpace)
           ? Paths.availableDiskSpace
           : null,
         isLoading,

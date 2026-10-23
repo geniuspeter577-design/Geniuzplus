@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { File as ExpoFile } from 'expo-file-system';
+import { getImageBytes, getImageSize } from '../src/utils/imageFile';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -153,7 +153,7 @@ export default function EditProfileScreen() {
         .resize({ width: 512, height: 512 })
         .renderAsync();
       let saved = await processed.saveAsync({ format: ImageManipulator.SaveFormat.JPEG, compress: 0.75 });
-      if (new ExpoFile(saved.uri).size > AVATAR_MAX_BYTES) {
+      if ((await getImageSize(saved.uri)) > AVATAR_MAX_BYTES) {
         const smaller = await ImageManipulator.ImageManipulator.manipulate(asset.uri)
           .crop({
             originX: Math.round((asset.width - side) / 2),
@@ -165,14 +165,14 @@ export default function EditProfileScreen() {
           .renderAsync();
         saved = await smaller.saveAsync({ format: ImageManipulator.SaveFormat.JPEG, compress: 0.55 });
       }
-      const imageFile = new ExpoFile(saved.uri);
-      if (imageFile.size > AVATAR_MAX_BYTES) {
+      const imageUri = saved.uri;
+      if ((await getImageSize(imageUri)) > AVATAR_MAX_BYTES) {
         throw new Error('This picture could not be compressed below 2 MB. Choose a different image.');
       }
       const objectPath = `${auth.session.user.id}/avatar.jpg`;
       const { error: uploadError } = await supabase.storage.from('avatars').upload(
         objectPath,
-        await imageFile.bytes(),
+        await getImageBytes(imageUri),
         { contentType: 'image/jpeg', cacheControl: '3600', upsert: true },
       );
       if (uploadError) {

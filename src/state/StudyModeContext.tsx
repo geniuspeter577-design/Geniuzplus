@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../utils/webSecureStore';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 const ENABLED_KEY = 'geniuz.study.enabled';
