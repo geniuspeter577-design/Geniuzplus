@@ -420,7 +420,45 @@ export function TitleTrailerHero({
         </Pressable>
       ) : null}
 
-      {showOverlay ? (
+      {!hasTrailer ? (
+        <>
+          <View style={styles.centerPlay} pointerEvents="box-none">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Play title"
+              accessibilityState={{ disabled: !canPlay }}
+              disabled={!canPlay}
+              onPress={onPlay}
+              style={[styles.playButton, !canPlay && styles.disabledPlayButton]}
+            >
+              <Ionicons name="play" size={18} color={theme.background} />
+              <Text style={styles.playButtonText}>{canPlay ? 'Play' : 'Playback unavailable'}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.overlay}>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { flex: 1 }]} numberOfLines={2}>{item.title}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={saved ? 'Remove from My list' : 'Add to My list'}
+                onPress={onToggleList}
+                style={styles.actionButton}
+              >
+                <Ionicons name={saved ? 'checkmark' : 'add'} size={22} color={theme.text} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Share title"
+                onPress={onShare}
+                style={styles.actionButton}
+              >
+                <Ionicons name="share-outline" size={18} color={theme.text} />
+              </Pressable>
+            </View>
+          </View>
+        </>
+      ) : null}
+      {hasTrailer && showOverlay ? (
         <View style={styles.overlay}>
           <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
           {preferenceError ? (
@@ -562,6 +600,13 @@ const styles = StyleSheet.create({
   },
   title: { color: theme.text, fontSize: 22, lineHeight: 27, fontWeight: '900' },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  centerPlay: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   playButton: {
     minHeight: 44,
     minWidth: 88,

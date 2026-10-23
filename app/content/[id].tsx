@@ -34,6 +34,7 @@ import {
 } from '../../src/components/detail/DetailComponents';
 import { DownloadSheet } from '../../src/components/detail/DownloadSheet';
 import { TitleTrailerHero } from '../../src/components/detail/TitleTrailerHero';
+import { TitleComments } from '../../src/components/detail/TitleComments';
 import { EpisodeChips, SeasonSheet, SeriesDownloadSheet } from '../../src/components/detail/SeriesComponents';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
 import type { ContentItem, SeasonItem } from '../../src/models/content';
@@ -525,7 +526,7 @@ export default function ContentDetailsScreen() {
               )}
             </>
           ) : (
-            <Text style={styles.emptyText}>No comments yet.</Text>
+            <TitleComments titleId={media.id} />
           )}
 
         </View>
