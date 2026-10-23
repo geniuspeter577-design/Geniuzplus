@@ -980,7 +980,7 @@ async function handleRequest(
       url = await getStorage(config).createPlayUrl(storagePath, {
         routeKind: contentKind,
         contentId,
-      });
+      }, true);
     } else if (data.storage_provider === 'supabase') {
       const { data: signedData, error: signedUrlError } = await client.storage
         .from('movie-assets')

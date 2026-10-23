@@ -155,7 +155,7 @@ export class B2StorageService {
     );
   }
 
-  async createPlayUrl(key: string, context: PlaybackErrorContext) {
+  async createPlayUrl(key: string, context: PlaybackErrorContext, asDownload = false) {
     await this.verifyObjectExists(key, context);
     return getSignedUrl(
       this.client,
@@ -163,6 +163,7 @@ export class B2StorageService {
         Bucket: this.config.s3Bucket,
         Key: key,
         ...(/\.mp4$/i.test(key) ? { ResponseContentType: "video/mp4" } : {}),
+        ...(asDownload ? { ResponseContentDisposition: "attachment" } : {}),
       }),
       { expiresIn: PLAY_URL_EXPIRY_SECONDS },
     );
