@@ -29,7 +29,6 @@ import {
   MetaRow,
   PosterGrid,
   PremiumBanner,
-  QuickBuzzTeaser,
   TitleRow,
   VersionsCard,
 } from '../../src/components/detail/DetailComponents';
@@ -529,7 +528,6 @@ export default function ContentDetailsScreen() {
             <Text style={styles.emptyText}>No comments yet.</Text>
           )}
 
-          <QuickBuzzTeaser />
         </View>
       </ScrollView>
       <FloatingDownloadCTA

@@ -233,18 +233,6 @@ export function PremiumBanner() {
   );
 }
 
-export function QuickBuzzTeaser() {
-  return (
-    <View style={styles.quickBuzz}>
-      <View>
-        <Text style={styles.quickBuzzTitle}>QuickBuzz</Text>
-        <Text style={styles.quickBuzzCopy}>Short clips are coming soon.</Text>
-      </View>
-      <Ionicons name="play-circle-outline" size={26} color={theme.accent} />
-    </View>
-  );
-}
-
 export function DetailSkeleton() {
   return (
     <View style={styles.skeletonWrap}>
@@ -332,18 +320,6 @@ const styles = StyleSheet.create({
   premiumBanner: { backgroundColor: theme.surface, borderRadius: 12, padding: 16, marginVertical: 12 },
   premiumTitle: { color: theme.gold, fontWeight: '800', fontSize: 16 },
   premiumText: { color: theme.text, fontSize: 14, marginTop: 4 },
-  quickBuzz: {
-    minHeight: 72,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 24,
-  },
-  quickBuzzTitle: { color: theme.text, fontSize: 16, fontWeight: '800' },
-  quickBuzzCopy: { color: theme.secondaryText, fontSize: 14, marginTop: 4 },
   skeletonWrap: { padding: 18, gap: 14 },
   skeletonHero: { width: '100%', height: 240, borderRadius: 12, backgroundColor: theme.surface },
   skeletonTitle: { width: '68%', height: 28, borderRadius: 8, backgroundColor: theme.surface },
