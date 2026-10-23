@@ -61,7 +61,7 @@ export function TitleComments({ titleId }: { titleId: string }) {
 
   return (
     <View style={styles.wrap}>
-      {userId ? (
+      {true ? (
         <View style={styles.inputRow}>
           <TextInput
             value={text}
@@ -98,7 +98,7 @@ export function TitleComments({ titleId }: { titleId: string }) {
               <Text style={styles.time}>{new Date(c.created_at).toLocaleString()}</Text>
             </View>
             <Text style={styles.body}>{c.body}</Text>
-            {c.user_id === userId ? (
+            {userId && c.user_id === userId ? (
               <Pressable accessibilityRole="button" accessibilityLabel="Delete comment" onPress={() => remove(c.id)}>
                 <Text style={styles.delete}>Delete</Text>
               </Pressable>
