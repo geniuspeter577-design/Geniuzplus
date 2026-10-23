@@ -717,7 +717,7 @@ export default function WatchScreen() {
     setError(
       isExpiredPlaybackLinkError(playerError) && expiredLinkRetryRef.current && isOnline
         ? 'The playback link expired and could not be refreshed. Check your connection and tap Retry.'
-        : getFriendlyPlaybackError(isOnline, playerError),
+        : getFriendlyPlaybackError(isOnline, playerError) + ' [' + (playerError?.message ?? 'no detail') + ']',
     );
   }, [isOfflinePlayback, isOnline, movie, refreshExpiredLink]);
 
