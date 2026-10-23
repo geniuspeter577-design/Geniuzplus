@@ -2,6 +2,9 @@ import type { ContentItem } from '../models/content';
 import { supabaseMovieRepository } from '../repositories/SupabaseMovieRepository';
 
 export async function webDownload(item: ContentItem): Promise<void> {
+  if (!supabaseMovieRepository) {
+    throw new Error("Downloads are not configured.");
+  }
   const url = await supabaseMovieRepository.getDownloadUrl(item);
   const link = document.createElement('a');
   link.href = String(url);

@@ -35,6 +35,7 @@ import {
 import { DownloadSheet } from '../../src/components/detail/DownloadSheet';
 import { TitleTrailerHero } from '../../src/components/detail/TitleTrailerHero';
 import { TitleComments } from '../../src/components/detail/TitleComments';
+import { rankSimilar } from '../../src/utils/similarTitles';
 import { EpisodeChips, SeasonSheet, SeriesDownloadSheet } from '../../src/components/detail/SeriesComponents';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
 import type { ContentItem, SeasonItem } from '../../src/models/content';
@@ -116,13 +117,7 @@ export default function ContentDetailsScreen() {
         }
         setSimilar({
           itemId: media.id,
-          items: items.filter(
-            (candidate) =>
-              candidate.id !== media.id &&
-              candidate.genres.some((genre) =>
-                media.genres.some((currentGenre) => currentGenre.toLocaleLowerCase() === genre.toLocaleLowerCase()),
-              ),
-          ),
+          items: rankSimilar(media, items),
         });
       })
       .catch((error: unknown) => {
