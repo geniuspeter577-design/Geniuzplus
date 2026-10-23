@@ -162,6 +162,7 @@ export class B2StorageService {
       new GetObjectCommand({
         Bucket: this.config.s3Bucket,
         Key: key,
+        ...(/\.mp4$/i.test(key) ? { ResponseContentType: "video/mp4" } : {}),
       }),
       { expiresIn: PLAY_URL_EXPIRY_SECONDS },
     );
