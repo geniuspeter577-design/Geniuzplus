@@ -76,7 +76,8 @@ export default function WatchScreen() {
     let active = true;
     const currentId = movie?.id;
     const genres = movie?.genres ?? [];
-    if (!isOnline || !currentId || !genres.length || !supabaseMovieRepository) {
+    const categories = movie?.categories ?? [];
+    if (!isOnline || !currentId || (!genres.length && !categories.length) || !supabaseMovieRepository) {
       setMoreLikeThis([]);
       return;
     }
@@ -91,9 +92,12 @@ export default function WatchScreen() {
             (candidate) =>
               candidate.id !== currentId &&
               candidate.id !== movie?.parentSeriesId &&
-              candidate.genres.some((genre) =>
+              (candidate.genres.some((genre) =>
                 genres.some((g) => g.toLocaleLowerCase() === genre.toLocaleLowerCase()),
-              ),
+              ) ||
+                (candidate.categories ?? []).some((category) =>
+                  categories.some((c) => c.toLocaleLowerCase() === category.toLocaleLowerCase()),
+                )),
           ),
         );
       })
