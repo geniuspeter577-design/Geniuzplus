@@ -339,7 +339,7 @@ export default function WatchScreen() {
     isTrailer
       ? `Trailer · ${movie?.title ?? ''}`
       : movie?.parentSeriesId && movie.episodeNumber
-        ? `${seriesTitle ?? movie.title} S${String(movie.seasonNumber ?? 1).padStart(2, '0')} E${String(movie.episodeNumber).padStart(2, '0')}`
+        ? `${seriesTitle ?? movie.title} S${String(seriesCatalog?.episodes.find((e) => e.id === movie.id)?.seasonNumber ?? movie.seasonNumber ?? 1).padStart(2, '0')} E${String(movie.episodeNumber).padStart(2, '0')}`
         : movie?.title ?? 'Now playing';
 
   const openNextEpisode = useCallback(() => {
