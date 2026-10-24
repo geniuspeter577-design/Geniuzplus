@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { theme } from '../../theme';
 import {
@@ -17,6 +17,10 @@ export function TitleComments({ titleId }: { titleId: string }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
+  const lift = useRef(new Animated.Value(0)).current;
+  const moveTo = (value: number) =>
+    Animated.timing(lift, { toValue: value, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
 
   const refresh = useCallback(async () => {
     try {
@@ -70,6 +74,14 @@ export function TitleComments({ titleId }: { titleId: string }) {
             placeholderTextColor={theme.border}
             maxLength={500}
             multiline
+            ref={inputRef}
+            onFocus={() => {
+              moveTo(280);
+              setTimeout(() => {
+                (inputRef.current as any)?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+              }, 300);
+            }}
+            onBlur={() => moveTo(0)}
             style={styles.input}
           />
           <Pressable
@@ -106,6 +118,7 @@ export function TitleComments({ titleId }: { titleId: string }) {
           </View>
         ))
       )}
+      <Animated.View style={{ height: lift }} />
     </View>
   );
 }
