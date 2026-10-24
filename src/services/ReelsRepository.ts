@@ -633,3 +633,54 @@ function computePublishAt(choice: typeof scheduleOnUpload.choice): string | null
   }
   return null;
 }
+
+// ---- Creator bank details (manual payouts) ----
+export type CreatorBankDetails = {
+  country: string;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+};
+
+async function bankDetailsUserId() {
+  const { data } = (await supabase?.auth.getSession()) ?? { data: { session: null } };
+  const userId = data.session?.user.id;
+  if (!supabase || !userId) {
+    throw new Error('Sign in to manage your payout details.');
+  }
+  return userId;
+}
+
+export async function loadCreatorBankDetails() {
+  const userId = await bankDetailsUserId();
+  const client = supabase as any;
+  const { data, error } = await client
+    .from('creator_bank_details')
+    .select('country,bank_name,account_name,account_number')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) {
+    throw new Error('Your payout details could not be loaded.');
+  }
+  return (data ?? null) as CreatorBankDetails | null;
+}
+
+export async function saveCreatorBankDetails(details: CreatorBankDetails) {
+  const userId = await bankDetailsUserId();
+  const clean = {
+    country: details.country.trim(),
+    bank_name: details.bank_name.trim(),
+    account_name: details.account_name.trim(),
+    account_number: details.account_number.replace(/\s+/g, ''),
+  };
+  if (clean.country.length < 2 || clean.bank_name.length < 2 || clean.account_name.length < 2 || clean.account_number.length < 4) {
+    throw new Error('Please fill in every field.');
+  }
+  const client = supabase as any;
+  const { error } = await client
+    .from('creator_bank_details')
+    .upsert({ user_id: userId, ...clean, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  if (error) {
+    throw new Error('Your payout details could not be saved. Try again.');
+  }
+}

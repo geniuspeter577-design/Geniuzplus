@@ -29,6 +29,7 @@ import { UsersPanel } from '../src/components/admin/UsersPanel';
 import { registerBackInterceptor } from '../src/utils/backInterceptors';
 import { AdminLobby, type AdminRoom } from '../src/components/admin/AdminLobby';
 import { ReplaceVideosPanel } from '../src/components/admin/ReplaceVideosPanel';
+import { WithdrawalsPanel } from '../src/components/admin/WithdrawalsPanel';
 import { useNetwork } from '../src/state/NetworkContext';
 import { TitleImage } from '../src/components/TitleImage';
 import { MAX_TRAILER_FILE_SIZE_BYTES, MAX_VIDEO_FILE_SIZE_BYTES } from '../src/constants/video';
@@ -2974,6 +2975,8 @@ export default function AdminScreen() {
                 }))}
               />
             ) : null}
+
+            {room === 'withdrawals' ? <WithdrawalsPanel /> : null}
 
             {room === 'users' ? (
               <>

@@ -1,3 +1,5 @@
+import { listPendingWithdrawals, markWithdrawalPaid } from './adminWithdrawals';
+import { requestCreatorWithdrawal } from './creatorWithdrawals';
 import { getScorers, getStandings } from '../providers/FootballTables';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { createHash, randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -1487,6 +1489,41 @@ async function handleRequest(
       { id: eventId, event: body.event as string, data: { reference } },
       body,
     ));
+    return;
+  }
+
+  if (pathname === '/api/creator/withdraw') {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { userId } = await authenticatePlayback(config, request.headers.authorization);
+    if (!userId) {
+      throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in to withdraw.');
+    }
+    const body = await readJson(request);
+    const amountUsd = Number((body as { amountUsd?: unknown }).amountUsd);
+    writeJson(response, 200, await requestCreatorWithdrawal(config, userId, amountUsd));
+    return;
+  }
+
+  if (pathname === '/admin/withdrawals') {
+    if (request.method !== 'GET') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    await authenticateAdmin(config, request.headers.authorization);
+    writeJson(response, 200, await listPendingWithdrawals(config));
+    return;
+  }
+
+  if (pathname === '/admin/withdrawals/paid') {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const { userId } = await authenticateAdmin(config, request.headers.authorization);
+    const body = await readJson(request);
+    const id = requiredString(body, 'id', 64);
+    const reference = requiredString(body, 'reference', 100);
+    writeJson(response, 200, await markWithdrawalPaid(config, userId, id, reference));
     return;
   }
 

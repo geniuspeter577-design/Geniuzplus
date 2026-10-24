@@ -5,6 +5,8 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CREATOR_ELIGIBILITY } from '../../src/config/creatorEarnings';
+import { PayoutDetailsForm } from '../../src/components/creator/PayoutDetailsForm';
+import { WithdrawPanel } from '../../src/components/creator/WithdrawPanel';
 import { loadCreatorCounts, loadCreatorEarnings, loadCreatorEarningsSummary, loadCreatorWithdrawals, type CreatorEarningsRow } from '../../src/services/ReelsRepository';
 import { useAuth } from '../../src/state/AuthContext';
 import { useMembership } from '../../src/hooks/useMembership';
@@ -136,8 +138,8 @@ export default function CreatorEarningsScreen() {
             </View>
           ) : null}
           {section === 'history' ? <Ledger title="Earnings history" rows={earnings.map((row) => ({ id: row.id, amount: Number(row.amount_usd), label: row.description, date: row.created_at }))} empty="No earnings have been recorded." /> : null}
-          {section === 'payout' ? <View style={styles.panel}><Text style={styles.panelTitle}>Payout method</Text><Text style={styles.copy}>Payout setup is Coming soon. No payout provider is connected for creator earnings.</Text><Pressable disabled style={[styles.primaryButton, styles.disabled]}><Text style={styles.primaryText}>Coming soon</Text></Pressable></View> : null}
-          {section === 'withdraw' ? <View style={styles.panel}><Text style={styles.panelTitle}>Withdraw earnings</Text>{summary ? <><Text style={styles.eyebrow}>AVAILABLE</Text><Text style={styles.amount}>{money(summary.availableUsd)}</Text></> : null}<Text style={styles.copy}>Withdrawals are Coming soon until a payout provider and creator revenue source are configured.</Text><Pressable disabled style={[styles.primaryButton, styles.disabled]}><Text style={styles.primaryText}>Coming soon</Text></Pressable></View> : null}
+          {section === 'payout' ? <PayoutDetailsForm /> : null}
+          {section === 'withdraw' ? <WithdrawPanel availableUsd={summary ? summary.availableUsd : 0} /> : null}
           {section === 'withdrawals' ? <Ledger title="Withdrawal history" rows={withdrawals.map((row) => ({ id: row.id, amount: Number(row.amount_usd), label: row.status, date: row.created_at }))} empty="No withdrawals have been recorded." /> : null}
         </ScrollView>
       ) : null}

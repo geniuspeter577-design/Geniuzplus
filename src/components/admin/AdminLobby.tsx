@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '../../theme';
 
-export type AdminRoom = 'upload' | 'series' | 'subtitles' | 'catalog' | 'users' | 'cleanup' | 'replace' | null;
+export type AdminRoom = 'upload' | 'series' | 'subtitles' | 'catalog' | 'users' | 'cleanup' | 'replace' | 'withdrawals' | null;
 type RoomKey = Exclude<AdminRoom, null>;
 
 const TILES: { key: RoomKey; icon: string; title: string; hint: string }[] = [
@@ -14,6 +14,7 @@ const TILES: { key: RoomKey; icon: string; title: string; hint: string }[] = [
   { key: 'users', icon: '👥', title: 'Users', hint: 'Search people and badges' },
   { key: 'cleanup', icon: '🧹', title: 'Cleanup', hint: 'Free unused storage' },
   { key: 'replace', icon: '🔁', title: 'Replace videos', hint: 'Swap a season’s videos' },
+  { key: 'withdrawals', icon: '💸', title: 'Withdrawals', hint: 'Pay creators' },
 ];
 
 export function AdminLobby({ onOpen, catalogCount }: { onOpen: (room: RoomKey) => void; catalogCount: number }) {
