@@ -128,9 +128,9 @@ export default function CreatorEarningsScreen() {
               <Text style={styles.panelTitle}>Creator eligibility</Text>
               <Text style={styles.copy}>Progress is based on server-recorded account and Reel activity. Thresholds are configurable in the app source.</Text>
               {metrics ? <>
-                <ProgressRow title="Followers" current={metrics.followers} target={CREATOR_ELIGIBILITY.minimumFollowers} />
-                <ProgressRow title="Views" current={metrics.views} target={CREATOR_ELIGIBILITY.minimumViews} />
-                <ProgressRow title="Watch time" current={metrics.watchedSeconds} target={CREATOR_ELIGIBILITY.minimumWatchSeconds} format={(value) => `${Math.floor(value / 3600)} h`} />
+                {CREATOR_ELIGIBILITY.minimumActiveReels > 0 ? <ProgressRow title="Active Reels" current={metrics.posts} target={CREATOR_ELIGIBILITY.minimumActiveReels} /> : null}{CREATOR_ELIGIBILITY.minimumFollowers > 0 ? <ProgressRow title="Followers" current={metrics.followers} target={CREATOR_ELIGIBILITY.minimumFollowers} /> : null}
+                {CREATOR_ELIGIBILITY.minimumViews > 0 ? <ProgressRow title="Views" current={metrics.views} target={CREATOR_ELIGIBILITY.minimumViews} /> : null}
+                {CREATOR_ELIGIBILITY.minimumWatchSeconds > 0 ? <ProgressRow title="Watch time" current={metrics.watchedSeconds} target={CREATOR_ELIGIBILITY.minimumWatchSeconds} format={(value) => `${Math.floor(value / 3600)} h`} /> : null}
               </> : <Text style={styles.copy}>Creator metrics are unavailable until the database migration is deployed.</Text>}
               <Text style={styles.copy}>Meeting the thresholds does not guarantee earnings or approval.</Text>
             </View>
