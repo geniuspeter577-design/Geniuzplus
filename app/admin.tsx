@@ -28,6 +28,7 @@ import { SubtitleUploadPanel } from '../src/components/admin/SubtitleUploadPanel
 import { UsersPanel } from '../src/components/admin/UsersPanel';
 import { registerBackInterceptor } from '../src/utils/backInterceptors';
 import { AdminLobby, type AdminRoom } from '../src/components/admin/AdminLobby';
+import { ReplaceVideosPanel } from '../src/components/admin/ReplaceVideosPanel';
 import { useNetwork } from '../src/state/NetworkContext';
 import { TitleImage } from '../src/components/TitleImage';
 import { MAX_TRAILER_FILE_SIZE_BYTES, MAX_VIDEO_FILE_SIZE_BYTES } from '../src/constants/video';
@@ -2965,6 +2966,15 @@ export default function AdminScreen() {
             </View>
               </>
             ) : null}
+            {room === 'replace' ? (
+              <ReplaceVideosPanel
+                seasons={availableSeasons.map((season) => ({
+                  id: season.id,
+                  label: (adminSeries.find((item) => item.id.endsWith(season.series_id))?.title ?? 'Series') + ' · Season ' + season.season_number,
+                }))}
+              />
+            ) : null}
+
             {room === 'users' ? (
               <>
             <View style={styles.card}>

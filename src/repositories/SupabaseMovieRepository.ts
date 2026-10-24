@@ -1124,6 +1124,36 @@ export class SupabaseMovieRepository {
       return data.id as string;
     }
 
+    async replaceB2EpisodeVideo(
+      episodeId: string,
+      video: { fileExtension: string | null; mimeType: string; fileSizeBytes: number; durationSeconds?: number },
+      storageKey: string,
+    ) {
+      const { data: old, error: readError } = await this.client
+        .from('episodes')
+        .select('storage_key')
+        .eq('id', episodeId)
+        .single();
+      if (readError || !old) {
+        throw new Error('This episode could not be found.', { cause: readError });
+      }
+      const changes: Record<string, unknown> = {
+        storage_provider: 'b2',
+        storage_key: storageKey,
+        file_extension: video.fileExtension,
+        mime_type: video.mimeType,
+        file_size_bytes: video.fileSizeBytes,
+      };
+      if (video.durationSeconds && video.durationSeconds > 0) {
+        changes.duration_seconds = video.durationSeconds;
+      }
+      const { error } = await this.client.from('episodes').update(changes).eq('id', episodeId);
+      if (error) {
+        throw new Error('The new video uploaded, but the episode could not be updated.', { cause: error });
+      }
+      return old.storage_key as string;
+    }
+
     async getSeasons(seriesId: string) {
       const normalizedId = seriesId.replace(/^geniuz:series:/, '');
       const { data, error } = await this.client

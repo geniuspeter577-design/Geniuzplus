@@ -36,7 +36,7 @@ export default function CreatorEarningsScreen() {
   const [earnings, setEarnings] = useState<CreatorEarningsRow[]>([]);
   const [withdrawals, setWithdrawals] = useState<CreatorWithdrawal[]>([]);
   const [summary, setSummary] = useState<{ totalEarnedUsd: number; availableUsd: number } | null>(null);
-  const [metrics, setMetrics] = useState<{ followers: number; views: number; watchedSeconds: number }>();
+  const [metrics, setMetrics] = useState<{ posts: number; followers: number; views: number; watchedSeconds: number }>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
   const membershipKnown = membership.status !== null;
