@@ -2968,7 +2968,7 @@ export default function AdminScreen() {
             ) : null}
             {room === 'replace' ? (
               <ReplaceVideosPanel
-                seasons={availableSeasons.map((season) => ({
+                seasons={seasons.map((season) => ({
                   id: season.id,
                   label: (adminSeries.find((item) => item.id.endsWith(season.series_id))?.title ?? 'Series') + ' · Season ' + season.season_number,
                 }))}
