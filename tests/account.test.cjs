@@ -278,7 +278,7 @@ test('SecureStore key sanitizing preserves valid keys and replaces invalid chara
   assert.equal(sanitizeSecureStoreKey('sb:project/auth@ token'), 'sb_project_auth__token');
   assert.equal(sanitizeSecureStoreKey(''), 'secure-store-key');
   assert.match(sanitizeSecureStoreKey(':/@'), /^[A-Za-z0-9._-]+$/);
-});lea
+});
 
 test('profile migration creates user-owned profiles on signup and grants no public insert policy', () => {
   const migration = fs.readFileSync('supabase/migrations/20261011000000_user_profiles.sql', 'utf8');

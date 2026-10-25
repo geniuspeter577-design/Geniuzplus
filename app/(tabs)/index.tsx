@@ -155,7 +155,7 @@ export default function HomeScreen() {
   const publishedItems = useMemo(
     () => (study.enabled
       ? allPublishedItems
-      : allPublishedItems.filter((item) => !(item.categories ?? []).some((category) => category.toLocaleLowerCase() === 'education')) ),
+      : allPublishedItems.filter((item) => !(item.categories ?? []).some((category) => ['education', 'kids'].includes(category.toLocaleLowerCase()))) ),
     [allPublishedItems, study.enabled],
   );
   const heroItems = useMemo(() => sortPublishedNewest(publishedItems).slice(0, 15), [publishedItems]);
@@ -223,9 +223,9 @@ export default function HomeScreen() {
             ? shorts.filter((item) => item.availability.discoverable)
             : selectedCategory === 'Fun'
               ? sortPublishedNewest(publishedItems.filter((item) =>
-                  (item.categories ?? []).some((category) => ['animation', 'cartoon'].includes(category.toLocaleLowerCase())),
+                  (item.categories ?? []).some((category) => ['animation', 'cartoon', 'kids'].includes(category.toLocaleLowerCase())),
                 ))
-              : getHomeCategoryItems(selectedCategory === 'Education' ? allPublishedItems : publishedItems, selectedCategory),
+              : getHomeCategoryItems((selectedCategory === 'Education' || selectedCategory === 'Kids') ? allPublishedItems : publishedItems, selectedCategory),
     [publishedItems, allPublishedItems, selectedCategory, shorts],
   );
   const activeHeroItems = useMemo(
