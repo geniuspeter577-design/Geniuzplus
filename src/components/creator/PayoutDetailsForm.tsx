@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 
-import {
-  loadCreatorBankDetails,
-  saveCreatorBankDetails,
-  type CreatorBankDetails,
-} from '../../services/ReelsRepository';
+import { loadCreatorBankDetails, type CreatorBankDetails } from '../../services/ReelsRepository';
+import { supabase } from '../../services/supabase';
 
 const C = { text: '#FFFFFF', muted: '#9CA3AF', card: '#1A1D23', border: '#374151', green: '#72F06A', error: '#F87171', dark: '#0E1014' };
 
@@ -15,9 +12,34 @@ function maskNumber(value: string) {
   return value.length <= 4 ? value : '•••• ' + value.slice(-4);
 }
 
+async function saveViaBackend(details: CreatorBankDetails, password: string) {
+  if (!supabase) throw new Error('Sign in to save your payout details.');
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  const base = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
+  if (!token) throw new Error('Sign in to save your payout details.');
+  if (!base) throw new Error('The server address is not configured.');
+  const response = await fetch(base + '/api/creator/bank-details', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({
+      country: details.country,
+      bankName: details.bank_name,
+      accountName: details.account_name,
+      accountNumber: details.account_number,
+      password,
+    }),
+  });
+  const body: any = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body?.message ?? body?.error?.message ?? 'Your payout details could not be saved. Try again.');
+  }
+}
+
 export function PayoutDetailsForm() {
   const [saved, setSaved] = useState<CreatorBankDetails | null>(null);
   const [form, setForm] = useState<CreatorBankDetails>(EMPTY);
+  const [password, setPassword] = useState('');
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,7 +69,9 @@ export function PayoutDetailsForm() {
     setError(undefined);
     setMessage(undefined);
     try {
-      await saveCreatorBankDetails(form);
+      if (!password) throw new Error('Enter your password to save.');
+      await saveViaBackend(form, password);
+      setPassword('');
       setForm(EMPTY);
       setMessage('Payout details saved.');
       await load();
@@ -100,6 +124,19 @@ export function PayoutDetailsForm() {
           {field('Bank name', 'bank_name')}
           {field('Account name', 'account_name')}
           {field('Account number', 'account_number')}
+          <View style={{ gap: 4 }}>
+            <Text style={{ color: C.muted }}>Your Geniuzplus password</Text>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor={C.muted}
+              style={{ color: C.text, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12 }}
+              accessibilityLabel="Your Geniuzplus password"
+            />
+          </View>
           <Pressable disabled={saving} onPress={() => void save()} style={{ padding: 14, borderRadius: 12, backgroundColor: saving ? C.border : C.green }}>
             <Text style={{ color: C.dark, textAlign: 'center', fontWeight: '700' }}>{saving ? 'Saving…' : 'Save payout details'}</Text>
           </Pressable>

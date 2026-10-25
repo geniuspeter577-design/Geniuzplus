@@ -11,6 +11,7 @@ function money(value: number) {
 
 export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
   const [amount, setAmount] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [requested, setRequested] = useState(0);
   const [message, setMessage] = useState<string | undefined>();
@@ -38,6 +39,10 @@ export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
       setError('Sign in to withdraw.');
       return;
     }
+    if (!password) {
+      setError('Enter your password to withdraw.');
+      return;
+    }
     setBusy(true);
     try {
       const { data } = await supabase.auth.getSession();
@@ -48,7 +53,7 @@ export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
       const response = await fetch(base + '/api/creator/withdraw', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ amountUsd: value }),
+        body: JSON.stringify({ amountUsd: value, password }),
       });
       const body: any = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -56,6 +61,7 @@ export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
       }
       setRequested((current) => current + value);
       setAmount('');
+      setPassword('');
       setMessage(body?.message ?? 'Your withdrawal was received. Payment arrives within 48 hours.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The withdrawal could not be requested. Try again.');
@@ -84,6 +90,17 @@ export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
       <Pressable onPress={() => setAmount(String(left))} disabled={busy || left <= 0}>
         <Text style={{ color: C.green }}>Use all available</Text>
       </Pressable>
+      <TextInput
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="Your Geniuzplus password"
+        placeholderTextColor={C.muted}
+        accessibilityLabel="Your Geniuzplus password"
+        style={{ color: C.text, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12 }}
+      />
       <Pressable
         disabled={busy}
         onPress={() => void submit()}

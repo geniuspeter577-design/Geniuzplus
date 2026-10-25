@@ -1,3 +1,4 @@
+import { saveBankDetails, verifyPassword } from './creatorSecurity';
 import { listPendingWithdrawals, markWithdrawalPaid } from './adminWithdrawals';
 import { requestCreatorWithdrawal } from './creatorWithdrawals';
 import { getScorers, getStandings } from '../providers/FootballTables';
@@ -1492,15 +1493,39 @@ async function handleRequest(
     return;
   }
 
+  if (pathname === '/api/creator/bank-details') {
+    if (request.method !== 'POST') {
+      throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
+    }
+    const auth = await authenticatePlayback(config, request.headers.authorization);
+    const userId = auth.userId;
+    const email = 'email' in auth ? auth.email : undefined;
+    if (!userId) {
+      throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in to save payout details.');
+    }
+    const body = (await readJson(request)) as Record<string, unknown>;
+    await verifyPassword(config, email, body.password);
+    writeJson(response, 200, await saveBankDetails(config, userId, {
+      country: body.country,
+      bankName: body.bankName,
+      accountName: body.accountName,
+      accountNumber: body.accountNumber,
+    }));
+    return;
+  }
+
   if (pathname === '/api/creator/withdraw') {
     if (request.method !== 'POST') {
       throw new HttpError(405, 'METHOD_NOT_ALLOWED', 'This method is not allowed.');
     }
-    const { userId } = await authenticatePlayback(config, request.headers.authorization);
+    const auth = await authenticatePlayback(config, request.headers.authorization);
+    const userId = auth.userId;
+    const email = 'email' in auth ? auth.email : undefined;
     if (!userId) {
       throw new HttpError(401, 'UNAUTHENTICATED', 'Sign in to withdraw.');
     }
     const body = await readJson(request);
+    await verifyPassword(config, email, (body as { password?: unknown }).password);
     const amountUsd = Number((body as { amountUsd?: unknown }).amountUsd);
     writeJson(response, 200, await requestCreatorWithdrawal(config, userId, amountUsd));
     return;
