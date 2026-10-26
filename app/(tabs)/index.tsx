@@ -35,6 +35,7 @@ import { useNetwork } from '../../src/state/NetworkContext';
 import { useStudyMode } from '../../src/state/StudyModeContext';
 import { theme } from '../../src/theme';
 import { loadNotifications, getUnreadNotificationCount } from '../../src/services/NotificationsStore';
+import { preloadTitleImages } from '../../src/utils/preloadImages';
 import { formatRuntime } from '../../src/utils/contentPresentation';
 import { resetHomeToTrending } from '../../src/utils/homeNavigation';
 import { setHomeBackHandler } from '../../src/utils/homeBack';
@@ -101,7 +102,10 @@ export default function HomeScreen() {
     }
     return { data: { ...catalog, showingDemo: false }, source: 'supabase' as const };
   }, []);
-  const catalogQuery = useContentQuery('home-supabase-catalog', loadCatalog, isOnline);
+  const catalogQuery = useContentQuery('home-supabase-catalog', loadCatalog, isOnline, 'home-catalog');
+  useEffect(() => {
+    preloadTitleImages(catalogQuery.data);
+  }, [catalogQuery.data]);
   const loadUpcomingMovies = useCallback(async () => {
     const today = new Date().toISOString().slice(0, 10);
     const [ownResult, tmdbResult] = await Promise.allSettled([
@@ -142,7 +146,7 @@ export default function HomeScreen() {
     });
     return { data: merged, source: 'supabase' as const };
   }, []);
-  const upcomingQuery = useContentQuery('home-upcoming-movies', loadUpcomingMovies, isOnline);
+  const upcomingQuery = useContentQuery('home-upcoming-movies', loadUpcomingMovies, isOnline, 'home-upcoming');
   const { continueWatching, isInWatchlist, toggleWatchlist } = useLibrary();
   const movies = catalogQuery.data?.movies ?? EMPTY_CONTENT_ITEMS;
   const series = catalogQuery.data?.series ?? EMPTY_CONTENT_ITEMS;
