@@ -977,7 +977,21 @@ async function handleRequest(
     if (!Number.isSafeInteger(fileSizeBytes) || fileSizeBytes <= 0) {
       throw new HttpError(409, 'FILE_SIZE_UNAVAILABLE', 'This title has no verified file size.');
     }
-
+    if (!isAdmin) {
+      const { data: claim, error: claimError } = await client.rpc('claim_download', {
+        p_kind: contentKind,
+        p_content_id: contentId,
+      });
+      if (claimError) {
+        throw new HttpError(502, 'DOWNLOAD_LIMIT_CHECK_FAILED', 'Could not check your download limit. Please try again.');
+      }
+      if (!claim?.allowed) {
+        if (claim?.reason === 'LOGIN_REQUIRED') {
+          throw new HttpError(401, 'LOGIN_REQUIRED', 'Please sign up or log in to download.');
+        }
+        throw new HttpError(429, 'DAILY_DOWNLOAD_LIMIT', 'You have used your 5 free downloads for today. Get a badge for unlimited downloads.');
+      }
+    }
     let url: string;
     if (data.storage_provider === 'b2') {
       url = await getStorage(config).createPlayUrl(storagePath, {
