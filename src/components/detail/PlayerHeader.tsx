@@ -6,6 +6,8 @@ import * as Brightness from 'expo-brightness';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useEffect, useRef, useState } from 'react';
+import { VolumeBoostControl } from './VolumeBoostControl';
+import { useWebAudioVolumeBoost } from '../../hooks/useWebAudioVolumeBoost';
 import {
   ActivityIndicator,
   PanResponder,
@@ -103,6 +105,7 @@ export function PlayerHeader({
   onRetry,
 }: PlayerHeaderProps) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const webAudioBoost = useWebAudioVolumeBoost(player);
   const seekBarWidth = useRef(0);
   const [gestureSize, setGestureSize] = useState({ width: 1, height: 1 });
   const gestureSizeRef = useRef(gestureSize);
@@ -305,6 +308,7 @@ export function PlayerHeader({
     if (isLockedRef.current) {
       return;
     }
+    webAudioBoost.activateFromUserGesture();
     const zone = getPlayerTapZone(event.nativeEvent.locationX ?? gestureSizeRef.current.width / 2, gestureSizeRef.current.width);
     const now = Date.now();
     const tapDelta = now - lastTapTimestamp.current;
@@ -370,12 +374,14 @@ export function PlayerHeader({
       <View style={playerContainerStyle}>
         {playbackUrl ? (
           <VideoView
+            key={webAudioBoost.viewKey}
             player={player}
             style={styles.video}
             nativeControls={false}
             fullscreenOptions={{ enable: false }}
             contentFit={fitMode}
             allowsPictureInPicture={false}
+            crossOrigin={webAudioBoost.crossOrigin}
           />
         ) : null}
         {subtitleText ? (
@@ -407,12 +413,14 @@ export function PlayerHeader({
     <View style={playerContainerStyle}>
       {playbackUrl ? (
         <VideoView
+          key={webAudioBoost.viewKey}
           player={player}
           style={styles.video}
           nativeControls={false}
           fullscreenOptions={{ enable: false }}
           contentFit={fitMode}
           allowsPictureInPicture={false}
+          crossOrigin={webAudioBoost.crossOrigin}
         />
       ) : null}
       {subtitleText ? (
@@ -651,6 +659,12 @@ export function PlayerHeader({
                         <Ionicons name={isPlaying ? 'pause' : 'play'} size={16} color={theme.background} />
                       </Pressable>
                       <View style={styles.footerActions} pointerEvents="box-none">
+                        <VolumeBoostControl
+                          value={webAudioBoost.volumeBoost}
+                          disabled={!webAudioBoost.boostAvailable}
+                          onActivate={webAudioBoost.activateFromUserGesture}
+                          onChange={webAudioBoost.setVolumeBoostPercent}
+                        />
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel={`Language and subtitles${subtitlesEnabled ? ', subtitles on' : ''}`}
@@ -746,6 +760,12 @@ export function PlayerHeader({
                       </View>
                       <Text style={styles.portraitTimeText}>{`${formatPlaybackTime(currentTime)}/${duration > 0 ? formatPlaybackTime(duration) : '--:--'}`}</Text>
                     </View>
+                    <VolumeBoostControl
+                      value={webAudioBoost.volumeBoost}
+                      disabled={!webAudioBoost.boostAvailable}
+                      onActivate={webAudioBoost.activateFromUserGesture}
+                      onChange={webAudioBoost.setVolumeBoostPercent}
+                    />
                     <Pressable accessibilityRole="button" accessibilityLabel="Mini player coming soon" onPress={() => setToastMessage('Mini player is not available yet')} style={styles.portraitMiniButton}>
                       <Ionicons name="play-circle-outline" size={16} color={theme.text} />
                     </Pressable>

@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { VideoView, useVideoPlayer } from 'expo-video';
+import { VolumeBoostControl } from './detail/VolumeBoostControl';
+import { useWebAudioVolumeBoost } from '../hooks/useWebAudioVolumeBoost';
 import { ReelEditsOverlay } from './ReelEditsOverlay';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,6 +24,7 @@ import {
   Text,
   TextInput,
   View,
+  Platform,
   type ListRenderItemInfo,
   type ViewToken,
 } from 'react-native';
@@ -56,6 +59,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   isActive: boolean;
   onHide: (id: string) => void;
 }) {
+  const reelAudioUrl = item.audioUrl;
   const player = useVideoPlayer(null, (videoPlayer) => {
     videoPlayer.timeUpdateEventInterval = 0.25;
     videoPlayer.loop = true;
@@ -100,6 +104,9 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   const audioPlayer = useVideoPlayer(null, (audioInstance) => {
     audioInstance.loop = true;
   });
+  const videoAudioBoost = useWebAudioVolumeBoost(player);
+  const trackAudioBoost = useWebAudioVolumeBoost(audioPlayer);
+  const webAudioBoost = reelAudioUrl ? trackAudioBoost : videoAudioBoost;
   const trimStart = item.edits?.trim?.start ?? 0;
   const trimEnd = item.edits?.trim?.end ?? 0;
   useEffect(() => {
@@ -113,7 +120,6 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
     });
     return () => safeRemove(trimSub);
   }, [player, trimStart, trimEnd]);
-  const reelAudioUrl = item.audioUrl;
   useEffect(() => {
     if (!reelAudioUrl) {
       return undefined;
@@ -295,6 +301,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   };
 
   const handleVideoTap = () => {
+    webAudioBoost.activateFromUserGesture();
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
       lastTapRef.current = 0;
@@ -323,7 +330,16 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
 
   return (
     <View style={[styles.videoPage, { height }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Pause or play Reel" onPress={handleVideoTap} style={StyleSheet.absoluteFill}><VideoView accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} /></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="Pause or play Reel" onPress={handleVideoTap} style={StyleSheet.absoluteFill}><VideoView key={videoAudioBoost.viewKey} accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} crossOrigin={videoAudioBoost.crossOrigin} /></Pressable>
+      {Platform.OS === 'web' && reelAudioUrl ? <VideoView key={trackAudioBoost.viewKey} player={audioPlayer} style={styles.hiddenAudioVideo} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} playsInline crossOrigin={trackAudioBoost.crossOrigin} /> : null}
+      <View pointerEvents="box-none" style={[styles.volumeBoost, { top: insets.top + 10 }]}>
+        <VolumeBoostControl
+          value={webAudioBoost.volumeBoost}
+          disabled={!webAudioBoost.boostAvailable}
+          onActivate={webAudioBoost.activateFromUserGesture}
+          onChange={webAudioBoost.setVolumeBoostPercent}
+        />
+      </View>
       <ReelEditsOverlay edits={currentItem.edits} />
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: heartOpacity, transform: [{ scale: heartScale }] }]}>
         <Ionicons name="heart" size={110} color="#FF3B5C" />
@@ -491,6 +507,8 @@ const styles = StyleSheet.create({
   },
   counter: { position: 'absolute', top: 25, right: 18, color: theme.text, fontSize: 13, fontWeight: '700' },
   actionColumn: { position: 'absolute', right: 14, bottom: 112, alignItems: 'center', gap: 17 },
+  volumeBoost: { position: 'absolute', left: 14, zIndex: 8 },
+  hiddenAudioVideo: { position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' },
   action: { alignItems: 'center', gap: 3, minWidth: 42 },
   actionCount: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   caption: { position: 'absolute', bottom: 30, left: 18, right: 78, gap: 8 },
