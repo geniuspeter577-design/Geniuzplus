@@ -10,8 +10,8 @@ const {
 } = require('../.test-build/src/utils/videoFile.js');
 
 function createDownloadService(options = {}) {
-  const values = new Map();
-  const files = new Map();
+  const values = options.values ?? new Map();
+  const files = options.files ?? new Map();
   const signedUrls = [];
   const storage = {
     getItem: async (key) => values.get(key) ?? null,
@@ -27,6 +27,7 @@ function createDownloadService(options = {}) {
           new Promise((resolve, reject) => {
           downloadOptions.onProgress({ bytesWritten: 512, totalBytes: 1024 });
           if (options.pauseDownload) {
+            files.set(filePath, 512);
             finishPausedDownload = resolve;
             return;
           }
@@ -60,8 +61,25 @@ function createDownloadService(options = {}) {
           files.set(filePath, 1024);
           return { uri: filePath };
         },
+        savable: () => ({
+          url,
+          fileUri: filePath,
+          isDirectory: false,
+          resumeData: 'opaque-resume-state',
+        }),
       };
     },
+    restoreDownloadTask: (resumeState, downloadOptions) => ({
+      downloadAsync: async () => {
+        throw new Error('A restored task must resume from saved state.');
+      },
+      resumeAsync: async () => {
+        downloadOptions.onProgress({ bytesWritten: 1024, totalBytes: 1024 });
+        files.set(resumeState.fileUri, 1024);
+        return { uri: resumeState.fileUri };
+      },
+      savable: () => resumeState,
+    }),
     fileExists: (filePath) => files.has(filePath),
     getFileSize: (filePath) => files.get(filePath) ?? null,
     deleteFile: (filePath) => files.delete(filePath),
@@ -225,6 +243,45 @@ test('download service pauses and resumes an active download', async () => {
   await operation;
   assert.equal(service.getRecords()[0].status, 'downloaded');
   assert.equal(service.getRecords()[0].size, 1024);
+});
+
+test('download service persists a pause state and restores it after reload', async () => {
+  const first = createDownloadService({ pauseDownload: true });
+  const item = downloadableItem();
+  const operation = first.service.download(item);
+  await new Promise((resolve) => setImmediate(resolve));
+  await first.service.pause(item.id);
+
+  const savedValues = new Map(first.values);
+  const savedFiles = new Map(first.files);
+  assert.equal(first.service.getRecords()[0].status, 'paused');
+  assert.equal(first.service.getRecords()[0].resumeState?.resumeData, 'opaque-resume-state');
+
+  const restored = createDownloadService({ values: savedValues, files: savedFiles });
+  await restored.service.load();
+  assert.equal(restored.service.getRecords()[0].status, 'paused');
+  assert.equal(restored.service.getRecords()[0].progress, 50);
+
+  await first.service.resume(item.id);
+  await operation;
+  await restored.service.resume(item.id);
+  assert.equal(restored.service.getRecords()[0].status, 'downloaded');
+  assert.equal(restored.service.getRecords()[0].progress, 100);
+});
+
+test('download service recognizes a complete file after background completion and app reload', async () => {
+  const original = createDownloadService();
+  await original.service.download(downloadableItem());
+  const [storageKey, savedJson] = original.values.entries().next().value;
+  const saved = JSON.parse(savedJson);
+  saved.downloads[0] = { ...saved.downloads[0], status: 'downloading', progress: 99 };
+  const values = new Map([[storageKey, JSON.stringify(saved)]]);
+
+  const restored = createDownloadService({ values, files: new Map(original.files) });
+  await restored.service.load();
+
+  assert.equal(restored.service.getRecords()[0].status, 'downloaded');
+  assert.equal(restored.service.getRecords()[0].progress, 100);
 });
 
 test('download service rejects titles that do not permit offline downloads', async () => {

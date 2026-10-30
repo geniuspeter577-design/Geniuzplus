@@ -1,4 +1,4 @@
-import type { DownloadProgress } from 'expo-file-system';
+import type { DownloadPauseState, DownloadProgress } from 'expo-file-system';
 
 import { MAX_VIDEO_FILE_SIZE_BYTES } from '../constants/video';
 import type { ContentItem } from '../models/content';
@@ -17,6 +17,7 @@ export type OfflineDownloadRecord = {
   item: ContentItem;
   filePath: string;
   posterFilePath?: string;
+  resumeState?: DownloadPauseState;
   origin?: 'download' | 'received';
   size: number;
   status: OfflineDownloadStatus;
@@ -33,6 +34,7 @@ export type DownloadTask = {
   downloadAsync(): Promise<{ uri: string } | null>;
   pauseAsync?(): Promise<void>;
   resumeAsync?(): Promise<{ uri: string } | null>;
+  savable?(): DownloadPauseState;
   cancel?(): void;
 };
 
@@ -45,6 +47,15 @@ export type DownloadFileSystem = {
     options: {
       onProgress: (progress: DownloadProgress) => void;
       signal: AbortSignal;
+      sessionType: 'background' | 'foreground';
+    },
+  ): DownloadTask;
+  restoreDownloadTask?(
+    state: DownloadPauseState,
+    options: {
+      onProgress: (progress: DownloadProgress) => void;
+      signal: AbortSignal;
+      sessionType: 'background' | 'foreground';
     },
   ): DownloadTask;
   fileExists(filePath: string): boolean;
@@ -60,6 +71,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function isDownloadPauseState(value: unknown): value is DownloadPauseState {
+  return isRecord(value) &&
+    typeof value.url === 'string' &&
+    typeof value.fileUri === 'string' &&
+    typeof value.isDirectory === 'boolean' &&
+    (value.resumeData === undefined || typeof value.resumeData === 'string');
+}
+
 function isDownloadRecord(value: unknown): value is OfflineDownloadRecord {
   if (!isRecord(value) || !isRecord(value.item) || !isRecord(value.item.availability)) {
     return false;
@@ -70,6 +89,7 @@ function isDownloadRecord(value: unknown): value is OfflineDownloadRecord {
     typeof value.item.title === 'string' &&
     typeof value.filePath === 'string' &&
     (value.posterFilePath === undefined || typeof value.posterFilePath === 'string') &&
+    (value.resumeState === undefined || isDownloadPauseState(value.resumeState)) &&
     (value.origin === undefined || value.origin === 'download' || value.origin === 'received') &&
     typeof value.size === 'number' &&
     Number.isFinite(value.size) &&
@@ -148,13 +168,15 @@ export class OfflineDownloadService {
       ) {
         restored.push(record);
       } else if (record.status === 'downloading' || record.status === 'paused') {
-        if (this.fileSystem.fileExists(record.filePath)) {
-          this.fileSystem.deleteFile(record.filePath);
+        const partialSize = this.fileSystem.getFileSize(record.filePath) ?? 0;
+        if (partialSize === record.size) {
+          restored.push({ ...record, resumeState: undefined, status: 'downloaded', progress: 100 });
+        } else {
+          const progress = partialSize > 0 && partialSize < record.size
+            ? Math.min(99, Math.floor(partialSize / record.size * 100))
+            : record.progress;
+          restored.push({ ...record, status: 'paused', progress });
         }
-        if (record.posterFilePath && this.fileSystem.fileExists(record.posterFilePath)) {
-          this.fileSystem.deleteFile(record.posterFilePath);
-        }
-        restored.push({ ...record, status: 'failed', progress: 0 });
       } else if (record.status === 'queued') {
         restored.push({ ...record, status: 'failed', progress: 0 });
       } else if (record.status === 'downloaded' && !this.fileSystem.fileExists(record.filePath)) {
@@ -277,7 +299,12 @@ export class OfflineDownloadService {
     return size;
   }
 
-  private async startDownload(item: ContentItem, size: number, fromQueue: boolean) {
+  private async startDownload(
+    item: ContentItem,
+    size: number,
+    fromQueue: boolean,
+    resumeState?: DownloadPauseState,
+  ) {
     const existing = this.records.find((record) => record.item.id === item.id);
     if (existing?.status === 'downloaded' && this.fileSystem.fileExists(existing.filePath)) {
       return;
@@ -312,7 +339,7 @@ export class OfflineDownloadService {
       size,
     };
     this.activeDownloads.set(item.id, active);
-    const operation = this.performDownload(item, size, active.controller.signal);
+    const operation = this.performDownload(item, size, active.controller.signal, resumeState);
     active.operation = operation;
     try {
       await operation;
@@ -344,14 +371,27 @@ export class OfflineDownloadService {
     await active.task.pauseAsync();
     const record = this.records.find((candidate) => candidate.item.id === itemId);
     if (record?.status === 'downloading') {
-      await this.setRecord({ ...record, status: 'paused' });
+      let resumeState: DownloadPauseState | undefined;
+      try {
+        resumeState = active.task.savable?.();
+      } catch {
+        resumeState = undefined;
+      }
+      await this.setRecord({ ...record, ...(resumeState ? { resumeState } : {}), status: 'paused' });
     }
   }
 
   async resume(itemId: string) {
     const active = this.activeDownloads.get(itemId);
     const record = this.records.find((candidate) => candidate.item.id === itemId);
-    if (!active || !record || record.status !== 'paused' || !active.resolveResume) {
+    if (!record || record.status !== 'paused') {
+      throw new Error('This download cannot be resumed. Retry it to start again.');
+    }
+    if (!active) {
+      await this.startDownload(record.item, record.size, false, record.resumeState);
+      return;
+    }
+    if (!active.resolveResume) {
       throw new Error('This download cannot be resumed. Retry it to start again.');
     }
     await this.setRecord({ ...record, status: 'downloading' });
@@ -374,7 +414,12 @@ export class OfflineDownloadService {
     await this.persist();
   }
 
-  private async performDownload(item: ContentItem, size: number, signal: AbortSignal) {
+  private async performDownload(
+    item: ContentItem,
+    size: number,
+    signal: AbortSignal,
+    resumeState?: DownloadPauseState,
+  ) {
     const filePath = this.fileSystem.getFilePath(item);
     const posterFilePath =
       item.posterUrl && this.fileSystem.getPosterFilePath && this.fileSystem.downloadPoster
@@ -384,6 +429,7 @@ export class OfflineDownloadService {
       item,
       filePath,
       ...(posterFilePath ? { posterFilePath } : {}),
+      ...(resumeState ? { resumeState } : {}),
       size,
       status: 'downloading',
       progress: 0,
@@ -392,29 +438,59 @@ export class OfflineDownloadService {
 
     try {
       await this.setRecord(record);
-      const signedUrl = await this.getSignedUrl(item);
-      if (signal.aborted) {
-        throw new Error('Download canceled.');
-      }
-      if (this.fileSystem.fileExists(filePath)) {
-        this.fileSystem.deleteFile(filePath);
-      }
-
-      const task = this.fileSystem.createDownloadTask(signedUrl, filePath, {
+      const taskOptions: Parameters<DownloadFileSystem['createDownloadTask']>[2] = {
         signal,
+        sessionType: 'background' as const,
         onProgress: ({ bytesWritten, totalBytes }) => {
           const progress =
             totalBytes > 0 ? Math.min(99, Math.floor((bytesWritten / totalBytes) * 100)) : 0;
           this.updateProgress(item.id, progress);
         },
-      });
+      };
+      let task: DownloadTask;
+      let restoredTask = false;
+      if (resumeState && this.fileSystem.restoreDownloadTask && resumeState.fileUri === filePath) {
+        try {
+          task = this.fileSystem.restoreDownloadTask(resumeState, taskOptions);
+          restoredTask = true;
+        } catch {
+          task = this.fileSystem.createDownloadTask(await this.getSignedUrl(item), filePath, taskOptions);
+        }
+      } else {
+        task = this.fileSystem.createDownloadTask(await this.getSignedUrl(item), filePath, taskOptions);
+      }
+      if (signal.aborted) {
+        throw new Error('Download canceled.');
+      }
+      if (!restoredTask && this.fileSystem.fileExists(filePath)) {
+        this.fileSystem.deleteFile(filePath);
+      }
       const active = this.activeDownloads.get(item.id);
       if (active) {
         active.task = task;
       }
       let result: { uri: string } | null = null;
       try {
+        result = restoredTask && task.resumeAsync
+          ? await task.resumeAsync()
+          : await task.downloadAsync();
+      } catch (resumeError) {
+        if (signal.aborted) {
+          throw resumeError;
+        }
+        if (!restoredTask) {
+          throw new Error('The download failed. Check your connection and retry.', { cause: resumeError });
+        }
+        if (this.fileSystem.fileExists(filePath)) {
+          this.fileSystem.deleteFile(filePath);
+        }
+        task = this.fileSystem.createDownloadTask(await this.getSignedUrl(item), filePath, taskOptions);
+        if (active) {
+          active.task = task;
+        }
         result = await task.downloadAsync();
+      }
+      try {
         while (!result && !signal.aborted) {
           await new Promise<void>((resolve, reject) => {
             const current = this.activeDownloads.get(item.id);
@@ -472,6 +548,7 @@ export class OfflineDownloadService {
         status: 'downloaded',
         progress: 100,
         size: actualSize,
+        resumeState: undefined,
       });
     } catch (error) {
       if (this.fileSystem.fileExists(filePath)) {

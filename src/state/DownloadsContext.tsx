@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useStudyMode } from './StudyModeContext';
 
 const STUDY_DOWNLOADS_KEY = 'geniuz.study.downloads';
-import { File, Paths } from 'expo-file-system';
+import { DownloadTask, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 import { webDownload } from '../utils/webDownload';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -33,7 +33,9 @@ const service = new OfflineDownloadService(
     availableDiskSpace: () => Paths.availableDiskSpace,
     getFilePath: (item) => new File(Paths.document, getSafeFileName(item)).uri,
     createDownloadTask: (url, filePath, options) =>
-      File.createDownloadTask(url, new File(filePath), options),
+      File.createDownloadTask(url, new File(filePath), { ...options, sessionType: 'background' }),
+    restoreDownloadTask: (state, options) =>
+      DownloadTask.fromSavable(state, { ...options, sessionType: 'background' }),
     fileExists: (filePath) => new File(filePath).exists,
     getFileSize: (filePath) => new File(filePath).size,
     deleteFile: (filePath) => {
