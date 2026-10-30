@@ -116,20 +116,6 @@ export default function MembershipScreen() {
   const membershipUntil = membership.status?.status === 'grace'
     ? membership.status.graceUntil
     : membership.status?.currentPeriodEnd;
-  const openLegalPage = async (url: string | undefined, title: string) => {
-    if (!url) {
-      setCheckoutError(`${title} is Coming soon.`);
-      return;
-    }
-    try {
-      await WebBrowser.openBrowserAsync(url);
-    } catch {
-      setCheckoutError(`${title} could not be opened.`);
-    }
-  };
-  const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL?.trim() || (process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '') ? `${process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '')}/legal/terms` : undefined);
-  const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || (process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '') ? `${process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '')}/legal/privacy` : undefined);
-
   const buttonDisabled =
     isCheckingOut || auth.isLoading || (Boolean(auth.session) && (!membership.isOnline || !membership.plan));
   const buttonLabel = isCheckingOut
@@ -292,9 +278,9 @@ export default function MembershipScreen() {
         {checkoutError ? <Text style={styles.errorText}>{checkoutError}</Text> : null}
         <Text style={styles.terms}>Premium lasts for the plan you choose (1, 3 or 12 months). No automatic card charging. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
         <View style={styles.legalLinks}>
-          <Pressable accessibilityRole="link" onPress={() => void openLegalPage(termsUrl, 'Terms')}><Text style={styles.legalLink}>Terms</Text></Pressable>
+          <Pressable accessibilityRole="link" onPress={() => router.push('/terms')}><Text style={styles.legalLink}>Terms</Text></Pressable>
           <Text style={styles.terms}>·</Text>
-          <Pressable accessibilityRole="link" onPress={() => void openLegalPage(privacyUrl, 'Privacy')}><Text style={styles.legalLink}>Privacy</Text></Pressable>
+          <Pressable accessibilityRole="link" onPress={() => router.push('/privacy')}><Text style={styles.legalLink}>Privacy</Text></Pressable>
         </View>
       </View>
     </SafeAreaView>

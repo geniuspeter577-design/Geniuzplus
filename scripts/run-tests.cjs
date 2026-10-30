@@ -115,6 +115,7 @@ try {
       'tests/mobile-api.test.cjs',
       'tests/playback.test.cjs',
       'tests/web-audio.test.cjs',
+      'tests/legal.test.cjs',
       'tests/account.test.cjs',
       'tests/admin-confirm.test.cjs',
       'tests/offline-download.test.cjs',

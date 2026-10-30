@@ -206,15 +206,14 @@ test('signed-out Me screen keeps sign-in in the header only', () => {
   assert.match(screen, /auth\.openSignInSheet\('sign-in'\)/);
 });
 
-test('Me gear opens Settings, which exposes real account actions and configured policy links', () => {
+test('Me gear opens Settings, which exposes real account actions and public policy routes', () => {
   const profile = fs.readFileSync('app/(tabs)/profile.tsx', 'utf8');
   const settings = fs.readFileSync('app/settings.tsx', 'utf8');
   assert.match(profile, /accessibilityLabel="Settings"[\s\S]*?router\.push\('\/settings'\)/);
   assert.match(settings, /Change password/);
   assert.match(settings, /auth\.signOut\(\)/);
-  assert.match(settings, /EXPO_PUBLIC_TERMS_URL/);
-  assert.match(settings, /EXPO_PUBLIC_PRIVACY_URL/);
-  assert.match(settings, /EXPO_PUBLIC_TERMS_URL[\s\S]*?EXPO_PUBLIC_PRIVACY_URL/);
+  assert.match(settings, /router\.push\('\/terms'\)/);
+  assert.match(settings, /router\.push\('\/privacy'\)/);
 });
 
 test('Me Transfer row opens the existing Received tab without a sign-in gate', () => {

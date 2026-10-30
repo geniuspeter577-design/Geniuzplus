@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Modal, Pressable, StyleSheet, Text, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../KeyboardAwareScrollView';
@@ -241,6 +242,14 @@ export function SignInToContinueSheet({ visible, initialMode, onClose }: Props) 
                 {isSubmitting ? 'Please wait…' : mode === 'create-account' ? 'Create account' : mode === 'reset-password' ? 'Send reset link' : 'Sign in'}
               </Text>
             </Pressable>
+            {mode !== 'reset-password' ? (
+              <Text style={{ color: theme.secondaryText, fontSize: 12, lineHeight: 18, textAlign: 'center' }}>
+                By continuing, you agree to the{' '}
+                <Text accessibilityRole="link" onPress={() => { onClose(); router.push('/terms'); }} style={{ color: theme.accent, fontWeight: '700' }}>Terms of Use</Text>
+                {' '}and{' '}
+                <Text accessibilityRole="link" onPress={() => { onClose(); router.push('/privacy'); }} style={{ color: theme.accent, fontWeight: '700' }}>Privacy Policy</Text>.
+              </Text>
+            ) : null}
             {!googleNeedsDateOfBirth && mode !== 'reset-password' ? (
               <Pressable
                 accessibilityRole="button"

@@ -942,7 +942,7 @@ test('server CORS allows Codespaces only when explicitly enabled', async (contex
   assert.equal((await denied.json()).error.code, 'CORS_ORIGIN_DENIED');
 });
 
-test('health endpoint does not require catalog credentials', async (context) => {
+test('health and legal pages are public without catalog credentials or sign-in', async (context) => {
   const config = loadConfig({ PORT: '4000' });
   const provider = new HttpTMDBProvider(config);
   const repository = new TMDBContentRepository(provider);
@@ -954,6 +954,14 @@ test('health endpoint does not require catalog credentials', async (context) => 
   const response = await fetch(`http://127.0.0.1:${server.address().port}/health`);
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: 'ok', service: 'geniuz-api' });
+
+  const terms = await fetch(`http://127.0.0.1:${server.address().port}/terms`);
+  assert.equal(terms.status, 200);
+  assert.match(await terms.text(), /Terms of Use[\s\S]*Flutterwave[\s\S]*\[CONTACT EMAIL\]/);
+
+  const privacy = await fetch(`http://127.0.0.1:${server.address().port}/privacy`);
+  assert.equal(privacy.status, 200);
+  assert.match(await privacy.text(), /Privacy Policy[\s\S]*Supabase[\s\S]*\[CONTACT EMAIL\]/);
 });
 
 test('membership plan price comes from backend configuration and exposes only Visitor and Member', async (context) => {

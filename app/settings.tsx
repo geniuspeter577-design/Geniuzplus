@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -30,10 +29,6 @@ import { getUnreadNotificationCount, loadNotifications } from '../src/services/N
 import { getPlayerSpeedLabel } from '../src/utils/playerControls';
 import { theme } from '../src/theme';
 import { backOrReplace } from '../src/utils/navigation';
-
-const apiBaseUrl = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
-const termsUrl = process.env.EXPO_PUBLIC_TERMS_URL?.trim() || (apiBaseUrl ? `${apiBaseUrl}/legal/terms` : undefined);
-const privacyUrl = process.env.EXPO_PUBLIC_PRIVACY_URL?.trim() || (apiBaseUrl ? `${apiBaseUrl}/legal/privacy` : undefined);
 
 type SettingsCardProps = React.PropsWithChildren<{ title: string; icon: keyof typeof Ionicons.glyphMap }>;
 
@@ -146,26 +141,6 @@ export default function SettingsScreen() {
       setError('Trailer autoplay setting could not be saved. Please try again.');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const openExternalPage = async (url: string | undefined, label: string) => {
-    if (!url) {
-      Alert.alert(label, 'Coming soon');
-      return;
-    }
-    try {
-      const parsedUrl = new URL(url);
-      if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
-        throw new Error(`${label} link must use HTTP or HTTPS.`);
-      }
-      await Linking.openURL(parsedUrl.toString());
-    } catch (openError) {
-      console.error(`[Settings] Could not open ${label.toLowerCase()} link.`, openError);
-      Alert.alert(
-        `Could not open ${label.toLowerCase()}`,
-        openError instanceof Error ? openError.message : 'Please try again.',
-      );
     }
   };
 
@@ -370,16 +345,16 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <SettingRow
             title="Terms"
-            subtitle={termsUrl ? 'Open terms of use' : 'Coming soon'}
-            onPress={() => void openExternalPage(termsUrl, 'Terms')}
-            trailing={<Ionicons name="open-outline" size={17} color={theme.secondaryText} />}
+            subtitle="Read the Terms of Use"
+            onPress={() => router.push('/terms')}
+            trailing={<Ionicons name="chevron-forward" size={17} color={theme.secondaryText} />}
           />
           <View style={styles.divider} />
           <SettingRow
             title="Privacy"
-            subtitle={privacyUrl ? 'Open privacy policy' : 'Coming soon'}
-            onPress={() => void openExternalPage(privacyUrl, 'Privacy')}
-            trailing={<Ionicons name="open-outline" size={17} color={theme.secondaryText} />}
+            subtitle="Read the Privacy Policy"
+            onPress={() => router.push('/privacy')}
+            trailing={<Ionicons name="chevron-forward" size={17} color={theme.secondaryText} />}
           />
         </SettingsCard>
 
