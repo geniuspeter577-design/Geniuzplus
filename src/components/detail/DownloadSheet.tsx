@@ -63,7 +63,7 @@ export function DownloadSheet({
     : !supported
       ? 'This video format may not play on this device.'
       : platform === 'web'
-        ? 'Offline downloads need the Geniuzplus phone app; they are not available in a browser.'
+        ? 'The browser will download the media file to your device.'
         : error ??
         (paused
           ? 'Download paused. Resume when you are ready.'

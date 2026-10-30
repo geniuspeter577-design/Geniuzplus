@@ -171,7 +171,7 @@ test('title image validation accepts JPG, PNG, and WebP up to 5 MB', () => {
   assert.equal(validateTitleImage('poster.png', 'image/png', TITLE_IMAGE_MAX_INPUT_BYTES + 1).valid, false);
 });
 
-test('download availability explains disabled, browser, unsupported, and low-storage cases', () => {
+test('download availability allows eligible browser files and explains unsupported and low-storage cases', () => {
   const defaults = {
     allowed: true,
     platform: 'android',
@@ -180,7 +180,7 @@ test('download availability explains disabled, browser, unsupported, and low-sto
     fileSize: 1000,
   };
   assert.match(getDownloadUnavailableReason({ ...defaults, allowed: false }), /turned off/);
-  assert.match(getDownloadUnavailableReason({ ...defaults, platform: 'web' }), /phone app/);
+  assert.equal(getDownloadUnavailableReason({ ...defaults, platform: 'web' }), undefined);
   assert.match(getDownloadUnavailableReason({ ...defaults, supported: false }), /format/);
   assert.match(getDownloadUnavailableReason({ ...defaults, availableBytes: 100 }), /free storage/);
   assert.equal(getDownloadUnavailableReason(defaults), undefined);
