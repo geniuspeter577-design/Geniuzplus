@@ -50,7 +50,7 @@ export function isExpiredPlaybackLinkError(error: unknown): boolean {
 
 export function getFriendlyPlaybackError(isOnline: boolean, error?: unknown): string {
   if (!isOnline) {
-    return "You're offline. Connect to the internet, or play a downloaded title.";
+    return "You're offline. Connect to the internet to watch this title, or play a downloaded title.";
   }
   const message =
     typeof error === 'string'

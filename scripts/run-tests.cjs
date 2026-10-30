@@ -25,6 +25,7 @@ const sources = [
   'src/utils/homeHero.ts',
   'src/utils/playerControls.ts',
   'src/utils/webAudioVolumeBoost.ts',
+  'src/services/ContentQueryCache.ts',
   'src/utils/keyboardScroll.ts',
   'src/utils/trailerAutoplay.ts',
   'src/utils/uploadSaveRecovery.ts',
@@ -57,6 +58,8 @@ const sources = [
   'src/services/TitleCleanupStore.ts',
   'src/services/NotificationsStore.ts',
   'src/services/TrailerAutoplayPreference.ts',
+  'src/services/ContentQueryCache.ts',
+  'src/services/cachedCatalog.ts',
   'src/utils/meScreen.ts',
 ];
 
@@ -115,6 +118,7 @@ try {
       'tests/mobile-api.test.cjs',
       'tests/playback.test.cjs',
       'tests/web-audio.test.cjs',
+      'tests/content-cache.test.cjs',
       'tests/legal.test.cjs',
       'tests/account.test.cjs',
       'tests/admin-confirm.test.cjs',

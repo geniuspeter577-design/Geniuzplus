@@ -23,7 +23,6 @@ import { FootballHomeCard } from '../../src/components/FootballHomeCard';
 import { FootballMatchesPanel } from '../../src/components/FootballMatchesPanel';
 import { HomeHeroCarousel } from '../../src/components/HomeHeroCarousel';
 import { EducationHub } from '../../src/components/EducationHub';
-import { OfflineState } from '../../src/components/OfflineState';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
 import type { ContentItem } from '../../src/models/content';
@@ -55,12 +54,16 @@ type HomeTabsNavigation = {
 
 export default function HomeScreen() {
   const { isOnline, retryConnection } = useNetwork();
-  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [canLoadSecondaryContent, setCanLoadSecondaryContent] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [shuffleSeed, setShuffleSeed] = useState(createHomeShuffleSeed);
   const [tabIndicatorLeft] = useState(() => new Animated.Value(0));
   const [tabIndicatorWidth] = useState(() => new Animated.Value(0));
   const tabLayoutsRef = useRef(new Map<string, { x: number; width: number }>());
+  useEffect(() => {
+    const timer = setTimeout(() => setCanLoadSecondaryContent(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
   const loadCatalog = useCallback(async () => {
     const catalog = await loadPublishedCatalog(
       () => {
@@ -146,7 +149,12 @@ export default function HomeScreen() {
     });
     return { data: merged, source: 'supabase' as const };
   }, []);
-  const upcomingQuery = useContentQuery('home-upcoming-movies', loadUpcomingMovies, isOnline, 'home-upcoming');
+  const upcomingQuery = useContentQuery(
+    'home-upcoming-movies',
+    loadUpcomingMovies,
+    isOnline && canLoadSecondaryContent,
+    'home-upcoming',
+  );
   const { continueWatching, isInWatchlist, toggleWatchlist } = useLibrary();
   const movies = catalogQuery.data?.movies ?? EMPTY_CONTENT_ITEMS;
   const series = catalogQuery.data?.series ?? EMPTY_CONTENT_ITEMS;
@@ -407,59 +415,7 @@ export default function HomeScreen() {
     };
   }, []));
 
-  if (!isOnline) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          ref={homeScrollRef}
-          contentContainerStyle={styles.content}
-          refreshControl={
-            <RefreshControl
-              refreshing={isCheckingConnection}
-              onRefresh={() => {
-                setIsCheckingConnection(true);
-                refreshCatalog();
-                void retryConnection().finally(() => setIsCheckingConnection(false));
-              }}
-              tintColor={theme.accent}
-              colors={[theme.accent]}
-            />
-          }
-        >
-          <View style={styles.headerRow}>
-            <View style={styles.brandGroup}>
-              <Image
-                source={require('../../assets/new-logo/logo-full-cropped.png')}
-                style={styles.brandLogo}
-                resizeMode="contain"
-              />
-            </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
-              style={styles.iconButton}
-              onPress={() => router.push('/notifications')}
-            >
-              <NotificationBell count={unreadCount} />
-            </Pressable>
-          </View>
-          {selectedCategory === 'Football' ? (
-            <FootballMatchesPanel
-              isOnline={false}
-              onRetryConnection={() => void retryConnection()}
-            />
-          ) : (
-            <OfflineState onRetry={() => {
-              refreshCatalog();
-              void retryConnection();
-            }} />
-          )}
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  const noTitles = !catalogQuery.isLoading && !catalogQuery.data?.hasFailures && !publishedItems.length;
+  const noTitles = !catalogQuery.isLoading && catalogQuery.data !== null && !catalogQuery.data?.hasFailures && !publishedItems.length;
   const catalogError = catalogQuery.error || (catalogQuery.data?.hasFailures
     ? 'Some titles could not be loaded. Please retry.'
     : undefined);
@@ -580,7 +536,7 @@ export default function HomeScreen() {
           <FootballMatchesPanel isOnline={isOnline} onRetryConnection={() => void retryConnection()} />
         ) : null}
 
-        {selectedCategory !== 'Football' && selectedCategory !== 'Education' && activeHeroItems.length ? (
+        {selectedCategory !== 'Football' && selectedCategory !== 'Education' && (activeHeroItems.length > 0 || catalogQuery.isLoading) ? (
           <HomeHeroCarousel
             items={activeHeroItems}
             isLoading={catalogQuery.isLoading}
@@ -588,7 +544,6 @@ export default function HomeScreen() {
             onToggleWatchlist={(item) => void toggleWatchlist(item)}
           />
         ) : null}
-        {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
         {noTitles && selectedCategory !== 'Football' && selectedCategory !== 'Education' ? <Text style={styles.emptyText}>Nothing here yet</Text> : null}
         {!catalogQuery.isLoading && !catalogQuery.data?.hasFailures && selectedCategory !== 'Trending' && selectedCategory !== 'Football' && selectedCategory !== 'Education' && activeCategoryItems.length === 0 ? (
           <Text style={styles.emptyText}>Nothing here yet</Text>
@@ -629,7 +584,7 @@ export default function HomeScreen() {
           <ContentRail
             title="Upcoming"
             items={upcomingQuery.data ?? EMPTY_CONTENT_ITEMS}
-            isLoading={upcomingQuery.isLoading}
+            isLoading={upcomingQuery.isLoading || !canLoadSecondaryContent}
             error={upcomingQuery.error}
             retry={upcomingQuery.retry}
             emptyMessage="No upcoming movies have been announced."
@@ -638,7 +593,7 @@ export default function HomeScreen() {
           />
         ) : null}
 
-        {selectedCategory !== 'Football' && publishedItems.length ? (
+        {selectedCategory !== 'Football' && (publishedItems.length > 0 || catalogQuery.isLoading) ? (
           categoryRows.map(({ key, title, items, isLoading, emptyMessage, listKind, listValue }) => (
             <ContentRail
               key={key}

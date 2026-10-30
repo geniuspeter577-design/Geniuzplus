@@ -4,7 +4,6 @@ import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
-import { OfflineState } from '../../src/components/OfflineState';
 import { PosterCard } from '../../src/components/PosterCard';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
@@ -18,7 +17,7 @@ import { isDemoCatalogEnabled, loadPublishedCatalog } from '../../src/utils/publ
 const demoRepository = new MockContentRepository();
 
 export default function LibraryScreen() {
-  const { isOnline, retryConnection } = useNetwork();
+  const { isOnline } = useNetwork();
   const { continueWatching, error, isLoading, retryLoad, watchlist } = useLibrary();
   const loadCatalog = useCallback(
     () =>
@@ -53,7 +52,7 @@ export default function LibraryScreen() {
       })),
     [],
   );
-  const catalogQuery = useContentQuery('library-supabase-catalog', loadCatalog, isOnline);
+  const catalogQuery = useContentQuery('library-supabase-catalog', loadCatalog, isOnline, 'home-catalog');
   const publishedIds = new Set([
     ...(catalogQuery.data?.movies ?? []).map(({ id }) => id),
     ...(catalogQuery.data?.series ?? []).map(({ id }) => id),
@@ -71,17 +70,6 @@ export default function LibraryScreen() {
     catalogQuery.retry();
   };
   const refreshing = isLoading || catalogQuery.isRefreshing;
-
-  if (!isOnline) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <OfflineState
-          onRetry={() => void retryConnection()}
-          message="Your online library is unavailable offline. Downloaded titles remain ready in My downloads."
-        />
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

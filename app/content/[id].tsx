@@ -19,8 +19,6 @@ import { backOrReplace } from '../../src/utils/navigation';
 import { Paths } from 'expo-file-system';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
-import { OfflineState } from '../../src/components/OfflineState';
-import { TitleImage } from '../../src/components/TitleImage';
 import {
   ActionChips,
   DetailSkeleton,
@@ -49,6 +47,7 @@ import { theme } from '../../src/theme';
 import { formatRuntime } from '../../src/utils/contentPresentation';
 import { getDownloadUnavailableReason } from '../../src/utils/downloadAvailability';
 import { getFileExtension, isVideoFormatLikelySupported } from '../../src/utils/videoFile';
+import { getCachedCatalogItem } from '../../src/services/cachedCatalog';
 
 export default function ContentDetailsScreen() {
   const { id: routeId } = useLocalSearchParams<{ id: string }>();
@@ -56,7 +55,7 @@ export default function ContentDetailsScreen() {
   const library = useLibrary();
   const downloads = useDownloads();
   const [webBusy, setWebBusy] = useWebBusyState(false);
-  const { isOnline, retryConnection } = useNetwork();
+  const { isOnline } = useNetwork();
   const localDownload = downloads.records.find(
     (record) => record.item.id === id && record.status === 'downloaded',
   );
@@ -64,12 +63,13 @@ export default function ContentDetailsScreen() {
     library.watchlist.find((item) => item.id === id) ??
     library.continueWatching.find((entry) => entry.item.id === id)?.item;
   const loadContent = useCallback(
-    () => {
+    async () => {
       if (!isOnline) {
-        return Promise.resolve({
-          data: localDownload?.item ?? null,
+        const cachedItem = localDownload?.item ?? fallbackItem ?? await getCachedCatalogItem(id);
+        return {
+          data: cachedItem,
           source: 'local' as const,
-        });
+        };
       }
       return /^(?:geniuz:movie:|geniuz:series:|geniuz:short:)/.test(id) && supabaseMovieRepository
         ? supabaseMovieRepository.getById(id).then((data) => ({ data, source: 'supabase' as const }))
@@ -80,9 +80,10 @@ export default function ContentDetailsScreen() {
   const content = useContentQuery<ContentItem | null>(
     `content:${id}`,
     loadContent,
-    isOnline || Boolean(localDownload),
+    true,
+    `content:${id}`,
   );
-  const media = isOnline ? content.data : localDownload?.item ?? null;
+  const media = isOnline ? content.data : localDownload?.item ?? content.data;
   const [showDownloadSheet, setShowDownloadSheet] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [activeTab, setActiveTab] = useState<'similar' | 'comments'>('similar');
@@ -220,10 +221,10 @@ export default function ContentDetailsScreen() {
     if (!isOnline) {
       return (
         <SafeAreaView style={styles.safeArea}>
-          <OfflineState
-            onRetry={() => void retryConnection()}
-            message="This title is not saved on this device. Only downloaded titles can open offline."
-          />
+          <ContentNotice message="This title has not been saved on this device." />
+          <Pressable style={styles.homeButton} onPress={() => backOrReplace('/')}>
+            <Text style={styles.homeButtonText}>Back to Geniuzplus</Text>
+          </Pressable>
         </SafeAreaView>
       );
     }
@@ -269,6 +270,10 @@ export default function ContentDetailsScreen() {
     }
   };
   const handleDownload = () => {
+    if (!isOnline && !isDownloaded && !isDownloading && !isQueued) {
+      Alert.alert('Connect to the internet', 'Connect to the internet to download this title.');
+      return;
+    }
     if (isDownloadPaused) {
       void downloads.resume(media.id).catch((error: unknown) =>
         Alert.alert('Download error', error instanceof Error ? error.message : 'Could not resume this download.'),
@@ -296,29 +301,6 @@ export default function ContentDetailsScreen() {
       ),
     );
   };
-
-  if (!isOnline) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Pressable onPress={() => backOrReplace('/')} style={styles.homeButton}>
-            <Text style={styles.homeButtonText}>‹  Back</Text>
-          </Pressable>
-          <TitleImage uri={media.posterUrl} style={styles.offlinePoster} />
-          <Text style={styles.offlineTitle}>{media.title}</Text>
-          <Text style={styles.offlineDescription}>
-            {media.description || 'No description is available for this title.'}
-          </Text>
-          {localDownload ? (
-            <Pressable onPress={playTitle} style={styles.homeButton}>
-              <Text style={styles.homeButtonText}>Play downloaded title</Text>
-            </Pressable>
-          ) : null}
-          <OfflineState onRetry={() => void retryConnection()} />
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>

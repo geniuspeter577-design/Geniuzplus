@@ -28,13 +28,20 @@ export default function RootLayout() {
   // useGlobalAndroidBackNavigation();
 
   useEffect(() => {
-    prewarmContentApi();
+    let prewarmTimer = setTimeout(prewarmContentApi, 1800);
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        prewarmContentApi();
+        clearTimeout(prewarmTimer);
+        prewarmTimer = setTimeout(prewarmContentApi, 1800);
       }
     });
-    return () => subscription.remove();
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker.register('/service-worker.js').catch(() => undefined);
+    }
+    return () => {
+      clearTimeout(prewarmTimer);
+      subscription.remove();
+    };
   }, []);
 
   return (

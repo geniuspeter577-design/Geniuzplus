@@ -9,6 +9,7 @@ type TitleImages = {
 type CatalogImages = {
   movies?: TitleImages[] | undefined;
   series?: TitleImages[] | undefined;
+  shorts?: TitleImages[] | undefined;
 } | null | undefined;
 
 const requested = new Set<string>();
@@ -35,6 +36,7 @@ export function preloadTitleImages(catalog: CatalogImages) {
   };
   take(catalog.movies);
   take(catalog.series);
+  take(catalog.shorts);
 
   const worker = async () => {
     for (let url = queue.shift(); url; url = queue.shift()) {

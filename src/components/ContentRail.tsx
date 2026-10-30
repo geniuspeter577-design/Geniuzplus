@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { ContentItem } from '../models/content';
 import { theme } from '../theme';
@@ -34,7 +34,6 @@ export function ContentRail({
   return (
     <>
       <SectionHeader title={title} onSeeAll={onSeeAll} />
-      {isLoading ? <ContentNotice message={`Loading ${title.toLowerCase()}…`} /> : null}
       {error ? (
         <ContentNotice
           message={error}
@@ -48,7 +47,9 @@ export function ContentRail({
         <Text style={styles.emptyText}>{emptyMessage}</Text>
       ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rowList}>
-        {items.map((item) => (
+        {isLoading && items.length === 0 ? Array.from({ length: 5 }, (_, index) => (
+          <View key={`poster-placeholder-${index}`} style={styles.posterPlaceholder} />
+        )) : items.map((item) => (
           <PosterCard
             key={item.id}
             item={item}
@@ -68,6 +69,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     marginBottom: 4,
+  },
+  posterPlaceholder: {
+    width: 176,
+    height: 240,
+    marginRight: 14,
+    borderRadius: 8,
+    backgroundColor: theme.surfaceAlt,
   },
   rowList: {
     paddingRight: 18,

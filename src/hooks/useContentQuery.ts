@@ -1,7 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { ContentQueryResult } from '../models/content';
+import {
+  readContentQueryCache,
+  writeContentQueryCache,
+  type CachedContentEntry,
+} from '../services/ContentQueryCache';
 import { getFriendlyCatalogErrorMessage } from '../utils/contentError';
 
 export type ContentQueryState<T> = {
@@ -19,36 +23,6 @@ type InternalQueryState<T> = Omit<ContentQueryState<T>, 'retry' | 'isLoading' | 
   attempt: number;
   isFetching: boolean;
 };
-
-type CachedEntry<T> = { data: T; source: ContentQueryState<T>['source'] };
-
-const CACHE_PREFIX = 'geniuzplus:content-cache:v1:';
-const MAX_CACHE_CHARS = 1_500_000;
-
-async function readCache<T>(cacheKey: string): Promise<CachedEntry<T> | null> {
-  try {
-    const raw = await AsyncStorage.getItem(CACHE_PREFIX + cacheKey);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw) as CachedEntry<T>;
-    return parsed && parsed.data ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-async function writeCache<T>(cacheKey: string, entry: CachedEntry<T>) {
-  try {
-    const raw = JSON.stringify(entry);
-    if (raw.length > MAX_CACHE_CHARS) {
-      return;
-    }
-    await AsyncStorage.setItem(CACHE_PREFIX + cacheKey, raw);
-  } catch {
-    // Saving is a bonus. Never break the screen because of it.
-  }
-}
 
 function hasFailures(data: unknown) {
   return Boolean((data as { hasFailures?: boolean } | null)?.hasFailures);
@@ -72,23 +46,30 @@ export function useContentQuery<T>(
     attempt: -1,
     isFetching: false,
   });
-  const saved = useRef<CachedEntry<T> | null>(null);
+  const [hydratedCacheKeys, setHydratedCacheKeys] = useState<Set<string>>(() => new Set());
+  const saved = useRef<CachedContentEntry<T> | null>(null);
 
   useEffect(() => {
     if (!cacheKey) {
       return undefined;
     }
     let active = true;
-    void readCache<T>(cacheKey).then((cached) => {
-      if (!active || !cached) {
+    void readContentQueryCache<T>(cacheKey).then((cached) => {
+      if (!active) {
         return;
       }
-      saved.current = cached;
-      setState((current) =>
-        current.queryKey === queryKey && current.data !== null
-          ? current
-          : { queryKey, attempt: -1, data: cached.data, source: cached.source, isFetching: false },
-      );
+      if (cached) {
+        saved.current = cached;
+        setState((current) =>
+          current.queryKey === queryKey && current.data !== null
+            ? current
+            : { queryKey, attempt: -1, data: cached.data, source: cached.source, isFetching: false },
+        );
+      }
+    }).finally(() => {
+      if (active) {
+        setHydratedCacheKeys((current) => current.has(cacheKey) ? current : new Set(current).add(cacheKey));
+      }
     });
     return () => {
       active = false;
@@ -140,9 +121,9 @@ export function useContentQuery<T>(
           ...(result.warning ? { warning: result.warning } : {}),
         });
         if (cacheKey && result.source !== 'mock' && !hasFailures(result.data) && !isDemo(result.data)) {
-          const entry: CachedEntry<T> = { data: result.data, source: result.source };
+          const entry: CachedContentEntry<T> = { data: result.data, source: result.source };
           saved.current = entry;
-          void writeCache(cacheKey, entry);
+          void writeContentQueryCache(cacheKey, entry);
         }
       })
       .catch((error: unknown) => {
@@ -168,13 +149,14 @@ export function useContentQuery<T>(
   const queryMatchesRequest = queryMatchesKey && state.attempt === attempt;
   const isFetching =
     enabled && (!queryMatchesRequest || (queryMatchesRequest && state.isFetching));
+  const isHydratingCache = Boolean(cacheKey && !hydratedCacheKeys.has(cacheKey));
 
   return {
     data: queryMatchesKey ? state.data : null,
     source: queryMatchesKey ? state.source : null,
     warning: queryMatchesRequest ? state.warning : undefined,
     error: queryMatchesRequest ? state.error : undefined,
-    isLoading: enabled && (!queryMatchesKey || (state.data === null && isFetching)),
+    isLoading: isHydratingCache || (enabled && (!queryMatchesKey || (state.data === null && isFetching))),
     isRefreshing: queryMatchesKey && isFetching && state.data !== null,
     retry,
   };

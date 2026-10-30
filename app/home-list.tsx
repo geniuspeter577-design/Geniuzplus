@@ -27,6 +27,8 @@ import { useLibrary } from '../src/state/LibraryContext';
 import { theme } from '../src/theme';
 import { backOrReplace } from '../src/utils/navigation';
 import { getRankedHomeListItems } from '../src/utils/homeList';
+import { getCachedPublishedTitlesPage } from '../src/services/cachedCatalog';
+import { useNetwork } from '../src/state/NetworkContext';
 
 const PAGE_SIZE = 24;
 
@@ -91,6 +93,7 @@ export default function HomeListScreen() {
   const value = Array.isArray(params.value) ? params.value[0] : params.value;
   const titleParam = Array.isArray(params.title) ? params.title[0] : params.title;
   const filter = useMemo(() => getPublishedFilter(kind, value), [kind, value]);
+  const { isOnline } = useNetwork();
   const isContinueWatching = kind === 'continue-watching';
   const { continueWatching, isLoading: isLibraryLoading } = useLibrary();
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -131,7 +134,11 @@ export default function HomeListScreen() {
         pageItems = page.map(({ item }) => item);
         pageHasMore = offset + page.length < entries.length;
       } else {
-        if (kind === 'upcoming') {
+        if (!isOnline) {
+          const cachedPage = await getCachedPublishedTitlesPage(filter!, offset, PAGE_SIZE);
+          pageItems = cachedPage?.items ?? [];
+          pageHasMore = cachedPage?.hasMore ?? false;
+        } else if (kind === 'upcoming') {
           pageItems = await loadUpcomingList();
           pageHasMore = false;
         } else {
@@ -158,7 +165,7 @@ export default function HomeListScreen() {
       setIsLoadingMore(false);
       setIsRefreshing(false);
     }
-  }, [continueWatching, filter, isContinueWatching]);
+  }, [continueWatching, filter, isContinueWatching, isOnline, kind]);
 
   useEffect(() => {
     if (isContinueWatching && isLibraryLoading) {
@@ -225,7 +232,13 @@ export default function HomeListScreen() {
           <ContentNotice message={error} tone="error" actionLabel="Retry" onAction={retry} />
         ) : null}
         ListEmptyComponent={isLoading ? (
-          <ContentNotice message={`Loading ${screenTitle.toLowerCase()}…`} />
+          <View style={styles.placeholderGrid}>
+            {Array.from({ length: 6 }, (_, index) => (
+              <View key={`title-placeholder-${index}`} style={styles.placeholderCell}>
+                <View style={styles.posterPlaceholder} />
+              </View>
+            ))}
+          </View>
         ) : error ? (
           <ContentNotice message={error} tone="error" actionLabel="Retry" onAction={retry} />
         ) : (
@@ -257,5 +270,8 @@ const styles = StyleSheet.create({
   listContent: { flexGrow: 1, paddingHorizontal: 18, paddingBottom: 28, gap: 12 },
   gridRow: { gap: 12 },
   gridCell: { flex: 1 },
+  placeholderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  placeholderCell: { width: '48%' },
+  posterPlaceholder: { width: '100%', height: 300, borderRadius: 8, backgroundColor: theme.surfaceAlt },
   footer: { paddingVertical: 18 },
 });

@@ -4,11 +4,9 @@ import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
-  Text,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -16,7 +14,6 @@ import {
 
 import type { ContentItem } from '../models/content';
 import { theme } from '../theme';
-import { formatGenres, formatRating } from '../utils/contentPresentation';
 import { TitleImage } from './TitleImage';
 
 export function HomeHeroCarousel({
@@ -57,12 +54,11 @@ export function HomeHeroCarousel({
     setActiveIndex(Math.max(0, Math.min(items.length - 1, Math.round(event.nativeEvent.contentOffset.x / width))));
   };
 
-  if (isLoading) {
+  if (isLoading && !items.length) {
     return (
       <View style={[styles.outer, { height }]}>
         <View style={[styles.skeleton, { height }]}>
-          <ActivityIndicator color={theme.accent} />
-          <Text style={styles.skeletonText}>Loading new titles…</Text>
+          <Ionicons name="film-outline" size={42} color={theme.secondaryText} />
         </View>
       </View>
     );
@@ -150,7 +146,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
   },
-  skeletonText: { color: theme.secondaryText, fontSize: 13, fontWeight: '600' },
   image: { width: '100%', height: '100%' },
   bottomGradient: {
     position: 'absolute',

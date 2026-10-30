@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
 import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../../src/components/KeyboardAwareScrollView';
-import { OfflineState } from '../../src/components/OfflineState';
 import { TitleImage } from '../../src/components/TitleImage';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
 import { MockContentRepository } from '../../src/repositories/MockContentRepository';
@@ -32,7 +31,7 @@ import {
 const demoRepository = new MockContentRepository();
 
 export default function SearchScreen() {
-  const { isOnline, retryConnection } = useNetwork();
+  const { isOnline } = useNetwork();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('All');
@@ -82,7 +81,7 @@ export default function SearchScreen() {
     }
     return { data: { ...catalog, showingDemo: false }, source: 'supabase' as const };
   }, []);
-  const catalogQuery = useContentQuery('search-supabase-catalog', loadCatalog, isOnline);
+  const catalogQuery = useContentQuery('search-supabase-catalog', loadCatalog, isOnline, 'home-catalog');
   const catalogItems = useMemo(
     () => sortPublishedNewest([
       ...(catalogQuery.data?.movies ?? []),
@@ -121,14 +120,6 @@ export default function SearchScreen() {
     [activeTab, typeIds, visibleItems],
   );
   const spotlightItems = useMemo(() => catalogItems.slice(0, 6), [catalogItems]);
-
-  if (!isOnline) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <OfflineState onRetry={() => void retryConnection()} />
-      </SafeAreaView>
-    );
-  }
 
   const showRank = !debouncedQuery;
   const cardWidth = Math.round(screenWidth * 0.78);
@@ -233,7 +224,6 @@ export default function SearchScreen() {
         {catalogQuery.data?.showingDemo ? (
           <ContentNotice message="Demo catalog — search results are sample content." />
         ) : null}
-        {catalogQuery.isLoading ? <ContentNotice message="Loading published titles…" /> : null}
 
         {showSpotlight ? (
           <View>
@@ -281,6 +271,17 @@ export default function SearchScreen() {
           <Text style={styles.sectionTitle}>{debouncedQuery ? 'Results' : 'Newest titles'}</Text>
           {tabItems.length ? <Text style={styles.sectionCount}>{tabItems.length} titles</Text> : null}
         </View>
+
+        {catalogQuery.isLoading && tabItems.length === 0 ? Array.from({ length: 5 }, (_, index) => (
+          <View key={`search-placeholder-${index}`} style={styles.row}>
+            <View style={[styles.posterWrap, styles.placeholderPoster]} />
+            <View style={styles.placeholderInfo}>
+              <View style={styles.placeholderTitle} />
+              <View style={styles.placeholderMeta} />
+              <View style={styles.placeholderType} />
+            </View>
+          </View>
+        )) : null}
 
         {!catalogQuery.isLoading && !hasError && tabItems.length === 0 ? (
           <ContentNotice message={catalogItems.length ? 'No results' : 'No titles yet'} />
@@ -383,6 +384,11 @@ const styles = StyleSheet.create({
   typePillText: { color: theme.secondaryText, fontSize: 10, fontWeight: '700' },
   row: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', marginBottom: 12, padding: 12 },
   posterWrap: { height: 90, width: 64 },
+  placeholderPoster: { borderRadius: 8, backgroundColor: theme.surfaceAlt },
+  placeholderInfo: { flex: 1, gap: 9, marginLeft: 14, marginRight: 8 },
+  placeholderTitle: { height: 13, borderRadius: 6, backgroundColor: theme.surfaceAlt, width: '72%' },
+  placeholderMeta: { height: 10, borderRadius: 5, backgroundColor: theme.surfaceAlt, width: '48%' },
+  placeholderType: { height: 18, borderRadius: 6, backgroundColor: theme.surfaceAlt, width: 54 },
   posterClip: { backgroundColor: theme.surfaceAlt, borderRadius: 14, height: '100%', overflow: 'hidden', width: '100%' },
   fillImage: { height: '100%', width: '100%' },
   rankBadge: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', left: -4, position: 'absolute', top: -4, width: 22 },
