@@ -426,6 +426,21 @@ test('creator dashboard and withdrawal controls use the live ledger and guarded 
   assert.match(adminRoute, /rpc\('mark_manual_withdrawal_paid'/);
 });
 
+test('Reel uploads persist scheduled publication time, clean partial uploads, and keep phone-audio preview', () => {
+  const migration = fs.readFileSync('supabase/migrations/20261102000500_reel_publish_schedule.sql', 'utf8');
+  const repository = fs.readFileSync('src/services/ReelsRepository.ts', 'utf8');
+  const createScreen = fs.readFileSync('app/reels/create.tsx', 'utf8');
+
+  assert.match(migration, /add column if not exists publish_at timestamptz not null default now\(\)/i);
+  assert.match(repository, /publish_at: computePublishAt\(scheduleOnUpload\.choice\)/);
+  assert.match(repository, /publish_at=lte\./);
+  assert.match(repository, /selected audio upload failed/);
+  assert.match(repository, /uploadedPaths\.map[\s\S]*method: 'DELETE'/);
+  assert.match(createScreen, /DocumentPicker\.getDocumentAsync\(\{ type: 'audio\/\*'/);
+  assert.match(createScreen, /<VideoView player=\{player\}/);
+  assert.match(createScreen, /onPress=\{\(\) => setStep\('settings'\)\}/);
+});
+
 test('manual movie conversion workflow is dispatch-only, read-only permissioned, and references secrets by name', () => {
   const workflow = fs.readFileSync(
     path.join(process.cwd(), '.github/workflows/convert-movie.yml'),

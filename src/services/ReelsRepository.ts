@@ -17,6 +17,7 @@ type ReelRow = {
   created_at: string;
   edits: ReelEdits | null;
   boosted_until?: string | null;
+  publish_at?: string | null;
 };
 
 type CreatorRow = {
@@ -102,13 +103,14 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   const hiddenIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_HIDDEN_KEY) ?? '[]') as string[]);
   const interestedIds = new Set(JSON.parse(await AsyncStorage.getItem(REEL_INTEREST_KEY) ?? '[]') as string[]);
   const creatorFilter = creatorId ? `&user_id=eq.${creatorId}` : '';
-  const reelColumns = 'id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at,edits,boosted_until';
-  const recentReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
+  const reelColumns = 'id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at,edits,boosted_until,publish_at';
+  const nowIso = encodeURIComponent(new Date().toISOString());
+  const publishFilter = `&publish_at=lte.${nowIso}`;
+  const recentReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&publish_at=lte.${nowIso}&order=created_at.desc&limit=${creatorId ? 30 : 10}${creatorFilter}`);
   let boostedReels: ReelRow[] = [];
   if (!creatorId) {
     try {
-      const nowIso = new Date().toISOString();
-      boostedReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&visibility=eq.public&boosted_until=gt.${encodeURIComponent(nowIso)}&order=boosted_until.desc&limit=5`);
+      boostedReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&visibility=eq.public&boosted_until=gt.${nowIso}${publishFilter}&order=boosted_until.desc&limit=5`);
     } catch {
       boostedReels = [];
     }
@@ -343,24 +345,27 @@ export async function uploadReel(
   const path = `${userId}/${reelId}/${filename}`;
   const file = new File(asset.uri);
   const headers = await getRequestHeaders(asset.mimeType ?? 'video/mp4');
-  const uploadResult = await file.upload(`${getBaseUrl()}/storage/v1/object/reels/${path}`, {
-    httpMethod: 'POST',
-    headers,
-    mimeType: asset.mimeType ?? 'video/mp4',
-    onProgress: ({ bytesSent, totalBytes }) => {
-      if (totalBytes > 0) {
-        onProgress(Math.min(99, Math.round((bytesSent / totalBytes) * 100)));
-      }
-    },
-  });
-  if (uploadResult.status < 200 || uploadResult.status >= 300) {
-    throw new Error(uploadResult.body || 'The Reel video could not be uploaded.');
-  }
   let finalEdits: ReelEdits | null = input.edits ?? null;
-  if (input.audio) {
-    try {
+  const uploadedPaths = [path];
+  try {
+    const uploadResult = await file.upload(`${getBaseUrl()}/storage/v1/object/reels/${path}`, {
+      httpMethod: 'POST',
+      headers,
+      mimeType: asset.mimeType ?? 'video/mp4',
+      onProgress: ({ bytesSent, totalBytes }) => {
+        if (totalBytes > 0) {
+          onProgress(Math.min(99, Math.round((bytesSent / totalBytes) * 100)));
+        }
+      },
+    });
+    if (uploadResult.status < 200 || uploadResult.status >= 300) {
+      throw new Error(uploadResult.body?.slice(0, 240) || `The Reel video upload failed (${uploadResult.status}).`);
+    }
+
+    if (input.audio) {
       const audioName = (input.audio.name ?? 'audio').replace(/[^a-zA-Z0-9._-]/g, '_');
       const audioPath = `${userId}/${reelId}/audio_${audioName}`;
+      uploadedPaths.push(audioPath);
       const audioMime = input.audio.mimeType ?? 'audio/mpeg';
       const audioHeaders = await getRequestHeaders(audioMime);
       const audioResult = await new File(input.audio.uri).upload(`${getBaseUrl()}/storage/v1/object/reels/${audioPath}`, {
@@ -368,14 +373,12 @@ export async function uploadReel(
         headers: audioHeaders,
         mimeType: audioMime,
       });
-      if (audioResult.status >= 200 && audioResult.status < 300) {
-        finalEdits = { ...(finalEdits ?? {}), audioPath };
+      if (audioResult.status < 200 || audioResult.status >= 300) {
+        throw new Error(audioResult.body?.slice(0, 240) || `The selected audio upload failed (${audioResult.status}).`);
       }
-    } catch {
-      // the Reel is still posted, without the audio
+      finalEdits = { ...(finalEdits ?? {}), audioPath };
     }
-  }
-  try {
+
     await request('/rest/v1/reels', {
       method: 'POST',
       headers: { Prefer: 'return=minimal' },
@@ -391,7 +394,12 @@ export async function uploadReel(
       }),
     });
   } catch (error) {
-    await fetch(`${getBaseUrl()}/storage/v1/object/reels/${path}`, { method: 'DELETE', headers });
+    await Promise.all(uploadedPaths.map(async (uploadedPath) => {
+      await fetch(`${getBaseUrl()}/storage/v1/object/reels/${uploadedPath}`, {
+        method: 'DELETE',
+        headers,
+      }).catch(() => undefined);
+    }));
     throw error;
   }
   if (playlistOnUpload.enabled) {
