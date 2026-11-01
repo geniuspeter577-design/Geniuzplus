@@ -4,12 +4,14 @@ import { Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
+import { OfflineBadge } from '../../src/components/OfflineBadge';
 import { PosterCard } from '../../src/components/PosterCard';
 import { SectionHeader } from '../../src/components/SectionHeader';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
 import { MockContentRepository } from '../../src/repositories/MockContentRepository';
 import { supabaseMovieRepository } from '../../src/repositories/SupabaseMovieRepository';
 import { useLibrary } from '../../src/state/LibraryContext';
+import { useDownloads } from '../../src/state/DownloadsContext';
 import { useNetwork } from '../../src/state/NetworkContext';
 import { theme } from '../../src/theme';
 import { isDemoCatalogEnabled, loadPublishedCatalog } from '../../src/utils/publishedCatalog';
@@ -19,6 +21,8 @@ const demoRepository = new MockContentRepository();
 export default function LibraryScreen() {
   const { isOnline } = useNetwork();
   const { continueWatching, error, isLoading, retryLoad, watchlist } = useLibrary();
+  const { records } = useDownloads();
+  const offlineCount = records.filter((record) => record.status === 'downloaded').length;
   const loadCatalog = useCallback(
     () =>
       loadPublishedCatalog(
@@ -98,7 +102,7 @@ export default function LibraryScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Offline</Text>
-            <Text style={styles.summaryValue}>0</Text>
+            <Text style={styles.summaryValue}>{offlineCount}</Text>
           </View>
         </View>
 
@@ -127,6 +131,7 @@ export default function LibraryScreen() {
               key={item.id}
               item={item}
               compact
+              offline={!isOnline}
               onPress={() => router.push({ pathname: '/content/[id]', params: { id: item.id } })}
             />
           ))}
@@ -156,6 +161,7 @@ export default function LibraryScreen() {
             <View style={styles.rowInfo}>
               <Text style={styles.rowTitle}>{entry.item.title}</Text>
               <Text style={styles.rowMeta}>{entry.item.type} • {entry.progress}% complete</Text>
+              {!isOnline ? <OfflineBadge compact /> : null}
               <View style={styles.rowProgressTrack}>
                 <View style={[styles.rowProgressFill, { width: `${entry.progress}%` }]} />
               </View>

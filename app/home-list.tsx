@@ -252,6 +252,7 @@ export default function HomeListScreen() {
               grid
               fillContainer
               rank={entry.rank}
+              offline={!isOnline}
               onPress={() => router.push({ pathname: '/content/[id]', params: { id: entry.item.id } })}
             />
           </View>

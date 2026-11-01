@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../../src/components/ContentNotice';
+import { OfflineBadge } from '../../src/components/OfflineBadge';
 import { KeyboardAwareScrollView, KeyboardAwareTextInput } from '../../src/components/KeyboardAwareScrollView';
 import { TitleImage } from '../../src/components/TitleImage';
 import { useContentQuery } from '../../src/hooks/useContentQuery';
@@ -248,6 +249,7 @@ export default function SearchScreen() {
                 >
                   <View style={styles.spotPoster}>
                     <TitleImage uri={item.posterUrl} style={styles.fillImage} />
+                    {!isOnline ? <View style={styles.offlineSpotBadge}><OfflineBadge compact /></View> : null}
                   </View>
                   <View style={styles.spotInfo}>
                     <View style={styles.typePill}>
@@ -322,6 +324,7 @@ export default function SearchScreen() {
                 <View style={styles.typePill}>
                   <Text style={styles.typePillText}>{TYPE_LABEL[item.type] ?? item.type}</Text>
                 </View>
+                {!isOnline ? <OfflineBadge compact /> : null}
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.secondaryText} />
             </Pressable>
@@ -376,6 +379,7 @@ const styles = StyleSheet.create({
   carousel: { gap: 12, paddingHorizontal: 18 },
   spotCard: { backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 24, borderWidth: 1, flexDirection: 'row', padding: 12 },
   spotPoster: { backgroundColor: theme.surfaceAlt, borderRadius: 14, height: 110, overflow: 'hidden', width: 80 },
+  offlineSpotBadge: { left: 4, position: 'absolute', top: 4 },
   spotInfo: { flex: 1, justifyContent: 'center', marginLeft: 12 },
   spotTitle: { color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 4 },
   spotDesc: { color: theme.secondaryText, fontSize: 11, lineHeight: 15, marginTop: 4 },

@@ -10,6 +10,12 @@ const homeList = fs.readFileSync('app/home-list.tsx', 'utf8');
 const details = fs.readFileSync('app/content/[id].tsx', 'utf8');
 const playbackError = fs.readFileSync('src/utils/playbackError.ts', 'utf8');
 const downloadContext = fs.readFileSync('src/state/DownloadsContext.tsx', 'utf8');
+const offlineBadge = fs.readFileSync('src/components/OfflineBadge.tsx', 'utf8');
+const offlineBanner = fs.readFileSync('src/components/OfflineBanner.tsx', 'utf8');
+const contentRail = fs.readFileSync('src/components/ContentRail.tsx', 'utf8');
+const posterCard = fs.readFileSync('src/components/PosterCard.tsx', 'utf8');
+const heroCarousel = fs.readFileSync('src/components/HomeHeroCarousel.tsx', 'utf8');
+const library = fs.readFileSync('app/(tabs)/library.tsx', 'utf8');
 
 test('catalog cache uses device storage and Cache Storage on web', () => {
   assert.match(cache, /AsyncStorage\.getItem/);
@@ -42,4 +48,16 @@ test('Home and Search share the same saved catalog and remain rendered offline',
   assert.doesNotMatch(details, /<OfflineState/);
   assert.match(playbackError, /Connect to the internet to watch/);
   assert.match(downloadContext, /Connect to the internet to prepare this download/);
+});
+
+test('cached catalog slides and rows are labeled offline without claiming downloads are required for browsing', () => {
+  assert.match(home, /offline=\{!isOnline\}/);
+  assert.match(contentRail, /offline=\{offline\}/);
+  assert.match(posterCard, /offline \? <OfflineBadge compact \/>/);
+  assert.match(heroCarousel, /offline \? <View pointerEvents="none" style=\{styles\.offlineLabel\}><OfflineBadge \/><\/View>/);
+  assert.match(search, /offlineSpotBadge/);
+  assert.match(library, /offline=\{!isOnline\}/);
+  assert.match(offlineBadge, /cloud-offline-outline/);
+  assert.match(offlineBanner, /saved catalog is available/);
+  assert.doesNotMatch(offlineBanner, /only downloaded titles are available/);
 });

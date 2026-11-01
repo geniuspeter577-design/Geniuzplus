@@ -13,7 +13,7 @@ export function OfflineBanner() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Text style={styles.text}>You&apos;re offline - only downloaded titles are available</Text>
+      <Text style={styles.text}>Offline - Your saved catalog is available</Text>
     </SafeAreaView>
   );
 }

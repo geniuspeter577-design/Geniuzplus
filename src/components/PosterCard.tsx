@@ -6,6 +6,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ContentItem } from '../models/content';
 import { CategoryLabels } from './CategoryPicker';
 import { TitleImage } from './TitleImage';
+import { OfflineBadge } from './OfflineBadge';
 import { useDownloads } from '../state/DownloadsContext';
 import { theme } from '../theme';
 import { formatRuntime } from '../utils/contentPresentation';
@@ -19,9 +20,10 @@ type PosterCardProps = {
   rank?: number;
   progress?: number;
   showReleaseDate?: boolean;
+  offline?: boolean;
 };
 
-export function PosterCard({ item, onPress, compact = false, grid = false, fillContainer = false, rank, progress, showReleaseDate = false }: PosterCardProps) {
+export function PosterCard({ item, onPress, compact = false, grid = false, fillContainer = false, rank, progress, showReleaseDate = false, offline = false }: PosterCardProps) {
   const { records, download, cancel } = useDownloads();
   const downloadRecord = records.find((record) => record.item.id === item.id);
   const isDownloading = downloadRecord?.status === 'downloading';
@@ -68,6 +70,7 @@ export function PosterCard({ item, onPress, compact = false, grid = false, fillC
               ? `${item.releaseDate <= new Date().toISOString().slice(0, 10) ? 'Out' : 'Coming'} ${new Date(`${item.releaseDate}T00:00:00Z`).toLocaleDateString()}`
               : `${item.year ?? '—'}`}
           </Text>
+          {offline ? <OfflineBadge compact /> : null}
         </LinearGradient>
         {typeof progress === 'number' ? (
           <View style={styles.progressTrack}>

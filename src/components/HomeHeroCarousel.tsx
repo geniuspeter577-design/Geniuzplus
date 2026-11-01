@@ -15,6 +15,7 @@ import {
 import type { ContentItem } from '../models/content';
 import { theme } from '../theme';
 import { TitleImage } from './TitleImage';
+import { OfflineBadge } from './OfflineBadge';
 
 export function HomeHeroCarousel({
   items,
@@ -94,6 +95,7 @@ export function HomeHeroCarousel({
         end={{ x: 0.5, y: 1 }}
         style={styles.bottomGradient}
       />
+      {offline ? <View pointerEvents="none" style={styles.offlineLabel}><OfflineBadge /></View> : null}
     </View>
   );
 
@@ -154,6 +156,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: '38%',
   },
+  offlineLabel: { position: 'absolute', top: 14, left: 18 },
   meta: { position: 'absolute', left: 20, right: 20, bottom: 20 },
   newBadge: {
     alignSelf: 'flex-start',

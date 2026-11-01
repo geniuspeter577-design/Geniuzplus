@@ -540,6 +540,7 @@ export default function HomeScreen() {
           <HomeHeroCarousel
             items={activeHeroItems}
             isLoading={catalogQuery.isLoading}
+            offline={!isOnline}
             isInWatchlist={isInWatchlist}
             onToggleWatchlist={(item) => void toggleWatchlist(item)}
           />
@@ -589,6 +590,7 @@ export default function HomeScreen() {
             retry={upcomingQuery.retry}
             emptyMessage="No upcoming movies have been announced."
             showReleaseDate
+            offline={!isOnline}
             onSeeAll={() => router.push({ pathname: '/home-list', params: { kind: 'upcoming', title: 'Upcoming' } })}
           />
         ) : null}
@@ -602,6 +604,7 @@ export default function HomeScreen() {
               isLoading={isLoading}
               retry={refreshCatalog}
               emptyMessage={emptyMessage}
+              offline={!isOnline}
               onSeeAll={() => router.push({
                 pathname: '/home-list',
                 params: {
