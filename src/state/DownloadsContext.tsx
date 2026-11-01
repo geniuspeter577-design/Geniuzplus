@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ensureBackgroundDownloadPermission } from '../utils/backgroundDownloadPermission';
 import { useStudyMode } from './StudyModeContext';
+import { getOfflineUrl, listOffline, removeFromOffline, saveToOffline } from '../utils/webOfflineStore';
 
 const STUDY_DOWNLOADS_KEY = 'geniuz.study.downloads';
 import { DownloadTask, File, Paths } from 'expo-file-system';
 import { Alert, Linking, Platform } from 'react-native';
-import { webDownload } from '../utils/webDownload';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import type { ContentItem } from '../models/content';
@@ -17,6 +17,29 @@ import {
   OfflineDownloadService,
   type OfflineDownloadRecord,
 } from '../services/OfflineDownloadService';
+async function loadBrowserDownloadRecords(): Promise<OfflineDownloadRecord[]> {
+  const saved = await listOffline();
+  const restored = await Promise.all(saved.map(async (entry) => {
+    if (!entry.item) {
+      return null;
+    }
+    const filePath = await getOfflineUrl(entry.id);
+    if (!filePath) {
+      await removeFromOffline(entry.id);
+      return null;
+    }
+    return {
+      item: entry.item,
+      filePath,
+      origin: 'download' as const,
+      size: entry.size,
+      status: 'downloaded' as const,
+      progress: 100,
+      date: new Date(entry.savedAt).toISOString(),
+    };
+  }));
+  return restored.flatMap((record) => record === null ? [] : [record]);
+}
 
 function showBackgroundDownloadPermissionPrompt() {
   return new Promise<boolean>((resolve) => {
@@ -168,6 +191,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   const auth = useAuth();
   const network = useNetwork();
   const [records, setRecords] = useState<OfflineDownloadRecord[]>([]);
+  const browserControllersRef = useRef(new Map<string, AbortController>());
   const study = useStudyMode();
   const studyEnabledRef = useRef(study.enabled);
   studyEnabledRef.current = study.enabled;
@@ -219,6 +243,26 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   }, [auth.session, network.isReady, network.isWifi]);
 
   useEffect(() => {
+    const browserControllers = browserControllersRef.current;
+    if (Platform.OS === 'web') {
+      let active = true;
+      void loadBrowserDownloadRecords()
+        .then((browserRecords) => {
+          if (active) setRecords(browserRecords);
+        })
+        .catch((loadError: unknown) => {
+          console.error('[Downloads] Could not load browser downloads.', loadError);
+          if (active) setError('Browser downloads could not be loaded from this site storage.');
+        })
+        .finally(() => {
+          if (active) setIsLoading(false);
+        });
+      return () => {
+        active = false;
+        for (const controller of browserControllers.values()) controller.abort();
+        browserControllers.clear();
+      };
+    }
     const unsubscribe = service.subscribe(setRecords);
     let active = true;
     void service
@@ -271,6 +315,9 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   recordsRef.current = records;
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
     if (!network.isReady) {
       return;
     }
@@ -301,7 +348,49 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
         return;
       }
       markStudy([item.id]);
-      if (Platform.OS === 'web') { await webDownload(item); return; }
+      if (Platform.OS === 'web') {
+        const existing = recordsRef.current.find((record) => record.item.id === item.id);
+        if (existing?.status === 'downloaded') return;
+        if (browserControllersRef.current.has(item.id)) throw new Error('This title is already downloading.');
+        const size = item.fileSizeBytes;
+        if (!Number.isSafeInteger(size) || !size || size <= 0) {
+          throw new Error('This title has no verified file size. Reopen it while online and retry.');
+        }
+        const controller = new AbortController();
+        browserControllersRef.current.set(item.id, controller);
+        const record: OfflineDownloadRecord = {
+          item, filePath: '', size, status: 'downloading', progress: 0, date: new Date().toISOString(),
+        };
+        setRecords((current) => [record, ...current.filter((entry) => entry.item.id !== item.id)]);
+        try {
+          const estimate = await navigator.storage?.estimate?.();
+          if (estimate?.quota && Number.isFinite(estimate.usage) && estimate.quota - (estimate.usage ?? 0) < size) {
+            throw new Error('There may not be enough browser storage for this video. Clear site storage and retry.');
+          }
+          if (!supabaseMovieRepository) throw new Error('Downloads are not configured.');
+          const url = await supabaseMovieRepository.getDownloadUrl(item);
+          await saveToOffline(item, url, (progress) => {
+            setRecords((current) => current.map((entry) =>
+              entry.item.id === item.id && entry.status === 'downloading'
+                ? { ...entry, progress: Math.min(99, progress) }
+                : entry,
+            ));
+          }, controller.signal);
+          const filePath = await getOfflineUrl(item.id);
+          if (!filePath) throw new Error('The saved browser download could not be opened.');
+          setRecords((current) => current.map((entry) => entry.item.id === item.id
+            ? { ...entry, filePath, size, status: 'downloaded', progress: 100 }
+            : entry));
+        } catch (browserError) {
+          setRecords((current) => current.map((entry) => entry.item.id === item.id
+            ? { ...entry, filePath: '', status: controller.signal.aborted ? 'canceled' : 'failed', progress: 0 }
+            : entry));
+          if (!controller.signal.aborted) throw browserError;
+        } finally {
+          browserControllersRef.current.delete(item.id);
+        }
+        return;
+      }
       await service.download(item);
     } catch (downloadError) {
       console.error('[Downloads] Could not download this title.', downloadError);
@@ -313,6 +402,16 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   const cancel = useCallback(async (itemId: string) => {
     setError(undefined);
     try {
+      if (Platform.OS === 'web') {
+        browserControllersRef.current.get(itemId)?.abort();
+        await removeFromOffline(itemId);
+        setRecords((current) => current.map((record) =>
+          record.item.id === itemId && record.status !== 'downloaded'
+            ? { ...record, filePath: '', status: 'canceled', progress: 0 }
+            : record,
+        ));
+        return;
+      }
       await service.cancel(itemId);
     } catch (cancelError) {
       console.error('[Downloads] Could not cancel this download.', cancelError);
@@ -324,12 +423,15 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   const downloadSequentially = useCallback(async (items: readonly ContentItem[]) => {
     setError(undefined);
     try {
+      if (Platform.OS === 'web') {
+        for (const entry of items) await download(entry);
+        return;
+      }
       await enforceWifiPreference();
       if (!(await requestBackgroundDownloadPermission())) {
         return;
       }
       markStudy(items.map((entry) => entry.id));
-      if (Platform.OS === 'web') { for (const entry of items) { await webDownload(entry); } return; }
       await service.downloadSequentially(items);
     } catch (queueError) {
       console.error('[Downloads] Could not complete the queued downloads.');
@@ -340,7 +442,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       );
       throw queueError;
     }
-  }, [enforceWifiPreference, markStudy]);
+  }, [download, enforceWifiPreference, markStudy]);
 
   const registerReceived = useCallback(async (item: ContentItem, filePath: string, size: number) => {
     setError(undefined);
@@ -360,6 +462,13 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
   const remove = useCallback(async (itemId: string) => {
     setError(undefined);
     try {
+      if (Platform.OS === 'web') {
+        browserControllersRef.current.get(itemId)?.abort();
+        await removeFromOffline(itemId);
+        setRecords((current) => current.filter((record) => record.item.id !== itemId));
+        saveStudyIds(studyIdsRef.current.filter((id) => id !== itemId));
+        return;
+      }
       await service.delete(itemId);
       saveStudyIds(studyIdsRef.current.filter((id) => id !== itemId));
     } catch (deleteError) {
@@ -367,7 +476,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       setError('The downloaded file could not be deleted. Please try again.');
       throw deleteError;
     }
-  }, []);
+  }, [saveStudyIds]);
 
   const dismissError = useCallback(() => setError(undefined), []);
 
@@ -375,7 +484,11 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setIsRefreshing(true);
     setError(undefined);
     try {
-      await service.load();
+      if (Platform.OS === 'web') {
+        setRecords(await loadBrowserDownloadRecords());
+      } else {
+        await service.load();
+      }
     } catch (loadError) {
       console.error('[Downloads] Could not refresh saved downloads.', loadError);
       setError('Saved downloads could not be refreshed. Check device storage and retry.');

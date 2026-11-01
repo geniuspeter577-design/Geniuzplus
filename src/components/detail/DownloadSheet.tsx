@@ -63,7 +63,7 @@ export function DownloadSheet({
     : !supported
       ? 'This video format may not play on this device.'
       : platform === 'web'
-        ? 'The browser will download the media file to your device.'
+        ? 'Saved in this browser for offline playback. Browser storage may be cleared.'
         : error ??
         (paused
           ? 'Download paused. Resume when you are ready.'

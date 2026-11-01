@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -195,10 +196,10 @@ export default function DownloadsScreen() {
   const showMenu = (record: OfflineDownloadRecord) => {
     const buttons = [
       { text: 'Details', onPress: () => showDownloadDetails(record) },
-      ...(record.status === 'downloading'
+      ...(Platform.OS !== 'web' && record.status === 'downloading'
         ? [{ text: 'Pause', onPress: () => runAction(() => pause(record.item.id), 'Download error', 'Could not pause this download.') }]
         : []),
-      ...(record.status === 'paused'
+      ...(Platform.OS !== 'web' && record.status === 'paused'
         ? [{
             text: 'Resume',
             onPress: () => runAction(() => resume(record.item.id), 'Download error', 'Could not resume this download.'),

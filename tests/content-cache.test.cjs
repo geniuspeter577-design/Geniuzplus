@@ -16,6 +16,11 @@ const contentRail = fs.readFileSync('src/components/ContentRail.tsx', 'utf8');
 const posterCard = fs.readFileSync('src/components/PosterCard.tsx', 'utf8');
 const heroCarousel = fs.readFileSync('src/components/HomeHeroCarousel.tsx', 'utf8');
 const library = fs.readFileSync('app/(tabs)/library.tsx', 'utf8');
+const webOfflineStore = fs.readFileSync('src/utils/webOfflineStore.ts', 'utf8');
+const downloads = fs.readFileSync('src/state/DownloadsContext.tsx', 'utf8');
+const downloadsScreen = fs.readFileSync('app/(tabs)/downloads.tsx', 'utf8');
+const watchScreen = fs.readFileSync('app/watch/[id].tsx', 'utf8');
+const downloadSheet = fs.readFileSync('src/components/detail/DownloadSheet.tsx', 'utf8');
 
 test('catalog cache uses device storage and Cache Storage on web', () => {
   assert.match(cache, /AsyncStorage\.getItem/);
@@ -60,4 +65,17 @@ test('cached catalog slides and rows are labeled offline without claiming downlo
   assert.match(offlineBadge, /cloud-offline-outline/);
   assert.match(offlineBanner, /saved catalog is available/);
   assert.doesNotMatch(offlineBanner, /only downloaded titles are available/);
+});
+
+test('web downloads persist with title metadata, reappear in Downloads, and feed offline playback', () => {
+  assert.match(webOfflineStore, /indexedDB\.open\(DB_NAME/);
+  assert.match(webOfflineStore, /meta: WebOfflineMeta = \{ id: item\.id, title: item\.title, item/);
+  assert.match(webOfflineStore, /URL\.createObjectURL/);
+  assert.match(downloads, /Platform\.OS === 'web'[\s\S]*saveToOffline\(item, url/);
+  assert.match(downloads, /loadBrowserDownloadRecords\(\)/);
+  assert.match(downloads, /getOfflineUrl\(item\.id\)/);
+  assert.match(downloadsScreen, /visibleRecords\.map/);
+  assert.match(downloadsScreen, /Platform\.OS !== 'web' && record\.status/);
+  assert.match(watchScreen, /setPlaybackUrl\(localDownload\.filePath\)/);
+  assert.match(downloadSheet, /Saved in this browser for offline playback/);
 });
