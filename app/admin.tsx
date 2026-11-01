@@ -2978,13 +2978,7 @@ export default function AdminScreen() {
 
             {room === 'withdrawals' ? <WithdrawalsPanel /> : null}
 
-            {room === 'users' ? (
-              <>
-            <View style={styles.card}>
-              <UsersPanel />
-            </View>
-              </>
-            ) : null}
+            {room === 'users' ? <UsersPanel /> : null}
             {room === 'catalog' ? (
               <>
             {!moviesLoading && !moviesError && movies.length === 0 ? (
