@@ -352,6 +352,27 @@ test('published movie query columns are declared by project migrations', () => {
   }
 });
 
+test('season notifications wait for a published episode, deduplicate per season, and include every token plus the series poster', () => {
+  const migration = fs.readFileSync(
+    path.join(process.cwd(), 'supabase/migrations/20261102000300_new_season_notifications.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /create table if not exists public\.season_notification_announcements\s*\([\s\S]*season_id uuid primary key/i);
+  assert.match(migration, /create trigger seasons_published_notification after insert or update of published on public\.seasons/i);
+  assert.match(migration, /create trigger episodes_season_published_notification after insert or update of published, season_id on public\.episodes/i);
+  assert.match(migration, /if tg_op = 'UPDATE' and old\.published is true then\s+return new;/i);
+  assert.match(migration, /on conflict \(season_id\) do nothing/i);
+  assert.match(migration, /and exists \([\s\S]*from public\.episodes as episode[\s\S]*episode\.published is true/i);
+  assert.match(migration, /insert into public\.season_notification_announcements \(season_id\)\s+select season\.id[\s\S]*from public\.seasons as season[\s\S]*season\.published is true[\s\S]*episode\.published is true/i);
+  assert.match(migration, /select expo_push_token from public\.device_push_tokens\s+union\s+select expo_push_token from public\.guest_push_tokens/i);
+  assert.match(migration, /add column if not exists expo_push_token text[\s\S]*add column if not exists image_url text/i);
+  assert.match(migration, /series\.title, series\.poster_url\s+into target_series_id, target_season_number, series_title, series_poster/i);
+  assert.match(migration, /target_token\.expo_push_token, series_poster/i);
+  assert.match(migration, /to_regprocedure\('public\.register_guest_push_token\(text\)'\) is null/i);
+  assert.doesNotMatch(migration, /drop table|drop function|drop trigger|truncate/i);
+});
+
 test('manual movie conversion workflow is dispatch-only, read-only permissioned, and references secrets by name', () => {
   const workflow = fs.readFileSync(
     path.join(process.cwd(), '.github/workflows/convert-movie.yml'),
