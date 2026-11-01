@@ -1,0 +1,27 @@
+name: Deploy backend to Render
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        shell: bash
+        run: |
+          if [[ -z "$RENDER_DEPLOY_HOOK" ]]; then
+            echo "Add the RENDER_DEPLOY_HOOK repository secret before running this workflow." >&2
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error \
+            --max-time 30 \
+            --request POST \
+            "$RENDER_DEPLOY_HOOK"

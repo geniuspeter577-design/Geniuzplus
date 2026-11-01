@@ -3,6 +3,7 @@ services:
     name: geniuz-backend
     runtime: node
     plan: free
+    autoDeploy: false
     rootDir: backend
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run start

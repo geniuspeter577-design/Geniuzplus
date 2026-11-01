@@ -4,6 +4,8 @@
 
 Deploy from the repository root using the included `render.yaml` Blueprint. It creates a Node web service rooted at `backend/`, builds only the standalone backend package, and runs it on Render's assigned `PORT`. Alternatively, create a Render Web Service with root directory `backend`, build command `npm ci --include=dev && npm run build`, and start command `npm run start`.
 
+Backend deploys are manual. The Render Blueprint sets `autoDeploy: false`; add the service's Deploy Hook URL as the GitHub repository secret `RENDER_DEPLOY_HOOK`. To deploy, open **Actions**, select **Deploy backend to Render**, and choose **Run workflow** on `main`. The workflow has no push trigger and refuses to deploy from other branches.
+
 In the Render dashboard, add these backend environment variables. Use the exact names shown; never add their values to the Expo app environment:
 
 - Required for signed playback and admin uploads: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`, and `CORS_ORIGIN`.
