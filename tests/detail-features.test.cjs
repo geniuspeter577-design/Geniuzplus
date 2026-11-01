@@ -181,6 +181,7 @@ test('download availability allows eligible browser files and explains unsupport
   };
   assert.match(getDownloadUnavailableReason({ ...defaults, allowed: false }), /turned off/);
   assert.equal(getDownloadUnavailableReason({ ...defaults, platform: 'web' }), undefined);
+  assert.equal(getDownloadUnavailableReason({ ...defaults, platform: 'web', availableBytes: Number.POSITIVE_INFINITY }), undefined);
   assert.match(getDownloadUnavailableReason({ ...defaults, supported: false }), /format/);
   assert.match(getDownloadUnavailableReason({ ...defaults, availableBytes: 100 }), /free storage/);
   assert.equal(getDownloadUnavailableReason(defaults), undefined);

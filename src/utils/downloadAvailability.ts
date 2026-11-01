@@ -20,7 +20,7 @@ export function getDownloadUnavailableReason({
   if (typeof fileSize !== 'number' || !Number.isFinite(fileSize) || fileSize <= 0) {
     return 'The video size is unavailable. Reopen this title while online and retry.';
   }
-  if (!Number.isFinite(availableBytes) || availableBytes < fileSize) {
+  if (platform !== 'web' && (!Number.isFinite(availableBytes) || availableBytes < fileSize)) {
     return 'There is not enough free storage for this download. Free up space and try again.';
   }
   return undefined;
