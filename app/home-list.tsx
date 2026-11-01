@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import {
   ActivityIndicator,
   FlatList,
@@ -29,6 +30,7 @@ import { backOrReplace } from '../src/utils/navigation';
 import { getRankedHomeListItems } from '../src/utils/homeList';
 import { getCachedPublishedTitlesPage } from '../src/services/cachedCatalog';
 import { useNetwork } from '../src/state/NetworkContext';
+import { useWindowDimensions } from '../src/hooks/useColumnWindow';
 
 const PAGE_SIZE = 24;
 
@@ -94,6 +96,8 @@ export default function HomeListScreen() {
   const titleParam = Array.isArray(params.title) ? params.title[0] : params.title;
   const filter = useMemo(() => getPublishedFilter(kind, value), [kind, value]);
   const { isOnline } = useNetwork();
+  const { width } = useWindowDimensions();
+  const numColumns = Platform.OS === 'web' && width >= 1150 ? 4 : Platform.OS === 'web' && width >= 768 ? 3 : 2;
   const isContinueWatching = kind === 'continue-watching';
   const { continueWatching, isLoading: isLibraryLoading } = useLibrary();
   const [items, setItems] = useState<ContentItem[]>([]);
@@ -213,8 +217,9 @@ export default function HomeListScreen() {
       </View>
       <FlatList
         data={rankedItems}
+        key={`title-grid-${numColumns}`}
         keyExtractor={({ item }) => item.id}
-        numColumns={2}
+        numColumns={numColumns}
         columnWrapperStyle={styles.gridRow}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -268,7 +273,7 @@ const styles = StyleSheet.create({
   backButton: { minHeight: 42, alignSelf: 'flex-start', justifyContent: 'center', paddingRight: 12 },
   backText: { color: theme.accent, fontSize: 15, fontWeight: '700' },
   title: { color: theme.text, fontSize: 25, fontWeight: '800' },
-  listContent: { flexGrow: 1, paddingHorizontal: 18, paddingBottom: 28, gap: 12 },
+  listContent: { alignSelf: 'center', flexGrow: 1, maxWidth: 1440, paddingHorizontal: 18, paddingBottom: 28, gap: 12, width: '100%' },
   gridRow: { gap: 12 },
   gridCell: { flex: 1 },
   placeholderGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

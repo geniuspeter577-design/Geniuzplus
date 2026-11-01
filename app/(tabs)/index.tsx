@@ -623,7 +623,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.background },
-  content: { paddingHorizontal: 18, paddingBottom: 30 },
+  content: { alignSelf: 'center', maxWidth: 1440, paddingHorizontal: 18, paddingBottom: 30, width: '100%' },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

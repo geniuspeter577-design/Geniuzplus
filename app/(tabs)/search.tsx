@@ -123,7 +123,9 @@ export default function SearchScreen() {
   const spotlightItems = useMemo(() => catalogItems.slice(0, 6), [catalogItems]);
 
   const showRank = !debouncedQuery;
-  const cardWidth = Math.round(screenWidth * 0.78);
+  const cardWidth = screenWidth < 768
+    ? Math.round(screenWidth * 0.78)
+    : Math.min(640, Math.round(screenWidth * 0.6));
   const runSearch = () => {
     Keyboard.dismiss();
     setDebouncedQuery(query.trim());
@@ -355,7 +357,7 @@ function rankColor(rank: number) {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.background },
-  content: { paddingHorizontal: 18, paddingBottom: 30 },
+  content: { alignSelf: 'center', maxWidth: 1280, paddingHorizontal: 18, paddingBottom: 30, width: '100%' },
   header: { color: theme.text, fontSize: 30, fontWeight: '800', marginTop: 18, marginBottom: 16, letterSpacing: -0.9 },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   searchBox: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 23, borderWidth: 1, flex: 1, flexDirection: 'row', gap: 8, minHeight: 46, paddingHorizontal: 14 },

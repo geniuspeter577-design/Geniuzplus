@@ -183,8 +183,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.background,
   },
   content: {
+    alignSelf: 'center',
+    maxWidth: 1240,
     paddingHorizontal: 18,
     paddingBottom: 30,
+    width: '100%',
   },
   header: {
     color: theme.text,

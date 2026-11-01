@@ -21,6 +21,7 @@ const downloads = fs.readFileSync('src/state/DownloadsContext.tsx', 'utf8');
 const downloadsScreen = fs.readFileSync('app/(tabs)/downloads.tsx', 'utf8');
 const watchScreen = fs.readFileSync('app/watch/[id].tsx', 'utf8');
 const downloadSheet = fs.readFileSync('src/components/detail/DownloadSheet.tsx', 'utf8');
+const columnWindow = fs.readFileSync('src/hooks/useColumnWindow.ts', 'utf8');
 
 test('catalog cache uses device storage and Cache Storage on web', () => {
   assert.match(cache, /AsyncStorage\.getItem/);
@@ -78,4 +79,12 @@ test('web downloads persist with title metadata, reappear in Downloads, and feed
   assert.match(downloadsScreen, /Platform\.OS !== 'web' && record\.status/);
   assert.match(watchScreen, /setPlaybackUrl\(localDownload\.filePath\)/);
   assert.match(downloadSheet, /Saved in this browser for offline playback/);
+});
+
+test('web laptop layouts expand while the phone-width cap remains unchanged', () => {
+  assert.match(columnWindow, /dimensions\.width < 768/);
+  assert.match(columnWindow, /Math\.min\(dimensions\.width, WEB_COLUMN_MAX_WIDTH\)/);
+  assert.match(columnWindow, /WEB_DESKTOP_MAX_WIDTH = 1440/);
+  assert.match(homeList, /Platform\.OS === 'web' && width >= 1150 \? 4 : Platform\.OS === 'web' && width >= 768 \? 3 : 2/);
+  assert.match(search, /screenWidth < 768[\s\S]*Math\.min\(640/);
 });

@@ -1,11 +1,15 @@
 ﻿import { Platform, useWindowDimensions as useRNWindowDimensions } from 'react-native';
 
 export const WEB_COLUMN_MAX_WIDTH = 480;
+export const WEB_DESKTOP_MAX_WIDTH = 1440;
 
 export function useWindowDimensions() {
   const dimensions = useRNWindowDimensions();
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' && dimensions.width < 768) {
     return { ...dimensions, width: Math.min(dimensions.width, WEB_COLUMN_MAX_WIDTH) };
+  }
+  if (Platform.OS === 'web') {
+    return { ...dimensions, width: Math.min(dimensions.width, WEB_DESKTOP_MAX_WIDTH) };
   }
   return dimensions;
 }
