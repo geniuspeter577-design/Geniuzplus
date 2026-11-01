@@ -373,6 +373,58 @@ test('season notifications wait for a published episode, deduplicate per season,
   assert.doesNotMatch(migration, /drop table|drop function|drop trigger|truncate/i);
 });
 
+test('creator earnings migration times unique views on the server and makes promo credits and manual payouts atomic', () => {
+  const migration = fs.readFileSync(
+    path.join(process.cwd(), 'supabase/migrations/20261102000400_creator_earnings_manual_withdrawals.sql'),
+    'utf8',
+  );
+
+  assert.match(migration, /create table if not exists public\.reel_qualified_views[\s\S]*primary key \(reel_id, viewer_id\)/i);
+  assert.match(migration, /if not found or creator_id = auth\.uid\(\) then\s+return;/i);
+  assert.match(migration, /membership\.status = 'active'[\s\S]*membership\.current_period_end > now\(\)/i);
+  assert.match(migration, /old_view\.watched_seconds >= 10[\s\S]*return;/i);
+  assert.match(migration, /now\(\) - interval '15 seconds'[\s\S]*now\(\) - interval '5 seconds'/i);
+  assert.match(migration, /create or replace function public\.record_reel_watch\(p_reel_id uuid, p_watched_seconds integer\)[\s\S]*record_reel_watch_session\(p_reel_id\)/i);
+  assert.match(migration, /setting\.views_per_credit/i);
+  assert.match(migration, /qualified_view_count < views_per_credit or mod\(qualified_view_count, views_per_credit\) <> 0/i);
+  assert.match(migration, /'launch-v2:' \|\| new\.reel_id::text \|\| ':' \|\| credit_block::text/i);
+  assert.doesNotMatch(migration, /credit_key := 'launch:'\s*\|\|/i);
+  assert.match(migration, /drop trigger if exists credit_launch_views_trg on public\.reel_views/i);
+  assert.doesNotMatch(migration, /drop trigger if exists (?!credit_launch_views_trg)/i);
+  assert.doesNotMatch(migration, /insert into public\.reel_qualified_views\s*\([^;]*?\)\s*select[^;]*?from public\.reel_views/i);
+  assert.match(migration, /values \(new\.creator_id, new\.reel_id, credit_key, 0\.01/i);
+  assert.match(migration, /revoke execute on function public\.record_creator_earning\(uuid, uuid, text, numeric, text\) from service_role/i);
+  assert.match(migration, /request_manual_withdrawal\(p_user_id uuid, p_amount_usd numeric\)/i);
+  assert.match(migration, /create or replace function public\.check_withdrawal_eligibility\(\)/i);
+  assert.match(migration, /new\.amount_usd < 5[\s\S]*BELOW_MINIMUM_5_USD/i);
+  assert.match(migration, /public\.reel_views as old_view[\s\S]*public\.reel_qualified_views as qualified_view[\s\S]*promo_min_views/i);
+  assert.match(migration, /reel\.visibility = 'public'/i);
+  assert.match(migration, /PROMO_MIN_VIEWS_NOT_MET/i);
+  assert.match(migration, /creator_bank_details where user_id = p_user_id/i);
+  assert.match(migration, /mark_manual_withdrawal_paid[\s\S]*withdrawal_paid/i);
+  assert.match(migration, /alter publication supabase_realtime add table public\.creator_earnings/i);
+});
+
+test('creator dashboard and withdrawal controls use the live ledger and guarded backend routes', () => {
+  const feed = fs.readFileSync('src/components/ShortsFeed.tsx', 'utf8');
+  const repository = fs.readFileSync('src/services/ReelsRepository.ts', 'utf8');
+  const earningsScreen = fs.readFileSync('app/creator/earnings.tsx', 'utf8');
+  const withdrawalPanel = fs.readFileSync('src/components/creator/WithdrawPanel.tsx', 'utf8');
+  const adminPanel = fs.readFileSync('src/components/admin/WithdrawalsPanel.tsx', 'utf8');
+  const withdrawalRoute = fs.readFileSync('backend/src/http/creatorWithdrawals.ts', 'utf8');
+  const adminRoute = fs.readFileSync('backend/src/http/adminWithdrawals.ts', 'utf8');
+
+  assert.match(feed, /recordReelWatch\(item\.id\)/);
+  assert.match(repository, /body: JSON\.stringify\(\{ p_reel_id: reelId \}\)/);
+  assert.doesNotMatch(repository, /p_watched_seconds/);
+  assert.match(earningsScreen, /table: 'creator_earnings'/);
+  assert.match(earningsScreen, /table: 'creator_withdrawals'/);
+  assert.match(withdrawalPanel, /await onRequested\(\)/);
+  assert.match(withdrawalRoute, /rpc\('request_manual_withdrawal'/);
+  assert.match(adminPanel, /disabled=\{busyId === item\.id \|\| !item\.bank\}/);
+  assert.match(adminRoute, /rpc\('mark_manual_withdrawal_paid'/);
+});
+
 test('manual movie conversion workflow is dispatch-only, read-only permissioned, and references secrets by name', () => {
   const workflow = fs.readFileSync(
     path.join(process.cwd(), '.github/workflows/convert-movie.yml'),

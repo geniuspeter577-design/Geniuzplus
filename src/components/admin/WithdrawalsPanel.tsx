@@ -112,9 +112,9 @@ export function WithdrawalsPanel() {
             style={{ color: C.text, borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, marginTop: 6 }}
           />
           <Pressable
-            disabled={busyId === item.id}
+            disabled={busyId === item.id || !item.bank}
             onPress={() => void markPaid(item)}
-            style={{ padding: 14, borderRadius: 12, backgroundColor: busyId === item.id ? C.border : C.green }}
+            style={{ padding: 14, borderRadius: 12, backgroundColor: busyId === item.id || !item.bank ? C.border : C.green }}
           >
             <Text style={{ color: C.dark, textAlign: 'center', fontWeight: '700' }}>{busyId === item.id ? 'Saving…' : 'Mark as paid'}</Text>
           </Pressable>

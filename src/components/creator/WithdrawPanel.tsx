@@ -9,15 +9,14 @@ function money(value: number) {
   return '$' + value.toFixed(2);
 }
 
-export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
+export function WithdrawPanel({ availableUsd, onRequested }: { availableUsd: number; onRequested: () => Promise<void> }) {
   const [amount, setAmount] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
-  const [requested, setRequested] = useState(0);
   const [message, setMessage] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
 
-  const left = Math.max(0, Math.round((availableUsd - requested) * 100) / 100);
+  const left = Math.max(0, Math.round(availableUsd * 100) / 100);
 
   const submit = async () => {
     setError(undefined);
@@ -59,10 +58,10 @@ export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
       if (!response.ok) {
         throw new Error(body?.message ?? body?.error?.message ?? 'The withdrawal could not be requested. Try again.');
       }
-      setRequested((current) => current + value);
       setAmount('');
       setPassword('');
-      setMessage(body?.message ?? 'Your withdrawal was received. Payment arrives within 48 hours.');
+      setMessage(body?.message ?? 'Your withdrawal was received. Payouts are made on the 28th of each month.');
+      await onRequested();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'The withdrawal could not be requested. Try again.');
     } finally {
@@ -76,7 +75,7 @@ export function WithdrawPanel({ availableUsd }: { availableUsd: number }) {
       <Text style={{ color: C.muted }}>AVAILABLE</Text>
       <Text style={{ color: C.green, fontSize: 28, fontWeight: '700' }}>{money(left)}</Text>
       <Text style={{ color: C.muted }}>
-        Minimum $5. Add your payout details first. After you request, payment arrives within 48 hours.
+        Minimum $5. Add your payout details first. Payouts are made on the 28th of each month.
       </Text>
       <TextInput
         value={amount}

@@ -404,13 +404,13 @@ export async function uploadReel(
   onProgress(100);
 }
 
-export async function recordReelWatch(reelId: string, watchedSeconds: number) {
+export async function recordReelWatch(reelId: string) {
   if (!supabase) {
     return;
   }
   await request('/rest/v1/rpc/record_reel_watch', {
     method: 'POST',
-    body: JSON.stringify({ p_reel_id: reelId, p_watched_seconds: Math.min(30, Math.max(1, Math.floor(watchedSeconds))) }),
+    body: JSON.stringify({ p_reel_id: reelId }),
   });
 }
 

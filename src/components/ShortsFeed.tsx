@@ -74,7 +74,6 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   const [menuActions, setMenuActions] = useState<{ text: string; style?: string | undefined; onPress?: (() => void) | undefined }[] | null>(null);
   const [captionDraft, setCaptionDraft] = useState(item.caption);
   const [busy, setBusy] = useState(false);
-  const lastReportedInterval = useRef(0);
   const lastTapRef = useRef(0);
   const finishedRef = useRef(onFinished);
   finishedRef.current = onFinished;
@@ -177,16 +176,27 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   }, [isActive, item.id, item.videoUrl, player]);
 
   useEffect(() => {
+    let hasStartedWatch = false;
+    let lastObservedTime = 0;
+    let lastRecordedTime = 0;
     const timeSubscription = player.addListener('timeUpdate', ({ currentTime }) => {
       const duration = player.duration;
       if (duration > 0) {
         setProgress(Math.min(100, currentTime / duration * 100));
       }
-      const watchedInterval = Math.floor(currentTime / 20);
-      if (isActive && !isLegacy && watchedInterval > lastReportedInterval.current) {
-        lastReportedInterval.current = watchedInterval;
-        void recordReelWatch(item.id, 20).catch(() => undefined);
+      if (currentTime < lastObservedTime - 0.5) {
+        lastRecordedTime = currentTime;
+      } else if (isActive && !isLegacy && currentTime > lastObservedTime + 0.5) {
+        if (!hasStartedWatch) {
+          hasStartedWatch = true;
+          lastRecordedTime = currentTime;
+          void recordReelWatch(item.id).catch(() => undefined);
+        } else if (currentTime - lastRecordedTime >= 10) {
+          lastRecordedTime = currentTime;
+          void recordReelWatch(item.id).catch(() => undefined);
+        }
       }
+      lastObservedTime = currentTime;
     });
     return () => timeSubscription.remove();
   }, [isActive, isLegacy, item.id, player]);

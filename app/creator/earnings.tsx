@@ -8,6 +8,7 @@ import { CREATOR_ELIGIBILITY } from '../../src/config/creatorEarnings';
 import { PayoutDetailsForm } from '../../src/components/creator/PayoutDetailsForm';
 import { WithdrawPanel } from '../../src/components/creator/WithdrawPanel';
 import { loadCreatorCounts, loadCreatorEarnings, loadCreatorEarningsSummary, loadCreatorWithdrawals, type CreatorEarningsRow } from '../../src/services/ReelsRepository';
+import { supabase } from '../../src/services/supabase';
 import { useAuth } from '../../src/state/AuthContext';
 import { useMembership } from '../../src/hooks/useMembership';
 import { theme } from '../../src/theme';
@@ -80,6 +81,26 @@ export default function CreatorEarningsScreen() {
     return () => clearTimeout(timer);
   }, [loadData]);
 
+  React.useEffect(() => {
+    const userId = auth.session?.user.id;
+    if (!supabase || !userId || !hasActiveMembership) {
+      return undefined;
+    }
+    const client = supabase as unknown as {
+      channel: (name: string) => any;
+      removeChannel: (channel: unknown) => unknown;
+    };
+    const channel = client.channel(`creator-wallet-${userId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'creator_earnings', filter: `user_id=eq.${userId}`,
+      }, () => void loadData())
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'creator_withdrawals', filter: `user_id=eq.${userId}`,
+      }, () => void loadData())
+      .subscribe();
+    return () => { void client.removeChannel(channel); };
+  }, [auth.session?.user.id, hasActiveMembership, loadData]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -139,7 +160,7 @@ export default function CreatorEarningsScreen() {
           ) : null}
           {section === 'history' ? <Ledger title="Earnings history" rows={earnings.map((row) => ({ id: row.id, amount: Number(row.amount_usd), label: row.description, date: row.created_at }))} empty="No earnings have been recorded." /> : null}
           {section === 'payout' ? <PayoutDetailsForm /> : null}
-          {section === 'withdraw' ? <WithdrawPanel availableUsd={summary ? summary.availableUsd : 0} /> : null}
+          {section === 'withdraw' ? <WithdrawPanel availableUsd={summary ? summary.availableUsd : 0} onRequested={loadData} /> : null}
           {section === 'withdrawals' ? <Ledger title="Withdrawal history" rows={withdrawals.map((row) => ({ id: row.id, amount: Number(row.amount_usd), label: row.status, date: row.created_at }))} empty="No withdrawals have been recorded." /> : null}
         </ScrollView>
       ) : null}

@@ -37,6 +37,6 @@ export async function requestCreatorWithdrawal(config: Config, userId: string, a
   return {
     ok: true,
     id: data as string,
-    message: 'Your withdrawal was received. Payment arrives within 48 hours.',
+    message: 'Your withdrawal was received. Payouts are made on the 28th of each month.',
   };
 }

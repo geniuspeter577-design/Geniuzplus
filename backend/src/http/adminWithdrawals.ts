@@ -53,28 +53,19 @@ export async function markWithdrawalPaid(config: Config, actingUserId: string, i
     throw new HttpError(400, 'INVALID_REFERENCE', 'Enter the Flutterwave payment reference.');
   }
   const admin = adminClient(config);
-  const { data, error } = await admin
-    .from('creator_withdrawals')
-    .update({ status: 'paid', provider_reference: ref, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .eq('status', 'pending')
-    .select('id,user_id,amount_usd')
-    .maybeSingle();
-  if (error) {
-    throw new HttpError(502, 'MARK_PAID_FAILED', 'The withdrawal could not be marked as paid.');
-  }
-  if (!data) {
-    throw new HttpError(409, 'NOT_PENDING', 'This withdrawal is not pending. It may already be paid.');
-  }
-  const { error: auditError } = await admin.from('creator_monetisation_audit').insert({
-    user_id: data.user_id,
-    action: 'withdrawal_paid',
-    reference_id: data.id,
-    amount_usd: data.amount_usd,
-    details: { adminUserId: actingUserId, reference: ref },
+  const { error } = await admin.rpc('mark_manual_withdrawal_paid', {
+    p_withdrawal_id: id,
+    p_admin_user_id: actingUserId,
+    p_provider_reference: ref,
   });
-  if (auditError) {
-    throw new HttpError(503, 'AUDIT_FAILED', 'Marked as paid, but the audit record failed.');
+  if (error) {
+    if (String(error.message ?? '').includes('NOT_PENDING')) {
+      throw new HttpError(409, 'NOT_PENDING', 'This withdrawal is not pending. It may already be paid.');
+    }
+    if (String(error.message ?? '').includes('PAYOUT_DETAILS_REQUIRED')) {
+      throw new HttpError(409, 'PAYOUT_DETAILS_REQUIRED', 'The creator must add payout details before payment.');
+    }
+    throw new HttpError(502, 'MARK_PAID_FAILED', 'The withdrawal could not be marked as paid.');
   }
   return { ok: true };
 }
