@@ -1,9 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ensureBackgroundDownloadPermission } from '../utils/backgroundDownloadPermission';
 import { useStudyMode } from './StudyModeContext';
 
 const STUDY_DOWNLOADS_KEY = 'geniuz.study.downloads';
 import { DownloadTask, File, Paths } from 'expo-file-system';
-import { Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import { webDownload } from '../utils/webDownload';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
@@ -16,6 +17,82 @@ import {
   OfflineDownloadService,
   type OfflineDownloadRecord,
 } from '../services/OfflineDownloadService';
+
+function showBackgroundDownloadPermissionPrompt() {
+  return new Promise<boolean>((resolve) => {
+    let resolved = false;
+    const finish = (allowed: boolean) => {
+      if (!resolved) {
+        resolved = true;
+        resolve(allowed);
+      }
+    };
+    Alert.alert(
+      'Allow background downloads',
+      'Allow notifications so Geniuzplus can use alerts for background download activity. This permission does not keep the app running, and your phone may still pause downloads to save battery.',
+      [
+        { text: 'Not now', style: 'cancel', onPress: () => finish(false) },
+        { text: 'Allow', onPress: () => finish(true) },
+      ],
+      { cancelable: true, onDismiss: () => finish(false) },
+    );
+  });
+}
+
+function showBackgroundDownloadSettingsPrompt() {
+  return new Promise<void>((resolve) => {
+    let resolved = false;
+    const finish = () => {
+      if (!resolved) {
+        resolved = true;
+        resolve();
+      }
+    };
+    Alert.alert(
+      'Notifications are blocked',
+      'Allow notifications in your phone settings before starting a background download.',
+      [
+        { text: 'Not now', style: 'cancel', onPress: finish },
+        {
+          text: 'Open settings',
+          onPress: () => {
+            void Linking.openSettings().catch(() => undefined).finally(finish);
+          },
+        },
+      ],
+      { cancelable: true, onDismiss: finish },
+    );
+  });
+}
+
+async function requestBackgroundDownloadPermission() {
+  if (Platform.OS === 'web') {
+    return true;
+  }
+  const Notifications = await import('expo-notifications');
+  const allowed = await ensureBackgroundDownloadPermission({
+    getPermission: async () => {
+      const permission = await Notifications.getPermissionsAsync();
+      return { granted: permission.granted, canAskAgain: permission.canAskAgain };
+    },
+    requestPermission: async () => {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'Geniuzplus updates',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+      }
+      const permission = await Notifications.requestPermissionsAsync();
+      return { granted: permission.granted, canAskAgain: permission.canAskAgain };
+    },
+    showPermissionPrompt: showBackgroundDownloadPermissionPrompt,
+    showSettingsPrompt: showBackgroundDownloadSettingsPrompt,
+  });
+  if (!allowed) {
+    return false;
+  }
+  return true;
+}
 
 function getSafeFileName(item: ContentItem) {
   const sourceId = (item.sourceId ?? item.id).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -178,6 +255,9 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setError(undefined);
     try {
       await enforceWifiPreference();
+      if (!(await requestBackgroundDownloadPermission())) {
+        return;
+      }
       await service.resume(itemId);
     } catch (resumeError) {
       console.error('[Downloads] Could not resume this download.', resumeError);
@@ -217,6 +297,9 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setError(undefined);
     try {
       await enforceWifiPreference();
+      if (!(await requestBackgroundDownloadPermission())) {
+        return;
+      }
       markStudy([item.id]);
       if (Platform.OS === 'web') { await webDownload(item); return; }
       await service.download(item);
@@ -225,7 +308,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       setError(downloadError instanceof Error ? downloadError.message : 'The download failed. Please retry.');
       throw downloadError;
     }
-  }, [enforceWifiPreference]);
+  }, [enforceWifiPreference, markStudy]);
 
   const cancel = useCallback(async (itemId: string) => {
     setError(undefined);
@@ -242,6 +325,9 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
     setError(undefined);
     try {
       await enforceWifiPreference();
+      if (!(await requestBackgroundDownloadPermission())) {
+        return;
+      }
       markStudy(items.map((entry) => entry.id));
       if (Platform.OS === 'web') { for (const entry of items) { await webDownload(entry); } return; }
       await service.downloadSequentially(items);
@@ -254,7 +340,7 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       );
       throw queueError;
     }
-  }, [enforceWifiPreference]);
+  }, [enforceWifiPreference, markStudy]);
 
   const registerReceived = useCallback(async (item: ContentItem, filePath: string, size: number) => {
     setError(undefined);

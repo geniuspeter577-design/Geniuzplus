@@ -31,6 +31,7 @@ const sources = [
   'src/utils/uploadSaveRecovery.ts',
   'src/utils/titleImageValidation.ts',
   'src/utils/downloadAvailability.ts',
+  'src/utils/backgroundDownloadPermission.ts',
   'src/utils/networkStatus.ts',
   'src/utils/supabaseError.ts',
   'src/utils/contentError.ts',

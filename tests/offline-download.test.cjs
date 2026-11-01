@@ -4,6 +4,9 @@ const { test } = require('node:test');
 const { MAX_VIDEO_FILE_SIZE_BYTES } = require('../.test-build/src/constants/video.js');
 const { OfflineDownloadService } = require('../.test-build/src/services/OfflineDownloadService.js');
 const {
+  ensureBackgroundDownloadPermission,
+} = require('../.test-build/src/utils/backgroundDownloadPermission.js');
+const {
   detectVideoFileType,
   isVideoFormatLikelySupported,
   validateVideoFileSize,
@@ -109,6 +112,77 @@ function downloadableItem(overrides = {}) {
     ...overrides,
   };
 }
+
+test('background downloads request permission after showing the rationale', async () => {
+  const calls = [];
+  const allowed = await ensureBackgroundDownloadPermission({
+    getPermission: async () => ({ granted: false, canAskAgain: true }),
+    showPermissionPrompt: async () => {
+      calls.push('explain');
+      return true;
+    },
+    requestPermission: async () => {
+      calls.push('request');
+      return { granted: true, canAskAgain: true };
+    },
+    showSettingsPrompt: async () => calls.push('settings'),
+  });
+
+  assert.equal(allowed, true);
+  assert.deepEqual(calls, ['explain', 'request']);
+});
+
+test('background downloads do not start when the rationale is declined and ask again next time', async () => {
+  let promptCount = 0;
+  const dependencies = {
+    getPermission: async () => ({ granted: false, canAskAgain: true }),
+    showPermissionPrompt: async () => {
+      promptCount += 1;
+      return false;
+    },
+    requestPermission: async () => ({ granted: true, canAskAgain: true }),
+    showSettingsPrompt: async () => undefined,
+  };
+
+  assert.equal(await ensureBackgroundDownloadPermission(dependencies), false);
+  assert.equal(await ensureBackgroundDownloadPermission(dependencies), false);
+  assert.equal(promptCount, 2);
+});
+
+test('background downloads open settings when notifications cannot be requested again', async () => {
+  let requestCount = 0;
+  let settingsCount = 0;
+  const allowed = await ensureBackgroundDownloadPermission({
+    getPermission: async () => ({ granted: false, canAskAgain: false }),
+    showPermissionPrompt: async () => true,
+    requestPermission: async () => {
+      requestCount += 1;
+      return { granted: false, canAskAgain: false };
+    },
+    showSettingsPrompt: async () => {
+      settingsCount += 1;
+    },
+  });
+
+  assert.equal(allowed, false);
+  assert.equal(requestCount, 0);
+  assert.equal(settingsCount, 1);
+});
+
+test('background downloads open settings after a permanent denial from the system prompt', async () => {
+  let settingsCount = 0;
+  const allowed = await ensureBackgroundDownloadPermission({
+    getPermission: async () => ({ granted: false, canAskAgain: true }),
+    showPermissionPrompt: async () => true,
+    requestPermission: async () => ({ granted: false, canAskAgain: false }),
+    showSettingsPrompt: async () => {
+      settingsCount += 1;
+    },
+  });
+
+  assert.equal(allowed, false);
+  assert.equal(settingsCount, 1);
+});
 
 test('video type detection uses extensions when MIME is empty or generic and uses video MIME types', () => {
   for (const [extension, mimeType] of [
