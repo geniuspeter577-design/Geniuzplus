@@ -2,6 +2,14 @@
 
 Updated: 2026-11-01
 
+## Housekeeping (2026-11-02)
+
+- Step 0 baseline full suite: 210 passed, 0 failed.
+- Removed the zero-byte untracked files `geniuz-entertainment@1.0.0`, `node`, and `tsc`; they contained no code or useful data.
+- The `local secureStorage change from main codespace` stash changes the chunk suffix from colon separators to dots. Do not apply it as-is: current keys are sanitized to underscores, so the change would make existing chunked values unreadable without a migration/fallback reader. Current storage reads its own sanitized keys successfully.
+- Backup files retained for review: `app/membership.tsx.bak` and `backend/src/services/MembershipService.ts.bak`.
+- Preserved the pre-existing `package-lock.json` working-tree change; it is unrelated to housekeeping.
+
 ## Latest Work
 
 - Task 12 Phase A manual Render deploy (2026-11-01): added a GitHub Actions `workflow_dispatch`-only deploy hook workflow restricted to `main`, and set Render Blueprint `autoDeploy: false` so pushes do not deploy. Add the Render service Deploy Hook URL as repository secret `RENDER_DEPLOY_HOOK`; no deployment was triggered. Backend build and app typecheck pass; tests are 196/207 with the same 11 baseline failures. No migration or dependency changes. Workflow execution and live Render deploy remain unverified until the secret is configured and the button is run.
