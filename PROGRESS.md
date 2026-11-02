@@ -2,6 +2,12 @@
 
 Updated: 2026-11-02
 
+## Task C - Manual test checklist (2026-11-02)
+
+- Added `docs/TEST_CHECKLIST.md` with tap steps, expected results, failures, and migration prerequisites for all 15 requested feature areas.
+- Clarified that creator earnings and wallet credits are server-ledger data, the admin “Pay a creator” step only records an external Flutterwave payment, and browser downloads are origin-local rather than OS files.
+- Backend build and app typecheck pass; tests are 214/214 (baseline 210/210). The checklist is written but no live/device tests have been performed. Migration apply status is not checked here.
+
 ## Task B - Manual web and app deploy (2026-11-02)
 
 - Added `.github/workflows/deploy-web-and-app.yml` with only `workflow_dispatch`, restricted to `main`. It builds the backend, typechecks, tests, exports web, deploys via `wrangler.jsonc`, then publishes an Android `preview` EAS Update using the same checked-out commit. The workflow has not been run.
