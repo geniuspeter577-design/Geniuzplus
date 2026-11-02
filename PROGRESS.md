@@ -2,6 +2,12 @@
 
 Updated: 2026-11-02
 
+## Task E - Migration order sheet (2026-11-02)
+
+- Added `docs/MIGRATIONS_TO_RUN.md` with the user-designated pending migrations in timestamp order, their prerequisites, a conditional status note for `20261102000400_creator_earnings_manual_withdrawals.sql`, and a staging `begin; ... rollback;` reminder.
+- Live migration history was not queried; no migration or `supabase db push` was run. Earlier prerequisite status must be confirmed before applying anything.
+- Backend build and app typecheck pass; tests are 214/214 (baseline 210/210). Full Expo lint still exits non-zero with 57 errors and 57 warnings; the existing Reels/editor ref/effect findings remain, and the new Reel size utility has no lint findings.
+
 ## Task D - Store publishing checklist (2026-11-02)
 
 - Added `docs/STORE_PUBLISHING.md` for Google Play and Palm Store, including production AAB steps (documented, not run), signing, listing assets, ratings, Data safety, privacy/account-deletion URLs, known costs, and completed/missing repository items.
