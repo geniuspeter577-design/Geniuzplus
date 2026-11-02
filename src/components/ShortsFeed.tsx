@@ -429,7 +429,7 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
               {currentItem.isBoosted ? <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '700' }}>Boosted</Text> : null}
             </View>
           </Pressable>
-          {!currentItem.isFollowing && !currentItem.isOwner ? <Pressable accessibilityRole="button" onPress={toggleFollow} style={styles.followButton}><Text style={styles.followText}>Follow</Text></Pressable> : null}
+          {!currentItem.isOwner ? <Pressable accessibilityRole="button" onPress={toggleFollow} style={styles.followButton}><Text style={styles.followText}>{currentItem.isFollowing ? "Following" : "Follow"}</Text></Pressable> : null}
         </View>
         <Text style={styles.title} numberOfLines={3}>{currentItem.caption || currentItem.creatorName}</Text>
         {currentItem.hashtags.length ? <Text style={styles.description} numberOfLines={1}>{currentItem.hashtags.map((tag) => `#${tag}`).join(' ')}</Text> : null}
