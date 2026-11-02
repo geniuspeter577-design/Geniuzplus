@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { VideoView, useVideoPlayer, type VideoSource } from 'expo-video';
 import { VolumeBoostControl } from './detail/VolumeBoostControl';
 import { useWebAudioVolumeBoost } from '../hooks/useWebAudioVolumeBoost';
 import { ReelEditsOverlay } from './ReelEditsOverlay';
@@ -52,11 +52,18 @@ type ShortsFeedProps = {
   initialReelId?: string;
 };
 
-function ShortVideo({ item, height, isActive, onHide, onFinished }: {
+function reelVideoSource(uri: string): VideoSource {
+  return Platform.OS === 'ios' || Platform.OS === 'android'
+    ? { uri, useCaching: true }
+    : uri;
+}
+
+function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
   onFinished?: () => void;
   item: ReelFeedItem;
   height: number;
   isActive: boolean;
+  isNext: boolean;
   onHide: (id: string) => void;
 }) {
   const reelAudioUrl = item.audioUrl;
@@ -75,6 +82,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   const [captionDraft, setCaptionDraft] = useState(item.caption);
   const [busy, setBusy] = useState(false);
   const lastTapRef = useRef(0);
+  const loadedVideoUrlRef = useRef<string | null>(null);
   const finishedRef = useRef(onFinished);
   finishedRef.current = onFinished;
   useEffect(() => {
@@ -129,6 +137,9 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   useEffect(() => {
     if (!reelAudioUrl || !isActive) {
       safePause(audioPlayer);
+      if (!isActive) {
+        void audioPlayer.replaceAsync(null).catch(() => undefined);
+      }
       return undefined;
     }
     let live = true;
@@ -158,22 +169,42 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
   const isLegacy = item.id.startsWith('catalog:');
 
   useEffect(() => {
-    if (!isActive) {
+    if (!isActive && !isNext) {
       safePause(player);
+      loadedVideoUrlRef.current = null;
+      void player.replaceAsync(null).catch(() => undefined);
       return undefined;
     }
     let active = true;
-    void player.replaceAsync(item.videoUrl).then(() => {
-      if (active) {
-        setError(undefined);
+    if (loadedVideoUrlRef.current === item.videoUrl) {
+      if (isActive) {
         safePlay(player);
+      } else {
+        safePause(player);
       }
-    }).catch(() => active && setError('This Reel could not be played. Retry to try again.'));
+    } else {
+      loadedVideoUrlRef.current = item.videoUrl;
+      void player.replaceAsync(reelVideoSource(item.videoUrl)).then(() => {
+        if (active && isActive) {
+          setError(undefined);
+          safePlay(player);
+        } else {
+          safePause(player);
+        }
+      }).catch(() => {
+        if (loadedVideoUrlRef.current === item.videoUrl) {
+          loadedVideoUrlRef.current = null;
+        }
+        if (active && isActive) {
+          setError('This Reel could not be played. Retry to try again.');
+        }
+      });
+    }
     return () => {
       active = false;
       safePause(player);
     };
-  }, [isActive, item.id, item.videoUrl, player]);
+  }, [isActive, isNext, item.id, item.videoUrl, player]);
 
   useEffect(() => {
     let hasStartedWatch = false;
@@ -358,7 +389,7 @@ function ShortVideo({ item, height, isActive, onHide, onFinished }: {
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable accessibilityRole="button" onPress={() => void player.replaceAsync(item.videoUrl).then(() => safePlay(player)).catch(() => undefined)} style={styles.retryButton}>
+          <Pressable accessibilityRole="button" onPress={() => void player.replaceAsync(reelVideoSource(item.videoUrl)).then(() => safePlay(player)).catch(() => undefined)} style={styles.retryButton}>
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -455,6 +486,7 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
   }, []);
   const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 80 }), []);
   const listRef = useRef<FlatList>(null);
+  const nextIndex = visibleItems.length > 1 ? (activeIndex + 1) % visibleItems.length : -1;
   const goNext = () => {
     // loop back to the first reel
     if (activeIndex + 1 >= visibleItems.length) {
@@ -465,8 +497,8 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
     listRef.current?.scrollToOffset({ offset: (activeIndex + 1) * height, animated: true });
   };
   const renderItem = useCallback(({ item, index }: ListRenderItemInfo<ReelFeedItem>) => (
-    <ShortVideo item={item} height={height} isActive={index === activeIndex} onFinished={goNext} onHide={(id) => setHiddenIds((current) => [...current, id])} />
-  ), [activeIndex, height]);
+    <ShortVideo item={item} height={height} isActive={index === activeIndex} isNext={index === nextIndex} onFinished={goNext} onHide={(id) => setHiddenIds((current) => [...current, id])} />
+  ), [activeIndex, height, nextIndex]);
 
   return (
     <View style={styles.container}>

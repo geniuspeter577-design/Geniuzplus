@@ -9,12 +9,13 @@ import { Alert, Image, KeyboardAvoidingView, Linking, Modal, PanResponder, Press
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { REEL_FILTERS } from '../../src/components/ReelEditsOverlay';
-import { MAX_REEL_DURATION_SECONDS, MAX_REEL_FILE_SIZE_BYTES } from '../../src/config/reels';
+import { MAX_REEL_DURATION_SECONDS } from '../../src/config/reels';
 import { useAuth } from '../../src/state/AuthContext';
 import { theme } from '../../src/theme';
 import { playlistOnUpload, scheduleOnUpload, searchUsers, uploadReel } from '../../src/services/ReelsRepository';
 import type { ReelEdits, ReelVisibility } from '../../src/models/reel';
 import { backOrReplace } from '../../src/utils/navigation';
+import { getReelFileSizeError } from '../../src/utils/reelFileSize';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 type EditItem = { id: string; kind: 'text' | 'sticker'; value: string; color: string; x: number; y: number };
@@ -256,8 +257,9 @@ export default function CreateReelScreen() {
       setRetryUpload(false);
       return;
     }
-    if ((asset.fileSize ?? 0) > MAX_REEL_FILE_SIZE_BYTES) {
-      setError('Upload failed: This video is larger than 50 MB. Choose a shorter or smaller video.');
+    const fileSizeError = getReelFileSizeError(asset.fileSize);
+    if (fileSizeError) {
+      setError(`Upload failed: ${fileSizeError}`);
       setRetryUpload(false);
       return;
     }

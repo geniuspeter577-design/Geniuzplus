@@ -62,6 +62,7 @@ const sources = [
   'src/services/ContentQueryCache.ts',
   'src/services/cachedCatalog.ts',
   'src/utils/meScreen.ts',
+  'src/utils/reelFileSize.ts',
 ];
 
 function run(command, args) {
@@ -128,6 +129,7 @@ try {
       'tests/detail-features.test.cjs',
       'tests/category-notifications.test.cjs',
       'tests/device-transfer.test.cjs',
+      'tests/reels.test.cjs',
     ]);
   }
 } finally {

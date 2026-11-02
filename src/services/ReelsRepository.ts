@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import type { ReelEdits, ReelFeedItem, ReelVisibility } from '../models/reel';
 import type { ContentItem } from '../models/content';
+import { getReelFileSizeError } from '../utils/reelFileSize';
 import { supabase } from './supabase';
 
 type ReelRow = {
@@ -34,6 +35,9 @@ type CommentRow = { reel_id: string };
 
 const REEL_INTEREST_KEY = '@geniuz/reels/interested/v1';
 const REEL_HIDDEN_KEY = '@geniuz/reels/not-interested/v1';
+const REEL_SIGNED_URL_CACHE_MS = 55 * 60 * 1000;
+const MAX_CACHED_REEL_URLS = 60;
+const signedReelUrlCache = new Map<string, { url: string; expiresAt: number }>();
 
 function getBaseUrl() {
   const value = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, '');
@@ -88,6 +92,31 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function getSignedReelUrl(path: string) {
+  const cached = signedReelUrlCache.get(path);
+  if (cached && cached.expiresAt > Date.now()) {
+    signedReelUrlCache.delete(path);
+    signedReelUrlCache.set(path, cached);
+    return cached.url;
+  }
+  const result = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${path}`, {
+    method: 'POST',
+    body: JSON.stringify({ expiresIn: 3600 }),
+  });
+  const url = result.signedURL.startsWith('http')
+    ? result.signedURL
+    : `${getBaseUrl()}/storage/v1${result.signedURL}`;
+  signedReelUrlCache.delete(path);
+  if (signedReelUrlCache.size >= MAX_CACHED_REEL_URLS) {
+    const oldestPath = signedReelUrlCache.keys().next().value;
+    if (oldestPath) {
+      signedReelUrlCache.delete(oldestPath);
+    }
+  }
+  signedReelUrlCache.set(path, { url, expiresAt: Date.now() + REEL_SIGNED_URL_CACHE_MS });
+  return url;
 }
 
 function inFilter(ids: string[]) {
@@ -169,23 +198,16 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   ]);
   const creatorById = new Map(creators.map((creator) => [creator.id, creator]));
   const signed = await Promise.all(reels.map(async (reel) => {
-    let result: { signedURL: string };
+    let videoUrl: string;
     try {
-      result = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${reel.storage_path}`, {
-        method: 'POST',
-        body: JSON.stringify({ expiresIn: 3600 }),
-      });
+      videoUrl = await getSignedReelUrl(reel.storage_path);
     } catch {
       return null;
     }
     let audioUrl: string | undefined;
     if (reel.edits?.audioPath) {
       try {
-        const signedAudio = await request<{ signedURL: string }>(`/storage/v1/object/sign/reels/${reel.edits.audioPath}`, {
-          method: 'POST',
-          body: JSON.stringify({ expiresIn: 3600 }),
-        });
-        audioUrl = signedAudio.signedURL.startsWith('http') ? signedAudio.signedURL : `${getBaseUrl()}/storage/v1${signedAudio.signedURL}`;
+        audioUrl = await getSignedReelUrl(reel.edits.audioPath);
       } catch {
         audioUrl = undefined;
       }
@@ -202,7 +224,7 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
       creatorUsername: creator.username,
       ...(creator.avatar_url ? { avatarUrl: creator.avatar_url } : {}),
       isMember: creator.is_member,
-      videoUrl: result.signedURL.startsWith('http') ? result.signedURL : `${getBaseUrl()}/storage/v1${result.signedURL}`,
+      videoUrl,
       caption: reel.caption,
       hashtags: reel.hashtags ?? [],
       createdAt: reel.created_at,
@@ -380,17 +402,22 @@ export async function uploadReel(
   if (!userId) {
     throw new Error('Sign in to share a Reel.');
   }
+  const fileSizeError = getReelFileSizeError(asset.fileSize);
+  if (fileSizeError) {
+    throw new Error(fileSizeError);
+  }
   const reelId = crypto.randomUUID();
   const filename = asset.fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || `${reelId}.mp4`;
   const path = `${userId}/${reelId}/${filename}`;
   const headers = await getRequestHeaders(asset.mimeType ?? 'video/mp4');
+  const uploadHeaders = { ...headers, 'Cache-Control': 'max-age=31536000' };
   let finalEdits: ReelEdits | null = input.edits ?? null;
   const uploadedPaths = [path];
   try {
     const uploadResult = await uploadMediaFile(
       asset.uri,
       `${getBaseUrl()}/storage/v1/object/reels/${path}`,
-      headers,
+      uploadHeaders,
       asset.mimeType ?? 'video/mp4',
       onProgress,
     );
@@ -403,7 +430,7 @@ export async function uploadReel(
       const audioPath = `${userId}/${reelId}/audio_${audioName}`;
       uploadedPaths.push(audioPath);
       const audioMime = input.audio.mimeType ?? 'audio/mpeg';
-      const audioHeaders = await getRequestHeaders(audioMime);
+      const audioHeaders = { ...await getRequestHeaders(audioMime), 'Cache-Control': 'max-age=31536000' };
       const audioResult = await uploadMediaFile(
         input.audio.uri,
         `${getBaseUrl()}/storage/v1/object/reels/${audioPath}`,

@@ -2,6 +2,14 @@
 
 Updated: 2026-11-01
 
+## Task A - Reel data usage (2026-11-02)
+
+- Added a named 30 MB Reel file limit with friendly rejection before upload; unknown file sizes are rejected, and upload service repeats the guard. New Reel video/audio uploads request a one-year Cache-Control max-age.
+- Reused private-bucket signed URLs in a bounded in-memory cache for up to 55 minutes, keeping one-hour expiry and Reel visibility policies intact.
+- Enabled Expo 57 `expo-video` caching on Android/iOS, preloads only the next Reel, and unloads inactive video/audio sources. Expo 57 docs confirm the JS source property; real-device cache behavior is not verified.
+- Added `20261103000100_reels_file_size_limit.sql` to cap the private `reels` bucket at 30 MB. This migration has not been run; do not push Task A until it is applied.
+- Backend build and app typecheck pass; tests are 214/214 (baseline 210/210). Upload size handling, cache hits, and playback remain not verified on-device. HOLD: migration must be applied before pushing.
+
 ## Housekeeping (2026-11-02)
 
 - Step 0 baseline full suite: 210 passed, 0 failed.
