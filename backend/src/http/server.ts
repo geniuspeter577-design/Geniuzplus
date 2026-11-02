@@ -1371,7 +1371,6 @@ async function handleRequest(
       plans: [
         { id: 'visitor', name: 'Visitor', priceNgn: 0, intervalMonths: 0 },
         membership.getPlan(),
-        ...membership.getPlans(),
       ],
     });
     return;
@@ -1400,7 +1399,7 @@ async function handleRequest(
     if (!email) {
       throw new HttpError(400, 'EMAIL_REQUIRED', 'Add an email address to your account before checkout.');
     }
-    let planId = 'monthly';
+    let planId = 'member';
     try {
       const planBody = await readJson(request);
       if (typeof planBody.plan === 'string') planId = planBody.plan.trim();

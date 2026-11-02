@@ -71,12 +71,6 @@ export function getMembershipAccessStatus(
   return 'expired';
 }
 
-const PREMIUM_PLANS: Record<string, { label: string; priceNgn: number; intervalMonths: number }> = {
-  monthly: { label: 'Monthly', priceNgn: 919, intervalMonths: 1 },
-  quarterly: { label: 'Quarterly', priceNgn: 2298, intervalMonths: 3 },
-  yearly: { label: 'Yearly', priceNgn: 6616, intervalMonths: 12 },
-};
-
 export class MembershipService implements MembershipOperations {
   private readonly paystack: PaymentGateway;
   private readonly now: () => Date;
@@ -94,22 +88,14 @@ export class MembershipService implements MembershipOperations {
       id: 'member',
       name: 'Member',
       currency: 'NGN',
-      priceNgn: PREMIUM_PLANS.monthly.priceNgn,
-      amountKobo: PREMIUM_PLANS.monthly.priceNgn * 100,
+      priceNgn: this.config.membershipPriceNgn,
+      amountKobo: this.config.membershipPriceNgn * 100,
       intervalMonths: 1,
     };
   }
 
   getPlans() {
-    return Object.entries(PREMIUM_PLANS).map(([id, plan]) => ({
-      id,
-      name: 'Premium',
-      label: plan.label,
-      currency: 'NGN',
-      priceNgn: plan.priceNgn,
-      amountKobo: plan.priceNgn * 100,
-      intervalMonths: plan.intervalMonths,
-    }));
+    return [this.getPlan()];
   }
 
   async getStatus(client: SupabaseClient, userId: string): Promise<MembershipStatusResponse> {
@@ -149,15 +135,14 @@ export class MembershipService implements MembershipOperations {
     };
   }
 
-  async createCheckout(userId: string, email: string, planId: string = 'monthly') {
+  async createCheckout(userId: string, email: string, planId: string = 'member') {
     const admin = this.getAdminClient();
     this.requireTestPaystack();
-    if (!Object.prototype.hasOwnProperty.call(PREMIUM_PLANS, planId)) {
-      throw new HttpError(400, 'INVALID_PLAN', 'Choose a valid Premium plan.');
+    if (planId !== 'member' && planId !== 'monthly') {
+      throw new HttpError(400, 'INVALID_PLAN', 'Choose the Member plan.');
     }
-    const plan = PREMIUM_PLANS[planId];
-    const amountKobo = plan.priceNgn * 100;
-    const intervalMonths = plan.intervalMonths;
+    const amountKobo = this.config.membershipPriceNgn * 100;
+    const intervalMonths = 1;
     const { data: existingPayment, error: lookupError } = await admin
       .from('payments')
       .select('reference,amount_kobo')

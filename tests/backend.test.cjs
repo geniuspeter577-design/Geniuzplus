@@ -540,6 +540,9 @@ test('download URLs require the published title download flag for movies and epi
       assert.match(url.searchParams.get('select'), /allow_download/);
       return makeResponse(episode);
     }
+    if (url.pathname === '/rest/v1/rpc/claim_download') {
+      return makeResponse({ allowed: true });
+    }
     if (url.pathname.startsWith('/storage/v1/object/sign/movie-assets/')) {
       return makeResponse({
         signedURL: `${url.pathname.replace('/storage/v1', '')}?token=signed`,

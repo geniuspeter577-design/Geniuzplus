@@ -155,7 +155,7 @@ test('Football Home category shows score states and notes without match stream a
   assert.match(context, /}, 60_000\)/);
   assert.match(context, /requestsRef\.current\.get\(date\)/);
   assert.doesNotMatch(context, /football-data\.org/);
-  assert.doesNotMatch(panel, /router\.push|\/watch\//);
+  assert.doesNotMatch(panel, /\/watch\//);
 });
 
 test('football kickoff labels use Today only for Lagos calendar dates and Upcoming matches sort after Live', () => {

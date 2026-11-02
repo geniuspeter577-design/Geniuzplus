@@ -1,4 +1,3 @@
-import { File as ExpoUploadFile } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Upload } from 'tus-js-client';
@@ -281,6 +280,7 @@ export class SupabaseMovieRepository {
     }
     let backupFailure = '';
     try {
+      const { File: ExpoUploadFile } = await import('expo-file-system');
       const { data: sessionData } = await this.client.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) {

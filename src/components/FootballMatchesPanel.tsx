@@ -6,7 +6,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import type { FootballMatch, FootballTeam } from '../models/football';
 import { useFootballMatches } from '../state/FootballMatchesContext';
 import { theme } from '../theme';
-import { formatWestAfricaDate, formatWestAfricaKickoff, getWestAfricaDate } from '../utils/footballScores';
+import { formatWestAfricaDate, formatWestAfricaKickoff, getNextFootballDates, getWestAfricaDate } from '../utils/footballScores';
 import type { GoalBallCounts } from '../utils/footballPin';
 import { ContentNotice } from './ContentNotice';
 import { FootballGoalBalls } from './FootballGoalBalls';
@@ -69,13 +69,17 @@ function dayLabel(date: string, today: string) {
 function groupAll(matches: FootballMatch[]) {
   const byTime = matches.slice().sort((left, right) => left.startsAt.localeCompare(right.startsAt));
   const live = byTime.filter((match) => match.status === 'live');
-  const rest = byTime.filter((match) => match.status !== 'live');
+  const upcoming = byTime.filter((match) => match.status === 'scheduled');
+  const results = byTime.filter((match) => match.status === 'finished');
   const groups: { title: string; competitions: ReturnType<typeof groupByCompetition> }[] = [];
   if (live.length) {
     groups.push({ title: 'Live', competitions: groupByCompetition(live) });
   }
-  if (rest.length) {
-    groups.push({ title: '', competitions: groupByCompetition(rest) });
+  if (upcoming.length) {
+    groups.push({ title: 'Upcoming', competitions: groupByCompetition(upcoming) });
+  }
+  if (results.length) {
+    groups.push({ title: 'Results', competitions: groupByCompetition(results) });
   }
   return groups;
 }
@@ -187,6 +191,7 @@ export function FootballMatchesPanel({
     isLoading: true,
   };
   const { selectDate, selectedDate } = football;
+  const days = getNextFootballDates();
   useEffect(() => {
     selectDate(selectedDate);
   }, [selectDate, selectedDate]);
@@ -230,6 +235,23 @@ export function FootballMatchesPanel({
           <Ionicons name="chevron-forward" size={20} color={theme.text} />
         </Pressable>
       </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daySelector}>
+        {days.map((day) => {
+          const selected = day.date === football.selectedDate;
+          return (
+            <Pressable
+              key={day.date}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              onPress={() => football.selectDate(day.date)}
+              style={[styles.dayOption, selected && styles.selectedDayOption]}
+            >
+              <Text style={[styles.dayLabel, selected && styles.selectedDayText]}>{day.label}</Text>
+              <Text style={[styles.dayDate, selected && styles.selectedDayText]}>{day.day}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
       <View style={styles.headingRow}>
         <View>
           <Text style={styles.heading}>Matches</Text>

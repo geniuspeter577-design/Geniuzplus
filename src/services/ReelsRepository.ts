@@ -1,6 +1,6 @@
-import { File } from 'expo-file-system';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 import type { ReelEdits, ReelFeedItem, ReelVisibility } from '../models/reel';
 import type { ContentItem } from '../models/content';
@@ -92,6 +92,46 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 function inFilter(ids: string[]) {
   return `in.(${ids.join(',')})`;
+}
+
+async function uploadMediaFile(
+  uri: string,
+  url: string,
+  headers: Record<string, string>,
+  mimeType: string,
+  onProgress?: (progress: number) => void,
+) {
+  if (Platform.OS === 'web') {
+    const blob = await (await fetch(uri)).blob();
+    return new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url);
+      xhr.timeout = 120_000;
+      Object.entries(headers).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress?.(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
+      xhr.onload = () => resolve({ status: xhr.status, body: xhr.responseText });
+      xhr.onerror = () => reject(new Error('The Reel upload request failed. Check your connection and retry.'));
+      xhr.ontimeout = () => reject(new Error('The Reel upload request timed out. Check your connection and retry.'));
+      xhr.send(blob);
+    });
+  }
+
+  const { File } = await import('expo-file-system');
+  const result = await new File(uri).upload(url, {
+    httpMethod: 'POST',
+    headers,
+    mimeType,
+    onProgress: ({ bytesSent, totalBytes }) => {
+      if (totalBytes > 0) {
+        onProgress?.(Math.min(99, Math.round((bytesSent / totalBytes) * 100)));
+      }
+    },
+  });
+  return { status: result.status, body: result.body ?? '' };
 }
 
 export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?: string): Promise<ReelFeedItem[]> {
@@ -343,21 +383,17 @@ export async function uploadReel(
   const reelId = crypto.randomUUID();
   const filename = asset.fileName?.replace(/[^a-zA-Z0-9._-]/g, '_') || `${reelId}.mp4`;
   const path = `${userId}/${reelId}/${filename}`;
-  const file = new File(asset.uri);
   const headers = await getRequestHeaders(asset.mimeType ?? 'video/mp4');
   let finalEdits: ReelEdits | null = input.edits ?? null;
   const uploadedPaths = [path];
   try {
-    const uploadResult = await file.upload(`${getBaseUrl()}/storage/v1/object/reels/${path}`, {
-      httpMethod: 'POST',
+    const uploadResult = await uploadMediaFile(
+      asset.uri,
+      `${getBaseUrl()}/storage/v1/object/reels/${path}`,
       headers,
-      mimeType: asset.mimeType ?? 'video/mp4',
-      onProgress: ({ bytesSent, totalBytes }) => {
-        if (totalBytes > 0) {
-          onProgress(Math.min(99, Math.round((bytesSent / totalBytes) * 100)));
-        }
-      },
-    });
+      asset.mimeType ?? 'video/mp4',
+      onProgress,
+    );
     if (uploadResult.status < 200 || uploadResult.status >= 300) {
       throw new Error(uploadResult.body?.slice(0, 240) || `The Reel video upload failed (${uploadResult.status}).`);
     }
@@ -368,11 +404,12 @@ export async function uploadReel(
       uploadedPaths.push(audioPath);
       const audioMime = input.audio.mimeType ?? 'audio/mpeg';
       const audioHeaders = await getRequestHeaders(audioMime);
-      const audioResult = await new File(input.audio.uri).upload(`${getBaseUrl()}/storage/v1/object/reels/${audioPath}`, {
-        httpMethod: 'POST',
-        headers: audioHeaders,
-        mimeType: audioMime,
-      });
+      const audioResult = await uploadMediaFile(
+        input.audio.uri,
+        `${getBaseUrl()}/storage/v1/object/reels/${audioPath}`,
+        audioHeaders,
+        audioMime,
+      );
       if (audioResult.status < 200 || audioResult.status >= 300) {
         throw new Error(audioResult.body?.slice(0, 240) || `The selected audio upload failed (${audioResult.status}).`);
       }

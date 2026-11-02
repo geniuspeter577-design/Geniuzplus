@@ -14,19 +14,11 @@ import { theme } from '../src/theme';
 import { getProfileInitial } from '../src/utils/accountAuth';
 import { formatMembershipDate } from '../src/utils/membership';
 
-const PREMIUM_PLANS = [
-  { id: 'monthly', label: 'Monthly', priceNgn: 919, months: 1 },
-  { id: 'quarterly', label: 'Quarterly', priceNgn: 2298, months: 3 },
-  { id: 'yearly', label: 'Yearly', priceNgn: 6616, months: 12 },
-] as const;
-type PlanId = (typeof PREMIUM_PLANS)[number]['id'];
-
 export default function MembershipScreen() {
   const auth = useAuth();
   const membership = useMembership();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string>();
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>('monthly');
   const paymentWasPending = useRef(false);
   const currentStatus = membership.status;
   const pendingReference = currentStatus?.pendingPayment?.reference;
@@ -75,8 +67,8 @@ export default function MembershipScreen() {
     }
     setIsCheckingOut(true);
     try {
-      const checkout = await createMemberCheckout(selectedPlan);
-      const expectedKobo = (PREMIUM_PLANS.find((p) => p.id === selectedPlan)?.priceNgn ?? 0) * 100;
+      const checkout = await createMemberCheckout('member');
+      const expectedKobo = membership.plan?.amountKobo ?? 0;
       if (checkout.amountKobo !== expectedKobo) {
         throw new Error('This plan price is not ready yet. Please update the app and try again.');
       }
@@ -124,7 +116,7 @@ export default function MembershipScreen() {
       ? 'Sign in to continue'
       : membership.status?.pendingPayment
         ? 'Continue payment'
-        : 'Get Premium';
+        : 'Become a Member';
   const perks: { icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
     { icon: 'eye-off-outline', label: 'Ad-free' },
     { icon: 'shield-checkmark-outline', label: 'Member badge' },
@@ -163,7 +155,7 @@ export default function MembershipScreen() {
               </View>
             </View>
             <Text style={styles.validDate}>
-              {hasMemberAccess ? 'Valid until ' + formatMembershipDate(membershipUntil) : 'Upgrade to unlock Premium'}
+              {hasMemberAccess ? 'Member until ' + formatMembershipDate(membershipUntil) : 'Become a Member'}
             </Text>
           </View>
         </View>
@@ -181,7 +173,7 @@ export default function MembershipScreen() {
         >
           <View style={styles.heroHeaderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>Geniuzplus Premium</Text>
+              <Text style={styles.heroTitle}>Geniuzplus Member</Text>
               <Text style={styles.heroSubtitle}>Ad-free viewing, member badge and more</Text>
             </View>
             <LinearGradient colors={['#F5D77F', '#D4AF37', '#997316']} style={styles.crownBadge}>
@@ -201,42 +193,28 @@ export default function MembershipScreen() {
         </LinearGradient>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>CHOOSE YOUR PLAN</Text>
+          <Text style={styles.sectionTitle}>MEMBERSHIP</Text>
           <Text style={styles.sectionTag}>No automatic card charging</Text>
         </View>
         <View style={styles.plansRow}>
-          {PREMIUM_PLANS.map((plan) => {
-            const chosen = plan.id === selectedPlan;
-            return (
-              <Pressable
-                key={plan.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: chosen }}
-                onPress={() => setSelectedPlan(plan.id)}
-                style={[styles.planCard, chosen && styles.planCardChosen]}
-              >
-                {plan.id === 'yearly' ? (
-                  <View style={styles.bestPill}>
-                    <Text style={styles.bestPillText}>BEST VALUE</Text>
-                  </View>
-                ) : null}
-                <Text style={styles.planName}>{plan.label}</Text>
-                <Text style={styles.planPrice}>₦{new Intl.NumberFormat('en-NG').format(plan.priceNgn)}</Text>
-                <Text style={styles.planInterval}>{plan.months === 1 ? '1 month' : plan.months + ' months'}</Text>
-                <View style={styles.planDivider} />
-                <Text style={[styles.planPerMonth, chosen && styles.planPerMonthChosen]}>
-                  ₦{Math.round(plan.priceNgn / plan.months)} / mo
-                </Text>
-              </Pressable>
-            );
-          })}
+          <View style={[styles.planCard, styles.planCardChosen]}>
+            <Text style={styles.planName}>Member</Text>
+            <Text style={styles.planPrice}>
+              {membership.plan
+                ? `₦${new Intl.NumberFormat('en-NG').format(membership.plan.priceNgn)}`
+                : 'Price unavailable'}
+            </Text>
+            <Text style={styles.planInterval}>1 month</Text>
+            <View style={styles.planDivider} />
+            <Text style={[styles.planPerMonth, styles.planPerMonthChosen]}>No automatic renewal</Text>
+          </View>
         </View>
 
         <View style={styles.tableCard}>
           <View style={styles.tableHeadRow}>
-            <Text style={[styles.tableHead, { flex: 2.4 }]}>PREMIUM BENEFITS</Text>
+            <Text style={[styles.tableHead, { flex: 2.4 }]}>MEMBER BENEFITS</Text>
             <Text style={[styles.tableHead, { flex: 1, textAlign: 'center' }]}>Free</Text>
-            <Text style={[styles.tableHead, { color: '#E8CA65', flex: 1, textAlign: 'center' }]}>Premium</Text>
+            <Text style={[styles.tableHead, { color: '#E8CA65', flex: 1, textAlign: 'center' }]}>Member</Text>
           </View>
           {compareRows.map((row, index) => (
             <View key={row} style={[styles.tableRow, index === compareRows.length - 1 && styles.tableRowLast]}>
@@ -255,7 +233,7 @@ export default function MembershipScreen() {
       <View style={styles.footer}>
         {hasMemberAccess ? (
           <Text style={styles.memberUntil}>
-            {membership.status?.status === 'grace' ? 'Grace period until ' : 'Premium valid until '}
+            {membership.status?.status === 'grace' ? 'Grace period until ' : 'You are a Member until '}
             {formatMembershipDate(membershipUntil)}
           </Text>
         ) : (
@@ -276,7 +254,7 @@ export default function MembershipScreen() {
           </Pressable>
         )}
         {checkoutError ? <Text style={styles.errorText}>{checkoutError}</Text> : null}
-        <Text style={styles.terms}>Premium lasts for the plan you choose (1, 3 or 12 months). No automatic card charging. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
+        <Text style={styles.terms}>Membership lasts one month. No automatic card charging. Eligible members may earn USD from Reels. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
         <View style={styles.legalLinks}>
           <Pressable accessibilityRole="link" onPress={() => router.push('/terms')}><Text style={styles.legalLink}>Terms</Text></Pressable>
           <Text style={styles.terms}>·</Text>

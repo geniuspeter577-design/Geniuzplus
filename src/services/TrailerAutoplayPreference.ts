@@ -19,7 +19,7 @@ export type UserAppSettings = {
 };
 
 const DEFAULT_USER_SETTINGS: UserAppSettings = {
-  autoplayNextEpisode: true,
+  autoplayNextEpisode: false,
   defaultPlaybackSpeed: 1,
   wifiOnlyDownloads: false,
   watchPreference: 'streaming',

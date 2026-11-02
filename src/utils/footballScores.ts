@@ -53,7 +53,7 @@ export function sortHomeFootballMatches(matches: FootballMatch[]) {
   const priority = (match: FootballMatch) =>
     match.status === 'live' ? 0 : match.status === 'scheduled' ? 1 : 2;
   return matches
-    .filter((match) => match.status === 'live' || match.status === 'scheduled' || match.status === 'finished')
+    .filter((match) => match.status === 'live' || match.status === 'scheduled')
     .slice()
     .sort((left, right) =>
       priority(left) - priority(right) ||

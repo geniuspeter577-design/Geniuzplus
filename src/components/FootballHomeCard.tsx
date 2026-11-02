@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 
 import type { FootballMatch } from '../models/football';
-import { formatWestAfricaKickoff, sortHomeFootballMatches } from '../utils/footballScores';
+import { getKickoffPresentation, sortHomeFootballMatches } from '../utils/footballScores';
 import type { GoalBallCounts } from '../utils/footballPin';
 import { FootballGoalBalls } from './FootballGoalBalls';
 import { theme } from '../theme';
@@ -216,7 +216,7 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
     setIsTouching(false);
   };
 
-  if (count === 0) {
+  if (liveUpcoming.length === 0) {
     return null;
   }
 
@@ -238,6 +238,9 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
         {ordered.map((match) => {
           const live = match.status === 'live';
           const finished = match.status === 'finished';
+          const kickoff = match.status === 'scheduled'
+            ? getKickoffPresentation(match.startsAt)
+            : undefined;
           const goals = goalSignals[match.id];
           const celebrating = celebration && celebration.matchId === match.id ? celebration : null;
           const scoringTeam = celebrating && celebrating.team === 'away' ? match.awayTeam : match.homeTeam;
@@ -272,8 +275,8 @@ export function FootballHomeCard({ matches, date, goalSignals, isOffline, onOpen
                     </>
                   ) : (
                     <>
-                      <Text style={styles.centerMain}>{formatWestAfricaKickoff(match.startsAt)}</Text>
-                      <Text style={styles.centerSub}>{formatLagosDate(match.startsAt)}</Text>
+                      <Text style={styles.centerMain}>{kickoff?.label}</Text>
+                      {kickoff?.comingSoon ? <Text style={styles.centerSub}>Coming soon</Text> : null}
                     </>
                   )}
                   {isOffline ? <Text style={styles.offline}>Offline</Text> : null}

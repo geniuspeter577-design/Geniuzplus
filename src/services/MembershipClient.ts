@@ -94,7 +94,7 @@ export function loadMembershipStatus() {
   return request<MembershipStatus>('/api/membership/status', { authenticated: true });
 }
 
-export function createMemberCheckout(plan: string = 'monthly') {
+export function createMemberCheckout(plan: string = 'member') {
   return request<{
     authorizationUrl: string;
     accessCode: string;
