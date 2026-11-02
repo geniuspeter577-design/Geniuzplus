@@ -2,6 +2,12 @@
 
 Updated: 2026-11-02
 
+## Task D - Store publishing checklist (2026-11-02)
+
+- Added `docs/STORE_PUBLISHING.md` for Google Play and Palm Store, including production AAB steps (documented, not run), signing, listing assets, ratings, Data safety, privacy/account-deletion URLs, known costs, and completed/missing repository items.
+- Flagged the Google Play digital-membership billing requirement for policy review, the missing public account-deletion request page, and the unresolved `[CONTACT EMAIL]`. Palm Store's exact package format, developer fee, and current submission rules could not be verified and are marked unknown.
+- Backend build and app typecheck pass; tests are 214/214 (baseline 210/210). No build or submission was run; store readiness is not verified.
+
 ## Task C - Manual test checklist (2026-11-02)
 
 - Added `docs/TEST_CHECKLIST.md` with tap steps, expected results, failures, and migration prerequisites for all 15 requested feature areas.
