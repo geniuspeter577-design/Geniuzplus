@@ -1,6 +1,14 @@
 # Progress
 
-Updated: 2026-11-01
+Updated: 2026-11-02
+
+## Task B - Manual web and app deploy (2026-11-02)
+
+- Added `.github/workflows/deploy-web-and-app.yml` with only `workflow_dispatch`, restricted to `main`. It builds the backend, typechecks, tests, exports web, deploys via `wrangler.jsonc`, then publishes an Android `preview` EAS Update using the same checked-out commit. The workflow has not been run.
+- No paid build or deployment service is invoked. It prints a “needs a new APK” warning when `app.json`, `package.json`, or `package-lock.json` changed in the selected commit.
+- Add GitHub Actions secrets: `CLOUDFLARE_API_TOKEN`, `EXPO_TOKEN`.
+- Add GitHub Actions variables: `CLOUDFLARE_ACCOUNT_ID`, `EXPO_PUBLIC_GENIUZ_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- Backend build and app typecheck pass; tests are 214/214 (baseline 210/210); workflow YAML validates with only the manual trigger. The workflow has not been run, so Cloudflare/EAS behavior is not verified. HOLD: the earlier Task A migration remains unapplied, so pushing this commit would also publish that migration-dependent Task A commit.
 
 ## Task A - Reel data usage (2026-11-02)
 
