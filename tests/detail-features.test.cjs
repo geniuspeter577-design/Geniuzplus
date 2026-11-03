@@ -433,7 +433,7 @@ test('Reel uploads persist scheduled publication time, clean partial uploads, an
 
   assert.match(migration, /add column if not exists publish_at timestamptz not null default now\(\)/i);
   assert.match(repository, /publish_at: computePublishAt\(scheduleOnUpload\.choice\)/);
-  assert.match(repository, /publish_at=lte\./);
+  assert.match(repository, /or=\(publish_at\.is\.null,publish_at\.lte\./);
   assert.match(repository, /selected audio upload failed/);
   assert.match(repository, /uploadedPaths\.map[\s\S]*method: 'DELETE'/);
   assert.match(createScreen, /DocumentPicker\.getDocumentAsync\(\{ type: 'audio\/\*'/);

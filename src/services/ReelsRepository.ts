@@ -174,8 +174,8 @@ export async function loadReelsFeed(legacyShorts: ContentItem[] = [], creatorId?
   const creatorFilter = creatorId ? `&user_id=eq.${creatorId}` : '';
   const reelColumns = 'id,user_id,storage_path,caption,hashtags,visibility,allow_comments,created_at,edits,boosted_until,publish_at';
   const nowIso = encodeURIComponent(new Date().toISOString());
-  const publishFilter = `&publish_at=lte.${nowIso}`;
-  const recentReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}&publish_at=lte.${nowIso}&order=created_at.desc&limit=${creatorId ? 30 : 50}${creatorFilter}`);
+  const publishFilter = `&or=(publish_at.is.null,publish_at.lte.${nowIso})`;
+  const recentReels = await request<ReelRow[]>(`/rest/v1/reels?select=${reelColumns}${publishFilter}&order=created_at.desc&limit=${creatorId ? 30 : 50}${creatorFilter}`);
   let boostedReels: ReelRow[] = [];
   if (!creatorId) {
     try {

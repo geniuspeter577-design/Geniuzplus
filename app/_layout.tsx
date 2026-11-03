@@ -24,7 +24,7 @@ import { useGlobalAndroidBackNavigation } from '../src/utils/navigation';
 export default function RootLayout() {
   useBackToPrevious();
   const pathname = usePathname();
-  const isWideRoute = pathname.startsWith('/watch');
+  const isWideRoute = pathname !== '/shorts';
   // useGlobalAndroidBackNavigation();
 
   useEffect(() => {
