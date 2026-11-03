@@ -725,6 +725,9 @@ export default function WatchScreen() {
     );
   }, [isOfflinePlayback, isOnline, movie, refreshExpiredLink]);
 
+  const handlePlayerFailureRef = useRef(handlePlayerFailure);
+  handlePlayerFailureRef.current = handlePlayerFailure;
+
   useEffect(() => {
     const subscription = player.addListener('statusChange', ({ status, error: playerError }) => {
       setPlayerStatus(status);
@@ -913,7 +916,7 @@ export default function WatchScreen() {
         if (active) {
           const { status, code } = getPlaybackErrorDetails(loadError);
           loggerPlaybackWarning(status, code, 'PLAYER_LOAD_FAILED');
-          handlePlayerFailure(loadError instanceof Error ? { message: loadError.message } : undefined);
+          handlePlayerFailureRef.current(loadError instanceof Error ? { message: loadError.message } : undefined);
         }
       });
 
@@ -923,7 +926,7 @@ export default function WatchScreen() {
         player.pause();
       }
     };
-  }, [handlePlayerFailure, isLibraryLoading, player, playbackUrl]);
+  }, [isLibraryLoading, player, playbackUrl]);
 
   const retryPlayback = () => {
     expiredLinkRetryRef.current = false;
