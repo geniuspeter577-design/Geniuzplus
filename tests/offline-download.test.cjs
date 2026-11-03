@@ -234,29 +234,6 @@ test('download service requests a fresh signed URL, reports progress, and persis
     }
   });
 
-  test('download service saves title metadata and caches its poster for offline details', async () => {
-    const { service, files, values } = createDownloadService();
-    const item = downloadableItem({
-      title: 'Saved title',
-      description: 'Saved description',
-      posterUrl: 'https://images.example.test/poster.jpg',
-    });
-    await service.download(item);
-
-    const saved = service.getRecords()[0];
-    assert.equal(saved.item.title, 'Saved title');
-    assert.equal(saved.item.description, 'Saved description');
-    assert.equal(saved.item.posterUrl, '/documents/movie-123.poster.jpg');
-    assert.equal(files.get(saved.item.posterUrl), 128);
-    assert.match([...values.values()][0], /"description":"Saved description"/);
-
-    await service.load();
-    assert.equal(service.getRecords()[0].item.posterUrl, '/documents/movie-123.poster.jpg');
-
-    await service.delete(item.id);
-    assert.equal(files.has('/documents/movie-123.poster.jpg'), false);
-  });
-
   await service.download(downloadableItem());
 
   assert.deepEqual(signedUrls, ['geniuz:movie:movie-123']);
@@ -265,6 +242,29 @@ test('download service requests a fresh signed URL, reports progress, and persis
   assert.equal(service.getRecords()[0].filePath, '/documents/movie-123.mkv');
   assert.equal(service.getRecords()[0].size, 1024);
   assert.match([...values.values()][0], /"status":"downloaded"/);
+});
+
+test('download service saves title metadata and caches its poster for offline details', async () => {
+  const { service, files, values } = createDownloadService();
+  const item = downloadableItem({
+    title: 'Saved title',
+    description: 'Saved description',
+    posterUrl: 'https://images.example.test/poster.jpg',
+  });
+  await service.download(item);
+
+  const saved = service.getRecords()[0];
+  assert.equal(saved.item.title, 'Saved title');
+  assert.equal(saved.item.description, 'Saved description');
+  assert.equal(saved.item.posterUrl, '/documents/movie-123.poster.jpg');
+  assert.equal(files.get(saved.item.posterUrl), 128);
+  assert.match([...values.values()][0], /"description":"Saved description"/);
+
+  await service.load();
+  assert.equal(service.getRecords()[0].item.posterUrl, '/documents/movie-123.poster.jpg');
+
+  await service.delete(item.id);
+  assert.equal(files.has('/documents/movie-123.poster.jpg'), false);
 });
 
 test('download service checks free space and prevents duplicate active downloads', async () => {
