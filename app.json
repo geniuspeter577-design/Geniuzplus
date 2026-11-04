@@ -43,7 +43,22 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "GeniuzHomeWidget",
+              "label": "Geniuzplus",
+              "description": "Open Geniuzplus to browse movies and Reels.",
+              "minWidth": "180dp",
+              "minHeight": "110dp",
+              "resizeMode": "horizontal|vertical"
+            }
+          ]
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": true,
