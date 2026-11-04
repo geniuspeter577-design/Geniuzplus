@@ -24,7 +24,6 @@ export type Config = {
   paymentProvider: 'paystack' | 'flutterwave';
   supabaseServiceRoleKey?: string;
   membershipCronSecret?: string;
-  membershipPriceNgn: number;
   membershipGraceDays: number;
   subscription1500Enabled: boolean;
   // TODO: implement Paystack dedicated virtual accounts only when this is enabled.
@@ -107,7 +106,6 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): Config
     paymentProvider: environment.PAYMENT_PROVIDER?.trim().toLowerCase() === 'flutterwave' ? 'flutterwave' : 'paystack',
     supabaseServiceRoleKey: environment.SUPABASE_SERVICE_ROLE_KEY?.trim() || undefined,
     membershipCronSecret: environment.MEMBERSHIP_CRON_SECRET?.trim() || undefined,
-    membershipPriceNgn: positiveInteger(environment.MEMBERSHIP_PRICE_NGN, 900),
     membershipGraceDays: positiveInteger(environment.MEMBERSHIP_GRACE_DAYS, 3),
     subscription1500Enabled: (environment.SUBSCRIPTION_1500_ENABLED ?? 'false').trim().toLowerCase() === 'true',
     dedicatedAccountEnabled: (environment.DEDICATED_ACCOUNT_ENABLED ?? 'false').trim().toLowerCase() === 'true',

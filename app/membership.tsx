@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ContentNotice } from '../src/components/ContentNotice';
 import { useMembership } from '../src/hooks/useMembership';
-import { createMemberCheckout } from '../src/services/MembershipClient';
+import { createMemberCheckout, type MemberPlanId } from '../src/services/MembershipClient';
 import { useAuth } from '../src/state/AuthContext';
 import { theme } from '../src/theme';
 import { getProfileInitial } from '../src/utils/accountAuth';
@@ -19,11 +19,13 @@ export default function MembershipScreen() {
   const membership = useMembership();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string>();
+  const [selectedPlanId, setSelectedPlanId] = useState<MemberPlanId>('monthly');
   const paymentWasPending = useRef(false);
   const currentStatus = membership.status;
   const pendingReference = currentStatus?.pendingPayment?.reference;
   const refreshMembership = membership.refresh;
   const isOnline = membership.isOnline;
+  const selectedPlan = membership.plans.find(({ id }) => id === selectedPlanId);
   const hasMemberAccess = currentStatus?.status === 'active' || currentStatus?.status === 'grace';
 
   useEffect(() => {
@@ -67,8 +69,8 @@ export default function MembershipScreen() {
     }
     setIsCheckingOut(true);
     try {
-      const checkout = await createMemberCheckout('member');
-      const expectedKobo = membership.plan?.amountKobo ?? 0;
+      const checkout = await createMemberCheckout(selectedPlanId);
+      const expectedKobo = selectedPlan?.amountKobo ?? 0;
       if (checkout.amountKobo !== expectedKobo) {
         throw new Error('This plan price is not ready yet. Please update the app and try again.');
       }
@@ -109,7 +111,8 @@ export default function MembershipScreen() {
     ? membership.status.graceUntil
     : membership.status?.currentPeriodEnd;
   const buttonDisabled =
-    isCheckingOut || auth.isLoading || (Boolean(auth.session) && (!membership.isOnline || !membership.plan));
+    isCheckingOut || auth.isLoading ||
+    (Boolean(auth.session) && (!membership.isOnline || !membership.plans.length || !selectedPlan));
   const buttonLabel = isCheckingOut
     ? 'Opening secure checkout…'
     : !auth.session
@@ -127,9 +130,8 @@ export default function MembershipScreen() {
     'Ad-free viewing',
     'Member badge on your profile',
     'Send and receive files between devices',
-    'Earn USD from Reels (eligible members)',
-    'Member-only content',
-    'Early access to new features',
+    'Eligible members may earn USD from Reels',
+    'Exclusive member status',
   ];
 
   return (
@@ -173,7 +175,7 @@ export default function MembershipScreen() {
         >
           <View style={styles.heroHeaderRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>Geniuzplus Member</Text>
+              <Text style={styles.heroTitle}>Geniuzplus Premium</Text>
               <Text style={styles.heroSubtitle}>Ad-free viewing, member badge and more</Text>
             </View>
             <LinearGradient colors={['#F5D77F', '#D4AF37', '#997316']} style={styles.crownBadge}>
@@ -197,24 +199,47 @@ export default function MembershipScreen() {
           <Text style={styles.sectionTag}>No automatic card charging</Text>
         </View>
         <View style={styles.plansRow}>
-          <View style={[styles.planCard, styles.planCardChosen]}>
-            <Text style={styles.planName}>Member</Text>
-            <Text style={styles.planPrice}>
-              {membership.plan
-                ? `₦${new Intl.NumberFormat('en-NG').format(membership.plan.priceNgn)}`
-                : 'Price unavailable'}
-            </Text>
-            <Text style={styles.planInterval}>1 month</Text>
-            <View style={styles.planDivider} />
-            <Text style={[styles.planPerMonth, styles.planPerMonthChosen]}>No automatic renewal</Text>
-          </View>
+          {membership.plans.map((plan) => {
+            const chosen = plan.id === selectedPlanId;
+            const duration = `${plan.intervalMonths} ${plan.intervalMonths === 1 ? 'month' : 'months'}`;
+            return (
+              <Pressable
+                key={plan.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${plan.label}, ${duration}, ₦${plan.priceNgn}`}
+                accessibilityState={{ selected: chosen }}
+                onPress={() => setSelectedPlanId(plan.id)}
+                style={[styles.planCard, chosen && styles.planCardChosen]}
+              >
+                <Text style={styles.planName}>{plan.label}</Text>
+                <Text style={styles.planPrice}>
+                  ₦{new Intl.NumberFormat('en-NG').format(plan.priceNgn)}
+                </Text>
+                <Text style={styles.planInterval}>{duration}</Text>
+                <View style={styles.planDivider} />
+                <Text style={[styles.planPerMonth, chosen && styles.planPerMonthChosen]}>
+                  {plan.intervalMonths > 1
+                    ? `₦${Math.round(plan.priceNgn / plan.intervalMonths)} / mo`
+                    : 'No auto renewal'}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
+        {membership.error ? (
+          <ContentNotice
+            message={membership.error}
+            tone="error"
+            actionLabel="Retry"
+            onAction={() => void membership.refresh()}
+          />
+        ) : null}
         <View style={styles.tableCard}>
           <View style={styles.tableHeadRow}>
             <Text style={[styles.tableHead, { flex: 2.4 }]}>MEMBER BENEFITS</Text>
             <Text style={[styles.tableHead, { flex: 1, textAlign: 'center' }]}>Free</Text>
-            <Text style={[styles.tableHead, { color: '#E8CA65', flex: 1, textAlign: 'center' }]}>Member</Text>
+            <Text style={[styles.tableHead, { color: '#E8CA65', flex: 1, textAlign: 'center' }]}>Premium</Text>
           </View>
           {compareRows.map((row, index) => (
             <View key={row} style={[styles.tableRow, index === compareRows.length - 1 && styles.tableRowLast]}>
@@ -254,7 +279,7 @@ export default function MembershipScreen() {
           </Pressable>
         )}
         {checkoutError ? <Text style={styles.errorText}>{checkoutError}</Text> : null}
-        <Text style={styles.terms}>Membership lasts one month. No automatic card charging. Eligible members may earn USD from Reels. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
+        <Text style={styles.terms}>Premium lasts for the plan you choose (1, 3 or 12 months). No automatic card charging. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
         <View style={styles.legalLinks}>
           <Pressable accessibilityRole="link" onPress={() => router.push('/terms')}><Text style={styles.legalLink}>Terms</Text></Pressable>
           <Text style={styles.terms}>·</Text>

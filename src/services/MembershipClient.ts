@@ -1,12 +1,15 @@
 import { supabase } from './supabase';
 
+export type MemberPlanId = 'monthly' | 'quarterly' | 'yearly';
+
 export type MemberPlan = {
-  id: 'member';
-  name: 'Member';
+  id: MemberPlanId;
+  name: 'Premium';
+  label: 'Monthly' | 'Quarterly' | 'Yearly';
   currency: 'NGN';
   priceNgn: number;
   amountKobo: number;
-  intervalMonths: 1;
+  intervalMonths: 1 | 3 | 12;
 };
 
 export type MembershipStatus = {
@@ -75,19 +78,65 @@ async function request<T>(path: string, options: { method?: 'GET' | 'POST'; auth
   return payload as T;
 }
 
-export async function loadMemberPlan(): Promise<MemberPlan> {
-  const response = await request<{ plans?: unknown[] }>('/api/membership/plan');
-  const plan = response.plans?.find((value) =>
-    typeof value === 'object' && value !== null && 'id' in value && value.id === 'member',
-  );
-  if (
-    typeof plan !== 'object' || plan === null ||
-    !('priceNgn' in plan) || typeof plan.priceNgn !== 'number' || plan.priceNgn <= 0 ||
-    !('amountKobo' in plan) || typeof plan.amountKobo !== 'number' || plan.amountKobo !== plan.priceNgn * 100
-  ) {
-    throw new Error('Member pricing is unavailable. Please retry later.');
+function isMemberPlan(value: unknown): value is MemberPlan {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
   }
-  return plan as MemberPlan;
+  if (!('id' in value) || !('label' in value) || !('name' in value) || !('currency' in value) ||
+      !('priceNgn' in value) || !('amountKobo' in value) || !('intervalMonths' in value)) {
+    return false;
+  }
+  const expected = {
+    monthly: { label: 'Monthly', intervalMonths: 1 },
+    quarterly: { label: 'Quarterly', intervalMonths: 3 },
+    yearly: { label: 'Yearly', intervalMonths: 12 },
+  } as const;
+  let planDetails: (typeof expected)[keyof typeof expected];
+  switch (value.id) {
+    case 'monthly':
+      planDetails = expected.monthly;
+      break;
+    case 'quarterly':
+      planDetails = expected.quarterly;
+      break;
+    case 'yearly':
+      planDetails = expected.yearly;
+      break;
+    default:
+      return false;
+  }
+  return value.name === 'Premium' &&
+    value.label === planDetails.label &&
+    value.currency === 'NGN' &&
+    typeof value.priceNgn === 'number' &&
+    Number.isInteger(value.priceNgn) &&
+    value.priceNgn > 0 &&
+    typeof value.amountKobo === 'number' &&
+    value.amountKobo === value.priceNgn * 100 &&
+    value.intervalMonths === planDetails.intervalMonths;
+}
+
+export async function loadMemberPlans(): Promise<MemberPlan[]> {
+  const response = await request<{ plans?: unknown[] }>('/api/membership/plan');
+  const plans = (response.plans ?? []).filter(isMemberPlan);
+  const planIds = plans.map((plan) => plan.id);
+  const requiredPlanIds: MemberPlanId[] = ['monthly', 'quarterly', 'yearly'];
+  if (
+    plans.length !== requiredPlanIds.length ||
+    !requiredPlanIds.every((id) => planIds.includes(id))
+  ) {
+    throw new Error('Membership plans are unavailable. Please retry later.');
+  }
+  return plans;
+}
+
+export async function loadMemberPlan(): Promise<MemberPlan> {
+  const plans = await loadMemberPlans();
+  const plan = plans.find(({ id }) => id === 'monthly');
+  if (!plan) {
+    throw new Error('Monthly membership pricing is unavailable. Please retry later.');
+  }
+  return plan;
 }
 
 export function loadMembershipStatus() {

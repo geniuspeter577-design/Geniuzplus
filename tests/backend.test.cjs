@@ -120,7 +120,6 @@ async function startApi(options = {}) {
     anilistApiUrl: 'https://anilist.example.test/graphql',
     corsOrigins: options.corsOrigins ?? ['http://localhost:8081'],
     cacheTtlSeconds: 30,
-    membershipPriceNgn: options.membershipPriceNgn ?? 900,
     membershipGraceDays: options.membershipGraceDays ?? 3,
     subscription1500Enabled: options.subscription1500Enabled ?? false,
     dedicatedAccountEnabled: options.dedicatedAccountEnabled ?? false,
@@ -209,17 +208,31 @@ async function startTransferApi(context, activeMember = false) {
 function makeMembershipOperations() {
   const seenEvents = new Set();
   const calls = { checkout: [], webhooks: 0 };
+  const plans = [
+    { id: 'monthly', name: 'Premium', label: 'Monthly', currency: 'NGN', priceNgn: 919, amountKobo: 91_900, intervalMonths: 1 },
+    { id: 'quarterly', name: 'Premium', label: 'Quarterly', currency: 'NGN', priceNgn: 2298, amountKobo: 229_800, intervalMonths: 3 },
+    { id: 'yearly', name: 'Premium', label: 'Yearly', currency: 'NGN', priceNgn: 6616, amountKobo: 661_600, intervalMonths: 12 },
+  ];
   return {
     calls,
-    getPlan: () => ({ id: 'member', name: 'Member', currency: 'NGN', priceNgn: 900, amountKobo: 90_000, intervalMonths: 1 }),
+    getPlan: () => ({
+      id: 'member',
+      name: 'Member',
+      currency: 'NGN',
+      priceNgn: plans[0].priceNgn,
+      amountKobo: plans[0].amountKobo,
+      intervalMonths: 1,
+    }),
+    getPlans: () => plans,
     getStatus: async () => ({ status: 'visitor' }),
-    createCheckout: async (userId, email) => {
-      calls.checkout.push({ userId, email });
+    createCheckout: async (userId, email, planId = 'monthly') => {
+      calls.checkout.push({ userId, email, planId });
+      const plan = plans.find(({ id }) => id === planId);
       return {
         authorizationUrl: 'https://checkout.paystack.com/test-session',
         accessCode: 'test-access-code',
         reference: 'geniuz-test-reference',
-        amountKobo: 90_000,
+        amountKobo: plan.amountKobo,
         currency: 'NGN',
       };
     },
@@ -967,24 +980,97 @@ test('health and legal pages are public without catalog credentials or sign-in',
   assert.match(await privacy.text(), /Privacy Policy[\s\S]*Supabase[\s\S]*\[CONTACT EMAIL\]/);
 });
 
-test('membership plan price comes from backend configuration and exposes only Visitor and Member', async (context) => {
-  const api = await startApi({ membershipPriceNgn: 1250 });
+test('membership endpoint exposes the historical Premium plans', async (context) => {
+  const api = await startApi();
   context.after(api.close);
 
   const response = await fetch(`${api.baseUrl}/api/membership/plan`);
   const body = await response.json();
   assert.equal(response.status, 200);
-  assert.deepEqual(body.plans.map(({ id }) => id), ['visitor', 'member']);
-  assert.equal(body.plans[1].priceNgn, 1250);
+  assert.deepEqual(body.plans.map(({ id }) => id), [
+    'visitor',
+    'member',
+    'monthly',
+    'quarterly',
+    'yearly',
+  ]);
+  assert.deepEqual(body.plans[1], {
+    id: 'member',
+    name: 'Member',
+    currency: 'NGN',
+    priceNgn: 919,
+    amountKobo: 91_900,
+    intervalMonths: 1,
+  });
+  assert.deepEqual(body.plans.slice(2).map(({ label, priceNgn, intervalMonths }) => [
+    label,
+    priceNgn,
+    intervalMonths,
+  ]), [
+    ['Monthly', 919, 1],
+    ['Quarterly', 2298, 3],
+    ['Yearly', 6616, 12],
+  ]);
 });
 
-test('membership defaults to NGN 900 monthly, three grace days, and a disabled legacy plan', () => {
+test('membership checkout records the selected historical plan price and duration', async () => {
+  const insertedPayments = [];
+  const checkouts = [];
+  const adminClient = {
+    from(table) {
+      assert.equal(table, 'payments');
+      const query = {
+        select() { return query; },
+        eq() { return query; },
+        order() { return query; },
+        limit() { return query; },
+        maybeSingle: async () => ({ data: null, error: null }),
+        insert(payment) {
+          insertedPayments.push(payment);
+          return Promise.resolve({ error: null });
+        },
+      };
+      return query;
+    },
+  };
+  const paystack = {
+    isTestModeConfigured: true,
+    initializeTransaction: async (checkout) => {
+      checkouts.push(checkout);
+      return {
+        authorizationUrl: 'https://checkout.paystack.com/test-session',
+        accessCode: 'test-access-code',
+        reference: checkout.reference,
+      };
+    },
+  };
+  const service = new MembershipService(loadConfig({}), {
+    adminClient,
+    paystack,
+    now: () => new Date('2026-11-04T00:00:00.000Z'),
+  });
+
+  for (const plan of service.getPlans()) {
+    await service.createCheckout('user-id', 'member@example.test', plan.id);
+  }
+
+  assert.deepEqual(insertedPayments.map(({ amount_kobo, interval_months }) => [
+    amount_kobo,
+    interval_months,
+  ]), [
+    [91_900, 1],
+    [229_800, 3],
+    [661_600, 12],
+  ]);
+  assert.deepEqual(checkouts.map(({ amountKobo }) => amountKobo), [91_900, 229_800, 661_600]);
+});
+
+test('membership retains three grace days and a disabled legacy plan', () => {
   const config = loadConfig({});
-  assert.equal(config.membershipPriceNgn, 900);
   assert.equal(config.membershipGraceDays, 3);
   assert.equal(config.subscription1500Enabled, false);
   assert.equal(config.dedicatedAccountEnabled, false);
-  assert.equal(loadConfig({ MEMBERSHIP_PRICE_NGN: '1250', MEMBERSHIP_GRACE_DAYS: '5' }).membershipPriceNgn, 1250);
+  assert.equal(loadConfig({ MEMBERSHIP_GRACE_DAYS: '5' }).membershipGraceDays, 5);
 });
 
 test('Paystack checkout uses server-provided NGN kobo amount and card/bank transfer in TEST mode', async () => {
@@ -1041,13 +1127,14 @@ test('membership checkout requires sign-in and ignores client-supplied amounts',
   const response = await originalFetch(`${api.baseUrl}/api/membership/create-checkout`, {
     method: 'POST',
     headers: { Authorization: 'Bearer test-access-token', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ amount: 1, amountKobo: 1, priceNgn: 1 }),
+    body: JSON.stringify({ plan: 'quarterly', amount: 1, amountKobo: 1, priceNgn: 1 }),
   });
   assert.equal(response.status, 201);
-  assert.equal((await response.json()).amountKobo, 90_000);
+  assert.equal((await response.json()).amountKobo, 229_800);
   assert.deepEqual(membershipService.calls.checkout, [{
     userId: '00000000-0000-4000-8000-000000000031',
     email: 'member@example.test',
+    planId: 'quarterly',
   }]);
 });
 

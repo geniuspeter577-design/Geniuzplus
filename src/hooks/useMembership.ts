@@ -3,12 +3,13 @@ import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '../state/AuthContext';
 import { useNetwork } from '../state/NetworkContext';
-import { loadMemberPlan, loadMembershipStatus, type MemberPlan, type MembershipStatus } from '../services/MembershipClient';
+import { loadMemberPlans, loadMembershipStatus, type MemberPlan, type MembershipStatus } from '../services/MembershipClient';
 
 export function useMembership() {
   const auth = useAuth();
   const network = useNetwork();
-  const [plan, setPlan] = useState<MemberPlan | null>(null);
+  const [plans, setPlans] = useState<MemberPlan[]>([]);
+  const plan = plans.find(({ id }) => id === 'monthly') ?? null;
   const [status, setStatus] = useState<MembershipStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string>();
@@ -26,10 +27,10 @@ export function useMembership() {
     setError(undefined);
     try {
       const [nextPlan, nextStatus] = await Promise.all([
-        loadMemberPlan(),
+        loadMemberPlans(),
         auth.session ? loadMembershipStatus() : Promise.resolve<MembershipStatus>({ status: 'visitor' }),
       ]);
-      setPlan(nextPlan);
+      setPlans(nextPlan);
       setStatus(nextStatus);
       return nextStatus;
     } catch (loadError) {
@@ -46,5 +47,5 @@ export function useMembership() {
     }, [refresh]),
   );
 
-  return { plan, status, isLoading, error, refresh, isOnline: network.isOnline };
+  return { plan, plans, status, isLoading, error, refresh, isOnline: network.isOnline };
 }

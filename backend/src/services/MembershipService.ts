@@ -9,6 +9,11 @@ import type { PaymentGateway } from './PaymentGateway';
 import { FlutterwaveService } from './FlutterwaveService';
 
 const BOOST_PRICES_NGN: Record<number, number> = { 1: 500, 3: 1000, 7: 2000 };
+const PREMIUM_PLANS = [
+  { id: 'monthly', label: 'Monthly', priceNgn: 919, intervalMonths: 1 },
+  { id: 'quarterly', label: 'Quarterly', priceNgn: 2298, intervalMonths: 3 },
+  { id: 'yearly', label: 'Yearly', priceNgn: 6616, intervalMonths: 12 },
+] as const;
 
 type MembershipStatusResponse = {
   status: 'visitor' | 'active' | 'grace' | 'expired' | 'refunded';
@@ -84,18 +89,24 @@ export class MembershipService implements MembershipOperations {
   }
 
   getPlan() {
+    const plan = PREMIUM_PLANS[0];
     return {
       id: 'member',
       name: 'Member',
       currency: 'NGN',
-      priceNgn: this.config.membershipPriceNgn,
-      amountKobo: this.config.membershipPriceNgn * 100,
-      intervalMonths: 1,
+      priceNgn: plan.priceNgn,
+      amountKobo: plan.priceNgn * 100,
+      intervalMonths: plan.intervalMonths,
     };
   }
 
   getPlans() {
-    return [this.getPlan()];
+    return PREMIUM_PLANS.map((plan) => ({
+      ...plan,
+      name: 'Premium',
+      currency: 'NGN',
+      amountKobo: plan.priceNgn * 100,
+    }));
   }
 
   async getStatus(client: SupabaseClient, userId: string): Promise<MembershipStatusResponse> {
@@ -135,14 +146,16 @@ export class MembershipService implements MembershipOperations {
     };
   }
 
-  async createCheckout(userId: string, email: string, planId: string = 'member') {
+  async createCheckout(userId: string, email: string, planId: string = 'monthly') {
     const admin = this.getAdminClient();
     this.requireTestPaystack();
-    if (planId !== 'member' && planId !== 'monthly') {
-      throw new HttpError(400, 'INVALID_PLAN', 'Choose the Member plan.');
+    const selectedPlanId = planId === 'member' ? 'monthly' : planId;
+    const plan = PREMIUM_PLANS.find(({ id }) => id === selectedPlanId);
+    if (!plan) {
+      throw new HttpError(400, 'INVALID_PLAN', 'Choose a valid Premium plan.');
     }
-    const amountKobo = this.config.membershipPriceNgn * 100;
-    const intervalMonths = 1;
+    const amountKobo = plan.priceNgn * 100;
+    const intervalMonths = plan.intervalMonths;
     const { data: existingPayment, error: lookupError } = await admin
       .from('payments')
       .select('reference,amount_kobo')
