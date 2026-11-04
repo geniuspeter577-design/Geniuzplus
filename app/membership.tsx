@@ -18,6 +18,7 @@ export default function MembershipScreen() {
   const auth = useAuth();
   const membership = useMembership();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string>();
   const [selectedPlanId, setSelectedPlanId] = useState<MemberPlanId>('monthly');
   const paymentWasPending = useRef(false);
@@ -37,14 +38,6 @@ export default function MembershipScreen() {
       router.back();
     }
   }, [currentStatus, hasMemberAccess]);
-
-  useEffect(() => {
-    if (!pendingReference || !isOnline) {
-      return undefined;
-    }
-    const timer = setInterval(() => void refreshMembership(), 8_000);
-    return () => clearInterval(timer);
-  }, [isOnline, pendingReference, refreshMembership]);
 
   const close = () => {
     if (router.canGoBack()) {
@@ -104,6 +97,12 @@ export default function MembershipScreen() {
     } finally {
       setIsCheckingOut(false);
     }
+  };
+
+  const checkPaymentStatus = async () => {
+    setIsCheckingPayment(true);
+    await refreshMembership();
+    setIsCheckingPayment(false);
   };
 
   const displayName = auth.profile?.display_name || auth.session?.user.email || 'Visitor';
@@ -296,6 +295,18 @@ export default function MembershipScreen() {
             </LinearGradient>
           </Pressable>
         )}
+        {pendingReference && !hasMemberAccess ? (
+          <Pressable
+            accessibilityRole="button"
+            disabled={isCheckingPayment || !isOnline}
+            onPress={() => void checkPaymentStatus()}
+            style={styles.paymentCheck}
+          >
+            <Text style={styles.paymentCheckText}>
+              {isCheckingPayment ? 'Checking payment status…' : 'Check payment status'}
+            </Text>
+          </Pressable>
+        ) : null}
         {checkoutError ? <Text style={styles.errorText}>{checkoutError}</Text> : null}
         <Text style={styles.terms}>Premium lasts for the plan you choose (1, 3 or 12 months). No automatic card charging. Payment status updates after provider confirmation. Membership does not guarantee income.</Text>
         <View style={styles.legalLinks}>
@@ -364,6 +375,8 @@ const styles = StyleSheet.create({
   upgradeWrap: { borderRadius: 28, overflow: 'hidden' },
   upgradePill: { alignItems: 'center', borderRadius: 28, justifyContent: 'center', minHeight: 54, paddingHorizontal: 16 },
   upgradeText: { color: '#101216', fontSize: 16, fontWeight: '900', letterSpacing: 0.2 },
+  paymentCheck: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 8 },
+  paymentCheckText: { color: theme.accent, fontSize: 13, fontWeight: '700' },
   disabled: { opacity: 0.55 },
   errorText: { color: '#D64545', fontSize: 13, textAlign: 'center' },
   memberUntil: { color: theme.gold, fontSize: 16, fontWeight: '800', paddingVertical: 10, textAlign: 'center' },

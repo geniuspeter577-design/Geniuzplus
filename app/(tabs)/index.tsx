@@ -1,7 +1,6 @@
 import { getTmdbUpcoming, getUpcomingReleases } from '../../src/services/createContentService';
 import { NotificationBell } from '../../src/components/NotificationBell';
 import { loadReelActivity } from '../../src/services/ReelsRepository';
-import { subscribeToNotificationChanges } from '../../src/services/NotificationsStore';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -406,12 +405,8 @@ export default function HomeScreen() {
       });
     };
     refreshUnread();
-    const timer = setInterval(refreshUnread, 20000);
-    const unsubscribe = subscribeToNotificationChanges(refreshUnread);
     return () => {
       active = false;
-      clearInterval(timer);
-      unsubscribe();
     };
   }, []));
 

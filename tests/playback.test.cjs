@@ -128,10 +128,15 @@ test('Supabase movies and episodes keep using Supabase signed URLs while B2 uses
   });
 
   const supabase = createRepository();
-  assert.equal(
-    await supabase.repository.getPlaybackUrl({ id: 'geniuz:movie:movie-1', mediaPath: 'movies/movie-1.mp4', storageProvider: 'supabase' }),
-    'https://storage.example.test/signed',
-  );
+  const movie = { id: 'geniuz:movie:movie-1', mediaPath: 'movies/movie-1.mp4', storageProvider: 'supabase' };
+  const [movieUrl, reusedMovieUrl] = await Promise.all([
+    supabase.repository.getPlaybackUrl(movie),
+    supabase.repository.getPlaybackUrl(movie),
+  ]);
+  assert.equal(movieUrl, 'https://storage.example.test/signed');
+  assert.equal(reusedMovieUrl, movieUrl);
+  assert.equal(supabase.signedCalls.length, 1);
+  assert.equal(await supabase.repository.getPlaybackUrl(movie), movieUrl);
   assert.equal(
     await supabase.repository.getEpisodePlaybackUrl({ id: 'geniuz:episode:episode-1', mediaPath: 'episodes/episode-1.mp4', storageProvider: 'supabase' }),
     'https://storage.example.test/signed',

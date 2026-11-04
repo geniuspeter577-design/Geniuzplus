@@ -27,6 +27,10 @@ type MovieColumnList =
 const TITLE_IMAGE_BUCKET = 'title-images';
 const SUBTITLE_BUCKET = 'subtitle-files';
 const TUS_STORAGE_PREFIX = '@geniuz/tus-upload/v1/';
+const SIGNED_PLAYBACK_URL_CACHE_MS = 55 * 60 * 1000;
+const MAX_CACHED_PLAYBACK_URLS = 100;
+const signedPlaybackUrlCache = new Map<string, { url: string; expiresAt: number }>();
+const signedPlaybackUrlRequests = new Map<string, Promise<string>>();
 
 type MovieRecord = {
   id: string;
@@ -1304,28 +1308,66 @@ export class SupabaseMovieRepository {
     if (!path.trim()) {
       throw new PlaybackError('This movie is missing its video file.', 'PLAYBACK_FILE_MISSING', 404);
     }
-    const { data, error } = await this.client.storage
-      .from(MOVIE_BUCKET)
-      .createSignedUrl(path, 60 * 60);
+    const cacheKey = `${this.projectUrl.replace(/\/+$/, '')}\u0000${path}`;
+    const cached = signedPlaybackUrlCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      signedPlaybackUrlCache.delete(cacheKey);
+      signedPlaybackUrlCache.set(cacheKey, cached);
+      return cached.url;
+    }
+    if (cached) {
+      signedPlaybackUrlCache.delete(cacheKey);
+    }
+    const pending = signedPlaybackUrlRequests.get(cacheKey);
+    if (pending) {
+      return pending;
+    }
 
-    if (error) {
-      const details = error as { status?: number; statusCode?: string; code?: string; error?: string };
-      const status = details.status ?? (Number(details.statusCode) || undefined);
-      const isMissing = status === 404 || details.code === 'not_found' || details.error === 'not_found';
-      throw new PlaybackError(
-        isMissing
-          ? 'The video file is missing from storage.'
-          : 'Could not prepare the video from storage. Check the file and retry.',
-        isMissing ? 'PLAYBACK_FILE_NOT_FOUND' : details.code ?? 'SUPABASE_SIGNED_URL_FAILED',
-        status,
-        { cause: error },
-      );
+    const request = (async () => {
+      const { data, error } = await this.client.storage
+        .from(MOVIE_BUCKET)
+        .createSignedUrl(path, 60 * 60);
+
+      if (error) {
+        const details = error as { status?: number; statusCode?: string; code?: string; error?: string };
+        const status = details.status ?? (Number(details.statusCode) || undefined);
+        const isMissing = status === 404 || details.code === 'not_found' || details.error === 'not_found';
+        throw new PlaybackError(
+          isMissing
+            ? 'The video file is missing from storage.'
+            : 'Could not prepare the video from storage. Check the file and retry.',
+          isMissing ? 'PLAYBACK_FILE_NOT_FOUND' : details.code ?? 'SUPABASE_SIGNED_URL_FAILED',
+          status,
+          { cause: error },
+        );
+      }
+      const signedUrl = typeof data?.signedUrl === 'string' ? data.signedUrl.trim() : '';
+      if (!isHttpUrl(signedUrl)) {
+        throw new PlaybackError('Storage returned an invalid playback URL.', 'INVALID_PLAYBACK_URL', 502);
+      }
+
+      signedPlaybackUrlCache.delete(cacheKey);
+      if (signedPlaybackUrlCache.size >= MAX_CACHED_PLAYBACK_URLS) {
+        const oldestPath = signedPlaybackUrlCache.keys().next().value;
+        if (oldestPath) {
+          signedPlaybackUrlCache.delete(oldestPath);
+        }
+      }
+      signedPlaybackUrlCache.set(cacheKey, {
+        url: signedUrl,
+        expiresAt: Date.now() + SIGNED_PLAYBACK_URL_CACHE_MS,
+      });
+      return signedUrl;
+    })();
+
+    signedPlaybackUrlRequests.set(cacheKey, request);
+    try {
+      return await request;
+    } finally {
+      if (signedPlaybackUrlRequests.get(cacheKey) === request) {
+        signedPlaybackUrlRequests.delete(cacheKey);
+      }
     }
-    const signedUrl = typeof data?.signedUrl === 'string' ? data.signedUrl.trim() : '';
-    if (!isHttpUrl(signedUrl)) {
-      throw new PlaybackError('Storage returned an invalid playback URL.', 'INVALID_PLAYBACK_URL', 502);
-    }
-    return signedUrl;
   }
 
   async getPlaybackUrl(movie: Pick<ContentItem, 'id' | 'mediaPath' | 'storageProvider'>) {

@@ -151,8 +151,9 @@ test('Football Home category shows score states and notes without match stream a
   assert.match(home, /<FootballHomeCard/);
   assert.match(card, /if \(liveUpcoming\.length === 0\)[\s\S]*?return null/);
   assert.match(context, /getFootballMatches\(date\)/);
-  assert.match(context, /appState !== 'active'/);
-  assert.match(context, /}, 60_000\)/);
+  assert.match(panel, /Refresh football scores/);
+  assert.match(panel, /football\.retryUpcoming\(\)/);
+  assert.doesNotMatch(context, /setInterval|AppState/);
   assert.match(context, /requestsRef\.current\.get\(date\)/);
   assert.doesNotMatch(context, /football-data\.org/);
   assert.doesNotMatch(panel, /\/watch\//);

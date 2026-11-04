@@ -256,9 +256,26 @@ export function FootballMatchesPanel({
         <View>
           <Text style={styles.heading}>Matches</Text>
         </View>
-        {query.stale ? (
-          <Ionicons accessibilityLabel="Showing cached scores" name="time-outline" size={18} color={theme.warning} />
-        ) : null}
+        <View style={styles.headingActions}>
+          {query.stale ? (
+            <Ionicons accessibilityLabel="Showing cached scores" name="time-outline" size={18} color={theme.warning} />
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh football scores"
+            disabled={!isOnline || query.isLoading || football.upcoming.isLoading}
+            onPress={() => {
+              football.retryDate();
+              football.retryUpcoming();
+            }}
+            style={[
+              styles.refreshButton,
+              (!isOnline || query.isLoading || football.upcoming.isLoading) && styles.disabledRefreshButton,
+            ]}
+          >
+            <Ionicons name="refresh" size={18} color={theme.accent} />
+          </Pressable>
+        </View>
       </View>
 
       {!isOnline ? (
@@ -367,6 +384,9 @@ const styles = StyleSheet.create({
   teamLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   section: { gap: 12, marginBottom: 18 },
   headingRow: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between' },
+  headingActions: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  refreshButton: { alignItems: 'center', height: 32, justifyContent: 'center', width: 32 },
+  disabledRefreshButton: { opacity: 0.45 },
   heading: { color: theme.text, fontSize: 19, fontWeight: '800' },
   daySelector: { gap: 8, paddingVertical: 2 },
   dayOption: {

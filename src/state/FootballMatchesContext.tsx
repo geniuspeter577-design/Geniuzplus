@@ -1,5 +1,4 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, type AppStateStatus } from 'react-native';
 
 import type { FootballMatch, FootballMatchesResponse } from '../models/football';
 import { getFootballMatches, getFootballUpcoming } from '../services/createContentService';
@@ -44,7 +43,6 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
   const [entries, setEntries] = useState<Record<string, FootballDateState>>({});
   const [goalSignals, setGoalSignals] = useState<Record<string, GoalSignal>>({});
   const [pinned, setPinned] = useState<PinnedMatch | null>(null);
-  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const entriesRef = useRef<Record<string, FootballDateState>>({});
   const requestsRef = useRef(new Map<string, Promise<void>>());
 
@@ -130,32 +128,6 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
     void Promise.resolve().then(() => requestDate(today));
   }, [requestDate, today]);
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', setAppState);
-    return () => subscription.remove();
-  }, []);
-
-  const homeHasLiveMatch = Boolean(entries[today]?.matches.some((match) => match.status === 'live'));
-  const selectedHasLiveMatch = Boolean(entries[selectedDate]?.matches.some((match) => match.status === 'live'));
-  useEffect(() => {
-    if (!network.isOnline || appState !== 'active') {
-      return undefined;
-    }
-    const liveDates = [...new Set([
-      ...(homeHasLiveMatch ? [today] : []),
-      ...(selectedHasLiveMatch ? [selectedDate] : []),
-    ])];
-    if (liveDates.length === 0) {
-      return undefined;
-    }
-    const timer = setInterval(() => {
-      for (const date of liveDates) {
-        void requestDate(date, true);
-      }
-    }, 60_000);
-    return () => clearInterval(timer);
-  }, [appState, homeHasLiveMatch, network.isOnline, requestDate, selectedDate, selectedHasLiveMatch, today]);
-
   const [upcoming, setUpcoming] = useState<FootballDateState>({ matches: [], stale: false, isLoading: true });
   const loadUpcoming = useCallback(async () => {
     if (!network.isOnline) {
@@ -177,16 +149,6 @@ export function FootballMatchesProvider({ children }: React.PropsWithChildren) {
   useEffect(() => {
     void loadUpcoming();
   }, [loadUpcoming]);
-  useEffect(() => {
-    if (!network.isOnline || appState !== 'active') {
-      return undefined;
-    }
-    const timer = setInterval(() => {
-      void loadUpcoming();
-    }, 60_000);
-    return () => clearInterval(timer);
-  }, [appState, loadUpcoming, network.isOnline]);
-
   const selectDate = useCallback((date: string) => {
     setSelectedDate(date);
     void requestDate(date);

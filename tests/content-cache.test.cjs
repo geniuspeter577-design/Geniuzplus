@@ -26,6 +26,9 @@ const profile = fs.readFileSync('app/(tabs)/profile.tsx', 'utf8');
 const notifications = fs.readFileSync('app/notifications.tsx', 'utf8');
 const membership = fs.readFileSync('app/membership.tsx', 'utf8');
 const settings = fs.readFileSync('app/settings.tsx', 'utf8');
+const footballContext = fs.readFileSync('src/state/FootballMatchesContext.tsx', 'utf8');
+const footballPanel = fs.readFileSync('src/components/FootballMatchesPanel.tsx', 'utf8');
+const notificationsStore = fs.readFileSync('src/services/NotificationsStore.ts', 'utf8');
 
 test('catalog cache uses device storage and Cache Storage on web', () => {
   assert.match(cache, /AsyncStorage\.getItem/);
@@ -97,4 +100,13 @@ test('web laptop layouts expand while the phone-width cap remains unchanged', ()
   assert.match(membership, /maxWidth: 1000/);
   assert.match(settings, /maxWidth: 900/);
   assert.match(details, /maxWidth: 1200/);
+});
+
+test('phone screens refresh remote activity on focus or tap rather than using polling', () => {
+  assert.doesNotMatch(home, /setInterval|subscribeToNotificationChanges/);
+  assert.doesNotMatch(membership, /setInterval/);
+  assert.doesNotMatch(footballContext, /setInterval/);
+  assert.doesNotMatch(notificationsStore, /\.channel\(|\.subscribe\(/);
+  assert.match(footballPanel, /Refresh football scores/);
+  assert.match(membership, /Check payment status/);
 });
