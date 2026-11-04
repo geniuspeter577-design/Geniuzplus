@@ -56,7 +56,11 @@ export default function WatchScreen() {
   const downloads = useDownloads();
   const auth = useAuth();
   const { continueWatching, isLoading: isLibraryLoading, recordProgress } = useLibrary();
-  const { isOnline } = useNetwork();
+  const { isOnline, isReady: isNetworkReady } = useNetwork();
+  const isOnlineRef = useRef(isOnline);
+  // Keep the loader's connectivity snapshot current without making it a dependency.
+  // eslint-disable-next-line react-hooks/refs
+  isOnlineRef.current = isOnline;
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const localDownload = downloads.records.find(
@@ -758,6 +762,9 @@ export default function WatchScreen() {
       if (downloads.isLoading) {
         return;
       }
+      if (!isNetworkReady) {
+        return;
+      }
 
       setIsLoading(true);
       setError(undefined);
@@ -795,7 +802,7 @@ export default function WatchScreen() {
         return;
       }
 
-      if (!isOnline) {
+      if (!isOnlineRef.current) {
         setError(getFriendlyPlaybackError(false));
         setIsLoading(false);
         return;
@@ -880,7 +887,7 @@ export default function WatchScreen() {
         const { status, code } = getPlaybackErrorDetails(loadError);
         loggerPlaybackWarning(status, code, 'PLAYBACK_PREPARATION_FAILED');
         if (active) {
-          setError(getFriendlyPreparationError(code, isOnline));
+          setError(getFriendlyPreparationError(code, isOnlineRef.current));
         }
       } finally {
         if (active) {
@@ -893,7 +900,7 @@ export default function WatchScreen() {
     return () => {
       active = false;
     };
-  }, [downloads.isLoading, id, isOnline, isTrailer, localDownload, retryAttempt]);
+  }, [downloads.isLoading, id, isNetworkReady, isTrailer, localDownload, retryAttempt]);
 
   useEffect(() => {
     if (isLibraryLoading) {
