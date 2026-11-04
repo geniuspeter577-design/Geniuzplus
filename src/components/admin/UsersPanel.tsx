@@ -23,6 +23,7 @@ type UsersResponse = {
   pageSize: number;
   users: AdminUser[];
 };
+type UserSort = 'newest' | 'oldest';
 
 function formatDate(value: string | null) {
   if (!value) return '';
@@ -37,6 +38,7 @@ export function UsersPanel() {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [membersOnly, setMembersOnly] = useState(false);
+  const [sort, setSort] = useState<UserSort>('newest');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<UsersResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,7 +58,7 @@ export function UsersPanel() {
       if (sessionError || !sessionData.session?.access_token) throw new Error('Admin sign-in is required.');
       const apiBaseUrl = process.env.EXPO_PUBLIC_GENIUZ_API_URL?.trim().replace(/\/+$/, '');
       if (!apiBaseUrl) throw new Error('The backend URL is not configured.');
-      const params = new URLSearchParams({ q: query, page: String(page) });
+      const params = new URLSearchParams({ q: query, page: String(page), sort });
       if (membersOnly) params.set('members', '1');
       const response = await fetch(`${apiBaseUrl}/admin/users?${params.toString()}`, {
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
@@ -73,7 +75,7 @@ export function UsersPanel() {
     } finally {
       setLoading(false);
     }
-  }, [query, membersOnly, page]);
+  }, [query, membersOnly, page, sort]);
 
   useEffect(() => {
     void load();
@@ -247,6 +249,15 @@ export function UsersPanel() {
           </Pressable>
         </View>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Sort users by join date, currently ${sort === 'newest' ? 'newest first' : 'oldest first'}`}
+        onPress={() => { setPage(1); setSort((current) => current === 'newest' ? 'oldest' : 'newest'); }}
+        style={styles.sortButton}
+      >
+        <Ionicons name="swap-vertical" size={17} color={theme.accent} />
+        <Text style={styles.sortText}>{sort === 'newest' ? 'Newest joined first' : 'Oldest joined first'}</Text>
+      </Pressable>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       {data && data.users.length === 0 && !loading ? (
         <View style={styles.emptyState}>
@@ -367,6 +378,8 @@ const styles = StyleSheet.create({
   statLabel: { color: theme.secondaryText, fontSize: 11, fontWeight: '600', textAlign: 'center' },
   toolbar: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   toolbarStack: { alignItems: 'stretch', flexDirection: 'column' },
+  sortButton: { alignItems: 'center', alignSelf: 'flex-start', borderColor: theme.border, borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 7, minHeight: 40, paddingHorizontal: 12 },
+  sortText: { color: theme.text, fontSize: 12, fontWeight: '700' },
   searchBox: {
     alignItems: 'center',
     backgroundColor: theme.surface,

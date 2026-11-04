@@ -3,71 +3,107 @@ import { createClient } from '@supabase/supabase-js';
 import type { Config } from '../config/config';
 import { HttpError } from './errors';
 
-type MembershipRow = { user_id: string; status: string; current_period_end: string | null; grace_until: string | null };
-type ProfileRow = { id: string; display_name: string | null; public_id: string | null };
+type AdminUserSort = 'newest' | 'oldest';
+type AdminUser = {
+  id: string;
+  email: string | null;
+  displayName: string | null;
+  publicId: string | null;
+  joinedAt: string;
+  lastSignInAt: string | null;
+  membershipStatus: string;
+  membershipEnds: string | null;
+  hasBadge: boolean;
+};
+type AdminUsersResponse = {
+  total: number;
+  appStats: { signedInAccounts: number; signedInPhones: number; visitorPhones: number };
+  page: number;
+  pageSize: number;
+  users: AdminUser[];
+};
 
-export async function listAdminUsers(config: Config, search: string, membersOnly: boolean, page: number) {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+function parseAdminUsersResponse(value: unknown): AdminUsersResponse {
+  if (!isRecord(value) || !isRecord(value.appStats) || !Array.isArray(value.users)) {
+    throw new HttpError(502, 'USER_LIST_FAILED', 'The user list returned an invalid response.');
+  }
+  const { appStats } = value;
+  const counts = [value.total, value.page, value.pageSize, appStats.signedInAccounts, appStats.signedInPhones, appStats.visitorPhones];
+  if (!counts.every((count) => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0)) {
+    throw new HttpError(502, 'USER_LIST_FAILED', 'The user list returned invalid counts.');
+  }
+
+  const users: AdminUser[] = [];
+  for (const candidate of value.users) {
+    if (
+      !isRecord(candidate)
+      || typeof candidate.id !== 'string'
+      || !isNullableString(candidate.email)
+      || !isNullableString(candidate.displayName)
+      || !isNullableString(candidate.publicId)
+      || typeof candidate.joinedAt !== 'string'
+      || !isNullableString(candidate.lastSignInAt)
+      || typeof candidate.membershipStatus !== 'string'
+      || !isNullableString(candidate.membershipEnds)
+      || typeof candidate.hasBadge !== 'boolean'
+    ) {
+      throw new HttpError(502, 'USER_LIST_FAILED', 'The user list contains an invalid user record.');
+    }
+    users.push(candidate as AdminUser);
+  }
+
+  return {
+    total: value.total as number,
+    appStats: {
+      signedInAccounts: appStats.signedInAccounts as number,
+      signedInPhones: appStats.signedInPhones as number,
+      visitorPhones: appStats.visitorPhones as number,
+    },
+    page: value.page as number,
+    pageSize: value.pageSize as number,
+    users,
+  };
+}
+
+export async function listAdminUsers(
+  config: Config,
+  search: string,
+  membersOnly: boolean,
+  page: number,
+  sort: AdminUserSort = 'newest',
+) {
   if (!config.supabaseUrl || !config.supabaseServiceRoleKey) {
     throw new HttpError(503, 'SERVICE_KEY_NOT_CONFIGURED', 'The user list is not configured on this server.');
   }
+  if (!Number.isSafeInteger(page) || page < 1 || page > 10_000) {
+    throw new HttpError(400, 'INVALID_PAGE', 'The user page must be between 1 and 10000.');
+  }
+  if (sort !== 'newest' && sort !== 'oldest') {
+    throw new HttpError(400, 'INVALID_SORT', 'Choose newest or oldest users.');
+  }
+
   const admin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-
-  const authUsers: { id: string; email?: string; created_at: string; last_sign_in_at?: string }[] = [];
-  for (let current = 1; current <= 5; current += 1) {
-    const { data, error } = await admin.auth.admin.listUsers({ page: current, perPage: 200 });
-    if (error) {
-      throw new HttpError(502, 'USER_LIST_FAILED', 'Could not load users: ' + error.message);
-    }
-    authUsers.push(...data.users);
-    if (data.users.length < 200) break;
+  const { data, error } = await admin.rpc('admin_list_users', {
+    p_search: search.trim().slice(0, 100),
+    p_members_only: membersOnly,
+    p_page: page,
+    p_page_size: 50,
+    p_sort: sort,
+  });
+  if (error) {
+    throw new HttpError(502, 'USER_LIST_FAILED', 'Could not load the user list.');
   }
-
-  const ids = authUsers.map((user) => user.id);
-  const profiles = new Map<string, ProfileRow>();
-  const memberships = new Map<string, MembershipRow>();
-  for (let start = 0; start < ids.length; start += 50) {
-    const chunk = ids.slice(start, start + 50);
-    const [profileResult, membershipResult] = await Promise.all([
-      admin.from('profiles').select('id,display_name,public_id').in('id', chunk),
-      admin.from('memberships').select('user_id,status,current_period_end,grace_until').in('user_id', chunk),
-    ]);
-    if (profileResult.error) console.error('[adminUsers] profiles lookup failed:', profileResult.error.message);
-    for (const row of (profileResult.data ?? []) as ProfileRow[]) profiles.set(row.id, row);
-    for (const row of (membershipResult.data ?? []) as MembershipRow[]) memberships.set(row.user_id, row);
-  }
-
-  const now = Date.now();
-  const needle = search.trim().toLowerCase();
-  const all = authUsers
-    .map((user) => {
-      const profile = profiles.get(user.id);
-      const membership = memberships.get(user.id);
-      const status = membership?.status ?? 'none';
-      const graceLeft = membership?.grace_until ? Date.parse(membership.grace_until) > now : false;
-      return {
-        id: user.id,
-        email: user.email ?? null,
-        displayName: profile?.display_name ?? null,
-        publicId: profile?.public_id ?? null,
-        joinedAt: user.created_at,
-        lastSignInAt: user.last_sign_in_at ?? null,
-        membershipStatus: status,
-        membershipEnds: membership?.current_period_end ?? null,
-        hasBadge: (status === 'active' || status === 'grace') && graceLeft,
-      };
-    })
-    .filter((user) => (membersOnly ? user.hasBadge : true))
-    .filter((user) =>
-      !needle || [user.email, user.displayName, user.publicId].some((value) => value?.toLowerCase().includes(needle)),
-    )
-    .sort((a, b) => b.joinedAt.localeCompare(a.joinedAt));
-
-  const pageSize = 50;
-  const pageNumber = Math.max(page, 1);
-  const start = (pageNumber - 1) * pageSize;
-  const [deviceTokens, guestTokens] = await Promise.all([admin.from('device_push_tokens').select('expo_push_token'), admin.from('guest_push_tokens').select('expo_push_token')]); const signedInPhones = new Set((deviceTokens.data ?? []).map((row: { expo_push_token: string }) => row.expo_push_token)).size; const visitorPhones = new Set((guestTokens.data ?? []).map((row: { expo_push_token: string }) => row.expo_push_token)).size; return { total: all.length, appStats: { signedInAccounts: authUsers.length, signedInPhones, visitorPhones }, page: pageNumber, pageSize, users: all.slice(start, start + pageSize) };
+  return parseAdminUsersResponse(data);
 }
 
 export async function deleteAdminUser(config: Config, actingUserId: string, targetId: string, confirmPaid: boolean) {
@@ -115,9 +151,10 @@ export async function changeAdminBadge(config: Config, actingUserId: string, tar
   const admin = createClient(config.supabaseUrl, config.supabaseServiceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: m } = await admin.from('memberships').select('status,grace_until,source').eq('user_id', targetId).maybeSingle();
+  const { data: membership } = await admin.from('memberships').select('status,grace_until,source').eq('user_id', targetId).maybeSingle();
   const now = new Date();
-  const hasBadge = !!m && (m.status === 'active' || m.status === 'grace') && Date.parse(m.grace_until) > now.getTime();
+  const hasBadge = !!membership && (membership.status === 'active' || membership.status === 'grace')
+    && Date.parse(membership.grace_until) > now.getTime();
   const reference = 'admin-' + action + '-' + now.getTime();
   if (action === 'grant') {
     if (hasBadge) throw new HttpError(409, 'ALREADY_MEMBER', 'This user already has a badge.');
@@ -130,7 +167,7 @@ export async function changeAdminBadge(config: Config, actingUserId: string, tar
     if (error) throw new HttpError(502, 'GRANT_FAILED', 'The badge could not be given.');
   } else {
     if (!hasBadge) throw new HttpError(409, 'NO_BADGE', 'This user has no badge to remove.');
-    if (m?.source !== 'admin' && !confirmPaid) {
+    if (membership?.source !== 'admin' && !confirmPaid) {
       throw new HttpError(409, 'PAID_BADGE', 'This badge was paid for. Confirm to remove it.');
     }
     const { error } = await admin.from('memberships').update({
@@ -140,7 +177,7 @@ export async function changeAdminBadge(config: Config, actingUserId: string, tar
   }
   const { error: auditError } = await admin.from('membership_audit_log').insert({
     admin_user_id: actingUserId, user_id: targetId, action: 'admin_badge_' + action, reference,
-    details: { days: action === 'grant' ? days : null, previousSource: m?.source ?? null },
+    details: { days: action === 'grant' ? days : null, previousSource: membership?.source ?? null },
   });
   if (auditError) throw new HttpError(503, 'AUDIT_FAILED', 'The change was applied but its audit record failed.');
   return { ok: true };

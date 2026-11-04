@@ -23,6 +23,7 @@ const { PaystackService, isValidPaystackSignature } = require('../.test-build/ba
 const { ContentService } = require('../.test-build/backend/backend/src/services/ContentService.js');
 const { B2StorageService } = require('../.test-build/backend/backend/src/storage/B2StorageService.js');
 const { listPendingWithdrawals } = require('../.test-build/backend/backend/src/http/adminWithdrawals.js');
+const { listAdminUsers } = require('../.test-build/backend/backend/src/http/adminUsers.js');
 const requestFetch = global.fetch;
 
 const tmdbRecord = {
@@ -1684,4 +1685,52 @@ test('creator earning corrections deduplicate qualifying views and expose an exp
   assert.match(migration, /public\.count_creator_qualified_views\(new\.user_id\) < coalesce\(promo_min_views, 500\)/);
   assert.match(payoutPanel, /'Pay user'/);
   assert.match(payoutPanel, /This screen does not send money/);
+});
+
+test('admin user listing requests only a bounded sorted page and renders accurate membership status', async (context) => {
+  const calls = [];
+  context.mock.method(global, 'fetch', async (input, init) => {
+    calls.push({ url: new URL(String(input)), init });
+    return makeResponse({
+      total: 1,
+      appStats: { signedInAccounts: 8, signedInPhones: 5, visitorPhones: 2 },
+      page: 1,
+      pageSize: 50,
+      users: [{
+        id: '00000000-0000-4000-8000-000000000051',
+        email: 'person@example.test',
+        displayName: 'Test Person',
+        publicId: '00000051',
+        joinedAt: '2026-01-01T00:00:00.000Z',
+        lastSignInAt: null,
+        membershipStatus: 'none',
+        membershipEnds: null,
+        hasBadge: false,
+      }],
+    });
+  });
+
+  const result = await listAdminUsers({
+    supabaseUrl: 'https://supabase.test',
+    supabaseServiceRoleKey: 'service-role-test-key',
+  }, 'test', true, 1, 'oldest');
+
+  assert.equal(result.users[0].hasBadge, false);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url.pathname, '/rest/v1/rpc/admin_list_users');
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    p_search: 'test',
+    p_members_only: true,
+    p_page: 1,
+    p_page_size: 50,
+    p_sort: 'oldest',
+  });
+
+  const migration = fs.readFileSync('supabase/pending/35-admin-users-paginated-list.sql', 'utf8');
+  const panel = fs.readFileSync('src/components/admin/UsersPanel.tsx', 'utf8');
+  assert.match(migration, /limit p_page_size/);
+  assert.match(migration, /count\(distinct token\.expo_push_token\)/);
+  assert.match(migration, /membership\.current_period_end > now\(\)/);
+  assert.match(panel, /Newest joined first/);
+  assert.match(panel, /Oldest joined first/);
 });

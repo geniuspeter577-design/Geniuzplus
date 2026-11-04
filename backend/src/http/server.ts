@@ -1583,8 +1583,19 @@ async function handleRequest(
     await authenticateAdmin(config, request.headers.authorization);
     const search = (url.searchParams.get('q') ?? '').slice(0, 100);
     const membersOnly = url.searchParams.get('members') === '1';
-    const pageNumber = Number.parseInt(url.searchParams.get('page') ?? '1', 10) || 1;
-    writeJson(response, 200, await listAdminUsers(config, search, membersOnly, pageNumber));
+    const rawPage = url.searchParams.get('page') ?? '1';
+    if (!/^\d+$/.test(rawPage)) {
+      throw new HttpError(400, 'INVALID_PAGE', 'The page parameter must be a positive integer.');
+    }
+    const pageNumber = Number(rawPage);
+    if (!Number.isSafeInteger(pageNumber) || pageNumber < 1 || pageNumber > 10_000) {
+      throw new HttpError(400, 'INVALID_PAGE', 'The page parameter must be between 1 and 10000.');
+    }
+    const rawSort = url.searchParams.get('sort') ?? 'newest';
+    if (rawSort !== 'newest' && rawSort !== 'oldest') {
+      throw new HttpError(400, 'INVALID_SORT', 'Choose newest or oldest users.');
+    }
+    writeJson(response, 200, await listAdminUsers(config, search, membersOnly, pageNumber, rawSort));
     return;
   }
 
