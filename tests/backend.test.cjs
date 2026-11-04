@@ -22,6 +22,7 @@ const { MembershipService, getMembershipAccessStatus } = require('../.test-build
 const { PaystackService, isValidPaystackSignature } = require('../.test-build/backend/backend/src/services/PaystackService.js');
 const { ContentService } = require('../.test-build/backend/backend/src/services/ContentService.js');
 const { B2StorageService } = require('../.test-build/backend/backend/src/storage/B2StorageService.js');
+const { listPendingWithdrawals } = require('../.test-build/backend/backend/src/http/adminWithdrawals.js');
 const requestFetch = global.fetch;
 
 const tmdbRecord = {
@@ -1645,4 +1646,42 @@ test('season notifications install idempotent triggers and include a post-run ve
   assert.match(migration, /select expo_push_token from public\.guest_push_tokens/);
   assert.match(migration, /function_installed/);
   assert.match(migration, /episode_trigger_installed/);
+});
+
+test('admin withdrawal details fail explicitly when the payout bank lookup fails', async (context) => {
+  context.mock.method(global, 'fetch', async (input) => {
+    const url = new URL(String(input));
+    if (url.pathname === '/rest/v1/creator_withdrawals') {
+      return makeResponse([{
+        id: '00000000-0000-4000-8000-000000000041',
+        user_id: '00000000-0000-4000-8000-000000000042',
+        amount_usd: 10,
+        status: 'pending',
+        created_at: '2026-01-01T00:00:00.000Z',
+      }]);
+    }
+    if (url.pathname === '/rest/v1/creator_bank_details') {
+      return makeResponse({ message: 'database unavailable' }, 503);
+    }
+    return makeResponse({}, 404);
+  });
+
+  await assert.rejects(
+    listPendingWithdrawals({
+      supabaseUrl: 'https://supabase.test',
+      supabaseServiceRoleKey: 'service-role-test-key',
+    }),
+    /Payout details could not be loaded/,
+  );
+});
+
+test('creator earning corrections deduplicate qualifying views and expose an explicit admin Pay user action', () => {
+  const migration = fs.readFileSync('supabase/pending/34-creator-earnings-deduplicate-views.sql', 'utf8');
+  const payoutPanel = fs.readFileSync('src/components/admin/WithdrawalsPanel.tsx', 'utf8');
+  assert.match(migration, /create or replace function public\.count_creator_qualified_views/);
+  assert.match(migration, /select old_view\.reel_id, old_view\.viewer_id[\s\S]*union[\s\S]*select qualified_view\.reel_id, qualified_view\.viewer_id/);
+  assert.match(migration, /public\.count_creator_qualified_views\(p_user_id\) < coalesce\(promo_min_views, 500\)/);
+  assert.match(migration, /public\.count_creator_qualified_views\(new\.user_id\) < coalesce\(promo_min_views, 500\)/);
+  assert.match(payoutPanel, /'Pay user'/);
+  assert.match(payoutPanel, /This screen does not send money/);
 });

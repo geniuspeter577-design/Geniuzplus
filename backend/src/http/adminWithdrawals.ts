@@ -27,10 +27,13 @@ export async function listPendingWithdrawals(config: Config) {
   const ids = [...new Set(list.map((row) => row.user_id as string))];
   const banks = new Map<string, Record<string, string>>();
   if (ids.length) {
-    const { data: details } = await admin
+    const { data: details, error: bankError } = await admin
       .from('creator_bank_details')
       .select('user_id,country,bank_name,account_name,account_number')
       .in('user_id', ids);
+    if (bankError) {
+      throw new HttpError(502, 'PAYOUT_DETAILS_FAILED', 'Payout details could not be loaded.');
+    }
     for (const item of details ?? []) banks.set(item.user_id as string, item as Record<string, string>);
   }
   return {

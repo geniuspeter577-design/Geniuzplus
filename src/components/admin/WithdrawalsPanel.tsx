@@ -78,7 +78,7 @@ export function WithdrawalsPanel() {
       <View style={{ backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, gap: 8 }}>
         <Text style={{ color: C.text, fontSize: 18, fontWeight: '700' }}>Pending withdrawals</Text>
         <Text style={{ color: C.muted }}>
-          Pay the person in Flutterwave first, then type the payment reference and tap Mark as paid. This screen does not send money.
+          Pay the person in Flutterwave first, then enter the payment reference and tap Pay user to record the transfer. This screen does not send money.
         </Text>
         <Pressable onPress={() => void load()} disabled={loading}>
           <Text style={{ color: C.green }}>{loading ? 'Loading…' : 'Refresh'}</Text>
@@ -116,7 +116,7 @@ export function WithdrawalsPanel() {
             onPress={() => void markPaid(item)}
             style={{ padding: 14, borderRadius: 12, backgroundColor: busyId === item.id || !item.bank ? C.border : C.green }}
           >
-            <Text style={{ color: C.dark, textAlign: 'center', fontWeight: '700' }}>{busyId === item.id ? 'Saving…' : 'Mark as paid'}</Text>
+            <Text style={{ color: C.dark, textAlign: 'center', fontWeight: '700' }}>{busyId === item.id ? 'Recording…' : 'Pay user'}</Text>
           </Pressable>
         </View>
       ))}
