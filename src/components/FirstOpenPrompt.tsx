@@ -1,12 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import * as SecureStore from '../utils/webSecureStore';
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '../theme';
-
-const PROMPTED_KEY = 'geniuz.notifications.prompted';
 
 async function loadNotifications() {
   try {
@@ -27,16 +24,12 @@ export function FirstOpenPrompt() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     (async () => {
       try {
-        if ((await SecureStore.getItemAsync(PROMPTED_KEY)) === '1') {
-          return;
-        }
         const Notifications = await loadNotifications();
         if (Notifications === null) {
           return;
         }
         const current = await Notifications.getPermissionsAsync();
         if (current.granted) {
-          await SecureStore.setItemAsync(PROMPTED_KEY, '1');
           return;
         }
         timer = setTimeout(() => {
@@ -56,22 +49,12 @@ export function FirstOpenPrompt() {
     };
   }, []);
 
-  const remember = async () => {
-    try {
-      await SecureStore.setItemAsync(PROMPTED_KEY, '1');
-    } catch {
-      // ignore
-    }
-  };
-
   const notNow = () => {
     setVisible(false);
-    void remember();
   };
 
   const allow = async () => {
     setVisible(false);
-    await remember();
     try {
       const Notifications = await loadNotifications();
       if (Notifications === null) {
@@ -98,7 +81,7 @@ export function FirstOpenPrompt() {
           </View>
           <Text style={styles.title}>Stay in the loop</Text>
           <Text style={styles.body}>
-            Allow notifications so we can tell you when new movies and updates arrive. You can change this any time in your phone settings.
+            Allow notifications for new movies, updates, and background-download alerts. Your phone may still pause downloads to save battery. You can change this any time in your phone settings.
           </Text>
           <Pressable accessibilityRole="button" onPress={() => void allow()} style={styles.primary}>
             <Text style={styles.primaryText}>Allow notifications</Text>
