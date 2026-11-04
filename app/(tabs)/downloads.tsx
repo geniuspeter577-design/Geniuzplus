@@ -26,6 +26,7 @@ import { useNetwork } from '../../src/state/NetworkContext';
 import { theme } from '../../src/theme';
 import { getMeScreenData } from '../../src/utils/meScreen';
 import { formatFileSize } from '../../src/utils/formatFileSize.cjs';
+import { getBrowserDownloadFileName } from '../../src/utils/browserDownload';
 
 type DownloadTab = 'geniuz' | 'local' | 'received';
 type LocalVideo = { id: string; uri: string; title: string; duration: number; size: number; thumbnail?: string };
@@ -241,6 +242,9 @@ export default function DownloadsScreen() {
         }
       >
         <Text style={styles.header}>Downloads</Text>
+        {Platform.OS === 'web' ? (
+          <ContentNotice message="Web downloads stream to browser storage for offline playback. Where supported, choose a file location to also save a copy; otherwise your browser manages the file download. If a download is blocked, allow downloads for this site and retry." />
+        ) : null}
         <View style={styles.storageCard}>
           <View style={styles.storageStat}>
             <Text style={styles.storageLabel}>Storage used</Text>
@@ -401,6 +405,9 @@ export default function DownloadsScreen() {
                     <Text style={styles.typeBadge}>{typeLabel}</Text>
                   </View>
                   <Text style={styles.movieMeta}>{statusLabel}</Text>
+                  {Platform.OS === 'web' ? (
+                    <Text style={styles.movieMeta}>File: {getBrowserDownloadFileName(record.item)}</Text>
+                  ) : null}
                   {isDownloaded ? (
                     <Text style={styles.watchedLabel}>{getWatchedLabel(record, watchHistory)}</Text>
                   ) : null}

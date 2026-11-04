@@ -2,6 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ensureBackgroundDownloadPermission } from '../utils/backgroundDownloadPermission';
 import { useStudyMode } from './StudyModeContext';
 import { getOfflineUrl, listOffline, removeFromOffline, saveToOffline } from '../utils/webOfflineStore';
+import {
+  beginBrowserFileSave,
+  getBrowserDownloadFileName,
+  startBrowserManagedDownload,
+  type BrowserFileWritable,
+} from '../utils/browserDownload';
 
 const STUDY_DOWNLOADS_KEY = 'geniuz.study.downloads';
 import { DownloadTask, File, Paths } from 'expo-file-system';
@@ -342,11 +348,25 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
 
   const download = useCallback(async (item: ContentItem) => {
     setError(undefined);
+    const browserFileSave = Platform.OS === 'web'
+      ? beginBrowserFileSave(item).catch((saveError: unknown) => {
+          if (saveError instanceof Error && saveError.name === 'AbortError') {
+            return false as const;
+          }
+          throw saveError;
+        })
+      : Promise.resolve(null);
+    let fileWriter: BrowserFileWritable | null | false = null;
     try {
-      await enforceWifiPreference();
-      if (!(await requestBackgroundDownloadPermission())) {
+        fileWriter = await browserFileSave;
+      if (fileWriter === false) {
         return;
       }
+        await enforceWifiPreference();
+        if (!(await requestBackgroundDownloadPermission())) {
+          await fileWriter?.abort();
+          return;
+        }
       markStudy([item.id]);
       if (Platform.OS === 'web') {
         const existing = recordsRef.current.find((record) => record.item.id === item.id);
@@ -375,13 +395,21 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
                 ? { ...entry, progress: Math.min(99, progress) }
                 : entry,
             ));
-          }, controller.signal);
+          }, controller.signal, fileWriter);
           const filePath = await getOfflineUrl(item.id);
           if (!filePath) throw new Error('The saved browser download could not be opened.');
+          if (fileWriter) {
+            await fileWriter.close();
+          } else if (!startBrowserManagedDownload(url, getBrowserDownloadFileName(item))) {
+            setError('The browser blocked the file download. Allow downloads for this site and retry.');
+          }
           setRecords((current) => current.map((entry) => entry.item.id === item.id
             ? { ...entry, filePath, size, status: 'downloaded', progress: 100 }
             : entry));
         } catch (browserError) {
+          if (fileWriter) {
+            await fileWriter.abort(browserError).catch(() => undefined);
+          }
           setRecords((current) => current.map((entry) => entry.item.id === item.id
             ? { ...entry, filePath: '', status: controller.signal.aborted ? 'canceled' : 'failed', progress: 0 }
             : entry));
@@ -393,6 +421,9 @@ export function DownloadsProvider({ children }: React.PropsWithChildren) {
       }
       await service.download(item);
     } catch (downloadError) {
+      if (typeof fileWriter === 'object' && fileWriter !== null) {
+        await fileWriter.abort(downloadError).catch(() => undefined);
+      }
       console.error('[Downloads] Could not download this title.', downloadError);
       setError(downloadError instanceof Error ? downloadError.message : 'The download failed. Please retry.');
       throw downloadError;

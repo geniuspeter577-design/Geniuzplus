@@ -1,6 +1,7 @@
 // Saves downloaded videos inside the browser so they play offline in the web app.
 import type { ContentItem } from '../models/content';
 import { MAX_VIDEO_FILE_SIZE_BYTES } from '../constants/video';
+import type { BrowserFileWritable } from './browserDownload';
 
 const DB_NAME = 'geniuz-offline';
 const CHUNK_BYTES = 8 * 1024 * 1024;
@@ -48,6 +49,7 @@ export async function saveToOffline(
   url: string,
   onProgress?: (percent: number) => void,
   signal?: AbortSignal,
+  fileWriter?: BrowserFileWritable | null,
 ): Promise<void> {
   const expectedSize = item.fileSizeBytes;
   if (!Number.isSafeInteger(expectedSize) || !expectedSize || expectedSize <= 0 || expectedSize > MAX_VIDEO_FILE_SIZE_BYTES) {
@@ -78,6 +80,7 @@ export async function saveToOffline(
       if (signal?.aborted) throw new Error('Download canceled.');
       const { done, value } = await reader.read();
       if (done) break;
+      if (fileWriter) await fileWriter.write(value);
       parts.push(value); partBytes += value.length; received += value.length;
       if (received > MAX_VIDEO_FILE_SIZE_BYTES || received > expectedSize) {
         await reader.cancel();
