@@ -1634,3 +1634,15 @@ test('badge reminders run on the server and honor the non-member and weekly caps
   assert.match(migration, /limit 500/i);
   assert.match(notificationNavigation, /contentId === 'membership:badge-reminder'/);
 });
+
+test('season notifications install idempotent triggers and include a post-run verification query', () => {
+  const migration = fs.readFileSync('supabase/pending/32-new-season-notifications.sql', 'utf8');
+  assert.match(migration, /create table if not exists public\.season_notification_announcements/);
+  assert.match(migration, /create or replace function public\.notify_published_season/);
+  assert.match(migration, /drop trigger if exists seasons_published_notification/);
+  assert.match(migration, /drop trigger if exists episodes_season_published_notification/);
+  assert.match(migration, /on conflict \(season_id\) do nothing/);
+  assert.match(migration, /select expo_push_token from public\.guest_push_tokens/);
+  assert.match(migration, /function_installed/);
+  assert.match(migration, /episode_trigger_installed/);
+});
