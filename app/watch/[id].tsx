@@ -120,6 +120,8 @@ export default function WatchScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [playerStatus, setPlayerStatus] = useState(player.status);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showWebPlayButton, setShowWebPlayButton] = useState(false);
+  const [showWebUnmuteButton, setShowWebUnmuteButton] = useState(false);
   const [appIsActive, setAppIsActive] = useState(AppState.currentState === 'active');
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState<string>();
@@ -165,6 +167,10 @@ export default function WatchScreen() {
   const failureHandledRef = useRef(false);
   const resumeAppliedRef = useRef(false);
   const finishedProgressRef = useRef(false);
+  const webReadyPlayRetryRef = useRef(false);
+  const webMutedRetryRef = useRef(false);
+  const isActuallyPlayingRef = useRef(false);
+  const webReadyPlayCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoplayCanceledRef = useRef<string | undefined>(undefined);
   const saveProgressRef = useRef<() => void>(() => {});
 
@@ -605,7 +611,15 @@ export default function WatchScreen() {
       }
     });
     const playingSubscription = player.addListener('playingChange', ({ isPlaying: playing }) => {
+      isActuallyPlayingRef.current = playing;
       setIsPlaying(playing);
+      if (playing && Platform.OS === 'web') {
+        setShowWebPlayButton(false);
+        if (webReadyPlayCheckRef.current) {
+          clearTimeout(webReadyPlayCheckRef.current);
+          webReadyPlayCheckRef.current = null;
+        }
+      }
       if (!playing) {
         saveProgressRef.current();
       }
@@ -613,6 +627,10 @@ export default function WatchScreen() {
     return () => {
       timeSubscription.remove();
       playingSubscription.remove();
+      if (webReadyPlayCheckRef.current) {
+        clearTimeout(webReadyPlayCheckRef.current);
+        webReadyPlayCheckRef.current = null;
+      }
     };
   }, [
     autoplayNextEpisodeEnabled,
@@ -732,11 +750,116 @@ export default function WatchScreen() {
   const handlePlayerFailureRef = useRef(handlePlayerFailure);
   handlePlayerFailureRef.current = handlePlayerFailure;
 
+  // eslint-disable-next-line react-hooks/immutability
+  const handleWebPlayFailure = useCallback((playError: unknown) => {
+    console.warn('[player] play failed', playError);
+    const errorName = (playError as { name?: string } | null)?.name;
+    if (Platform.OS === 'web' && errorName === 'NotAllowedError') {
+      setShowWebPlayButton(true);
+      if (!webMutedRetryRef.current) {
+        webMutedRetryRef.current = true;
+        // eslint-disable-next-line react-hooks/immutability
+        player.muted = true;
+        setShowWebUnmuteButton(true);
+        try {
+          player.play();
+        } catch (mutedPlayError) {
+          console.warn('[player] play failed', mutedPlayError);
+          const mutedErrorName = (mutedPlayError as { name?: string } | null)?.name;
+          if (mutedErrorName === 'NotAllowedError') {
+            setShowWebPlayButton(true);
+          } else {
+            handlePlayerFailureRef.current({
+              message: mutedPlayError instanceof Error ? mutedPlayError.message : String(mutedPlayError),
+            });
+          }
+        }
+      }
+      return;
+    }
+    handlePlayerFailureRef.current({
+      message: playError instanceof Error ? playError.message : String(playError),
+    });
+  }, [player]);
+
+  // eslint-disable-next-line react-hooks/immutability
+  const playFromWebGesture = useCallback(() => {
+    setShowWebPlayButton(false);
+    try {
+      player.play();
+    } catch (playError) {
+      handleWebPlayFailure(playError);
+    }
+    if (webReadyPlayCheckRef.current) {
+      clearTimeout(webReadyPlayCheckRef.current);
+    }
+    webReadyPlayCheckRef.current = setTimeout(() => {
+      webReadyPlayCheckRef.current = null;
+      if (!isActuallyPlayingRef.current) {
+        setShowWebPlayButton(true);
+      }
+    }, 500);
+  }, [handleWebPlayFailure, player]);
+
+  const unmuteWebPlayer = useCallback(() => {
+    try {
+      // eslint-disable-next-line react-hooks/immutability
+      player.muted = false;
+      setShowWebUnmuteButton(false);
+    } catch (unmuteError) {
+      handleWebPlayFailure(unmuteError);
+    }
+  }, [handleWebPlayFailure, player]);
+
+  // eslint-disable-next-line react-hooks/immutability
   useEffect(() => {
     const subscription = player.addListener('statusChange', ({ status, error: playerError }) => {
       setPlayerStatus(status);
       if (status === 'readyToPlay') {
         setIsLoading(false);
+        if (Platform.OS === 'web' && !isActuallyPlayingRef.current && !webReadyPlayRetryRef.current) {
+          webReadyPlayRetryRef.current = true;
+          try {
+            player.play();
+          } catch (playError) {
+            handleWebPlayFailure(playError);
+          }
+          if (webReadyPlayCheckRef.current) {
+            clearTimeout(webReadyPlayCheckRef.current);
+          }
+          webReadyPlayCheckRef.current = setTimeout(() => {
+            webReadyPlayCheckRef.current = null;
+            if (isActuallyPlayingRef.current) {
+              return;
+            }
+            if (!webMutedRetryRef.current) {
+              webMutedRetryRef.current = true;
+              try {
+                player.muted = true;
+                setShowWebUnmuteButton(true);
+                player.play();
+              } catch (mutedPlayError) {
+                console.warn('[player] play failed', mutedPlayError);
+                const mutedErrorName = (mutedPlayError as { name?: string } | null)?.name;
+                if (mutedErrorName !== 'NotAllowedError') {
+                  handlePlayerFailureRef.current({
+                    message: mutedPlayError instanceof Error ? mutedPlayError.message : String(mutedPlayError),
+                  });
+                }
+              }
+              webReadyPlayCheckRef.current = setTimeout(() => {
+                webReadyPlayCheckRef.current = null;
+                if (!isActuallyPlayingRef.current) {
+                  setShowWebPlayButton(true);
+                }
+              }, 500);
+              return;
+            }
+            if (!isActuallyPlayingRef.current) {
+              setShowWebPlayButton(true);
+            }
+          }, 500);
+        }
         if (!resumeAppliedRef.current && !isTrailer && movie) {
           resumeAppliedRef.current = true;
           const savedEntry = continueWatching.find((entry) => entry.item.id === movie.id);
@@ -753,7 +876,7 @@ export default function WatchScreen() {
       }
     });
     return () => subscription.remove();
-  }, [continueWatching, handlePlayerFailure, isTrailer, movie, player]);
+  }, [continueWatching, handlePlayerFailure, handleWebPlayFailure, isTrailer, movie, player]);
 
   useEffect(() => {
     let active = true;
@@ -902,6 +1025,7 @@ export default function WatchScreen() {
     };
   }, [downloads.isLoading, id, isNetworkReady, isTrailer, localDownload, retryAttempt]);
 
+  // eslint-disable-next-line react-hooks/immutability
   useEffect(() => {
     if (isLibraryLoading) {
       return;
@@ -912,11 +1036,27 @@ export default function WatchScreen() {
 
     let active = true;
     failureHandledRef.current = false;
+    if (Platform.OS === 'web') {
+      webReadyPlayRetryRef.current = false;
+      webMutedRetryRef.current = false;
+      isActuallyPlayingRef.current = false;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowWebPlayButton(false);
+      setShowWebUnmuteButton(false);
+    }
     void player
       .replaceAsync(playbackUrl)
       .then(() => {
         if (active && !playerReleasedRef.current) {
-          player.play();
+          if (Platform.OS === 'web') {
+            try {
+              player.play();
+            } catch (playError) {
+              handleWebPlayFailure(playError);
+            }
+          } else {
+            player.play();
+          }
         }
       })
       .catch((loadError: unknown) => {
@@ -933,7 +1073,7 @@ export default function WatchScreen() {
         player.pause();
       }
     };
-  }, [isLibraryLoading, player, playbackUrl]);
+  }, [handleWebPlayFailure, isLibraryLoading, player, playbackUrl]);
 
   const retryPlayback = () => {
     expiredLinkRetryRef.current = false;
@@ -1000,6 +1140,9 @@ export default function WatchScreen() {
         duration={duration}
         bufferedPosition={bufferedPosition}
         error={error}
+        webPlaybackEnabled={Platform.OS === 'web'}
+        showWebPlayButton={Platform.OS === 'web' && showWebPlayButton}
+        showWebUnmuteButton={Platform.OS === 'web' && showWebUnmuteButton}
         showControls={showControls}
         isLandscape={isLandscape}
         isLocked={isPlayerLocked}
@@ -1021,6 +1164,8 @@ export default function WatchScreen() {
         onToggleRotate={toggleRotateLock}
         onOpenSubtitles={() => setSubtitleSheetVisible(true)}
         onPlayPause={togglePlayback}
+        onWebPlay={playFromWebGesture}
+        onWebUnmute={unmuteWebPlayer}
         onSeekBy={seekBy}
         onSeekTo={seekTo}
         onSeekingChange={setIsSeeking}

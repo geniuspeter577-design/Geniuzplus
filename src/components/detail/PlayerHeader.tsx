@@ -1,4 +1,4 @@
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { getWebPlayerWidth } from '../../hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -46,6 +46,9 @@ type PlayerHeaderProps = {
   duration: number;
   bufferedPosition: number;
   error?: string;
+  webPlaybackEnabled?: boolean;
+  showWebPlayButton?: boolean;
+  showWebUnmuteButton?: boolean;
   showControls: boolean;
   isLandscape: boolean;
   isLocked: boolean;
@@ -64,6 +67,8 @@ type PlayerHeaderProps = {
   onToggleRotate: () => void;
   onOpenSubtitles: () => void;
   onPlayPause: () => void;
+  onWebPlay?: () => void;
+  onWebUnmute?: () => void;
   onSeekBy: (seconds: number) => void;
   onSeekTo: (seconds: number) => void;
   onSeekingChange: (isSeeking: boolean) => void;
@@ -81,6 +86,9 @@ export function PlayerHeader({
   duration,
   bufferedPosition,
   error,
+  webPlaybackEnabled = false,
+  showWebPlayButton,
+  showWebUnmuteButton,
   showControls,
   isLandscape,
   isLocked,
@@ -99,6 +107,8 @@ export function PlayerHeader({
   onToggleRotate,
   onOpenSubtitles,
   onPlayPause,
+  onWebPlay,
+  onWebUnmute,
   onSeekBy,
   onSeekTo,
   onSeekingChange,
@@ -382,6 +392,7 @@ export function PlayerHeader({
             contentFit={fitMode}
             allowsPictureInPicture={false}
             crossOrigin={webAudioBoost.crossOrigin}
+            playsInline={Platform.OS === 'web' && webPlaybackEnabled}
           />
         ) : null}
         {subtitleText ? (
@@ -405,6 +416,28 @@ export function PlayerHeader({
             <Ionicons name="lock-open-outline" size={32} color={theme.text} />
           </Pressable>
         ) : null}
+        {webPlaybackEnabled && showWebPlayButton && !error ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Play video"
+            onPress={onWebPlay}
+            style={styles.webPlayButton}
+          >
+            <Ionicons name="play" size={28} color={theme.background} />
+            <Text style={styles.webPlayButtonText}>Play</Text>
+          </Pressable>
+        ) : null}
+        {webPlaybackEnabled && showWebUnmuteButton ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Unmute video"
+            onPress={onWebUnmute}
+            style={styles.webUnmuteButton}
+          >
+            <Ionicons name="volume-high-outline" size={18} color={theme.text} />
+            <Text style={styles.webUnmuteButtonText}>Unmute</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -421,6 +454,7 @@ export function PlayerHeader({
           contentFit={fitMode}
           allowsPictureInPicture={false}
           crossOrigin={webAudioBoost.crossOrigin}
+          playsInline={Platform.OS === 'web' && webPlaybackEnabled}
         />
       ) : null}
       {subtitleText ? (
@@ -787,6 +821,28 @@ export function PlayerHeader({
           )}
         </View>
       ) : null}
+      {webPlaybackEnabled && showWebPlayButton && !error ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Play video"
+          onPress={onWebPlay}
+          style={styles.webPlayButton}
+        >
+          <Ionicons name="play" size={28} color={theme.background} />
+          <Text style={styles.webPlayButtonText}>Play</Text>
+        </Pressable>
+      ) : null}
+      {webPlaybackEnabled && showWebUnmuteButton ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Unmute video"
+          onPress={onWebUnmute}
+          style={styles.webUnmuteButton}
+        >
+          <Ionicons name="volume-high-outline" size={18} color={theme.text} />
+          <Text style={styles.webUnmuteButtonText}>Unmute</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -976,6 +1032,46 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(18, 20, 24, 0.18)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
+  },
+  webPlayButton: {
+    position: 'absolute',
+    zIndex: 10,
+    top: '50%',
+    left: '50%',
+    minWidth: 132,
+    height: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: 34,
+    backgroundColor: theme.accent,
+    paddingHorizontal: 24,
+    transform: [{ translateX: -66 }, { translateY: -34 }],
+  },
+  webPlayButtonText: {
+    color: theme.background,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  webUnmuteButton: {
+    position: 'absolute',
+    zIndex: 11,
+    top: 16,
+    right: 16,
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    paddingHorizontal: 14,
+  },
+  webUnmuteButtonText: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: '700',
   },
   bottomStack: {
     ...StyleSheet.absoluteFill,
