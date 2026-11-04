@@ -7,12 +7,13 @@ import { PaystackService, PaystackServiceError } from './PaystackService';
 import { FlutterwaveGateway } from './PaymentGateway';
 import type { PaymentGateway } from './PaymentGateway';
 import { FlutterwaveService } from './FlutterwaveService';
+import { PLAN_PRICES } from '../constants/membership';
 
 const BOOST_PRICES_NGN: Record<number, number> = { 1: 500, 3: 1000, 7: 2000 };
 const PREMIUM_PLANS = [
-  { id: 'monthly', label: 'Monthly', priceNgn: 919, intervalMonths: 1 },
-  { id: 'quarterly', label: 'Quarterly', priceNgn: 2298, intervalMonths: 3 },
-  { id: 'yearly', label: 'Yearly', priceNgn: 6616, intervalMonths: 12 },
+  { id: 'monthly', label: '1 Month', priceNgn: PLAN_PRICES.monthly, intervalMonths: 1 },
+  { id: 'quarterly', label: 'Quarterly', priceNgn: PLAN_PRICES.quarterly, intervalMonths: 3 },
+  { id: 'yearly', label: 'Yearly', priceNgn: PLAN_PRICES.yearly, intervalMonths: 12 },
 ] as const;
 
 type MembershipStatusResponse = {

@@ -1004,7 +1004,7 @@ test('health and legal pages are public without catalog credentials or sign-in',
   assert.match(await privacy.text(), /Privacy Policy[\s\S]*Supabase[\s\S]*\[CONTACT EMAIL\]/);
 });
 
-test('membership endpoint exposes the historical Premium plans', async (context) => {
+test('membership endpoint exposes 1 Month, the historical quarterly plan and Yearly', async (context) => {
   const api = await startApi();
   context.after(api.close);
 
@@ -1022,8 +1022,8 @@ test('membership endpoint exposes the historical Premium plans', async (context)
     id: 'member',
     name: 'Member',
     currency: 'NGN',
-    priceNgn: 919,
-    amountKobo: 91_900,
+    priceNgn: 4_500,
+    amountKobo: 450_000,
     intervalMonths: 1,
   });
   assert.deepEqual(body.plans.slice(2).map(({ label, priceNgn, intervalMonths }) => [
@@ -1031,13 +1031,13 @@ test('membership endpoint exposes the historical Premium plans', async (context)
     priceNgn,
     intervalMonths,
   ]), [
-    ['Monthly', 919, 1],
+    ['1 Month', 4_500, 1],
     ['Quarterly', 2298, 3],
-    ['Yearly', 6616, 12],
+    ['Yearly', 37_800, 12],
   ]);
 });
 
-test('membership checkout records the selected historical plan price and duration', async () => {
+test('membership checkout records the selected plan price and duration', async () => {
   const insertedPayments = [];
   const checkouts = [];
   const adminClient = {
@@ -1082,11 +1082,11 @@ test('membership checkout records the selected historical plan price and duratio
     amount_kobo,
     interval_months,
   ]), [
-    [91_900, 1],
+    [450_000, 1],
     [229_800, 3],
-    [661_600, 12],
+    [3_780_000, 12],
   ]);
-  assert.deepEqual(checkouts.map(({ amountKobo }) => amountKobo), [91_900, 229_800, 661_600]);
+  assert.deepEqual(checkouts.map(({ amountKobo }) => amountKobo), [450_000, 229_800, 3_780_000]);
 });
 
 test('membership retains three grace days and a disabled legacy plan', () => {

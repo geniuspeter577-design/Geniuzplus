@@ -5,7 +5,7 @@ export type MemberPlanId = 'monthly' | 'quarterly' | 'yearly';
 export type MemberPlan = {
   id: MemberPlanId;
   name: 'Premium';
-  label: 'Monthly' | 'Quarterly' | 'Yearly';
+  label: '1 Month' | 'Quarterly' | 'Yearly';
   currency: 'NGN';
   priceNgn: number;
   amountKobo: number;
@@ -87,7 +87,7 @@ function isMemberPlan(value: unknown): value is MemberPlan {
     return false;
   }
   const expected = {
-    monthly: { label: 'Monthly', intervalMonths: 1 },
+    monthly: { label: '1 Month', intervalMonths: 1 },
     quarterly: { label: 'Quarterly', intervalMonths: 3 },
     yearly: { label: 'Yearly', intervalMonths: 12 },
   } as const;

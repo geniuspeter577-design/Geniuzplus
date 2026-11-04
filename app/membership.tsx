@@ -226,6 +226,24 @@ export default function MembershipScreen() {
             );
           })}
         </View>
+        <View accessibilityLabel="Membership plans: plan, duration and price" style={styles.planTable}>
+          <View style={styles.planTableRow}>
+            <Text style={[styles.planTableCell, styles.planTableHeading]}>Plan</Text>
+            <Text style={[styles.planTableCell, styles.planTableHeading]}>Duration</Text>
+            <Text style={[styles.planTableCell, styles.planTableHeading]}>Price</Text>
+          </View>
+          {membership.plans.map((plan) => (
+            <View key={plan.id} style={styles.planTableRow}>
+              <Text style={styles.planTableCell}>{plan.label}</Text>
+              <Text style={styles.planTableCell}>
+                {plan.intervalMonths} {plan.intervalMonths === 1 ? 'month' : 'months'}
+              </Text>
+              <Text style={styles.planTableCell}>
+                ₦{new Intl.NumberFormat('en-NG').format(plan.priceNgn)}
+              </Text>
+            </View>
+          ))}
+        </View>
 
         {membership.error ? (
           <ContentNotice
@@ -321,6 +339,10 @@ const styles = StyleSheet.create({
   sectionTitle: { color: theme.secondaryText, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   sectionTag: { color: theme.accent, fontSize: 11, fontWeight: '600' },
   plansRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
+  planTable: { backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 12, borderWidth: 1, marginBottom: 18, overflow: 'hidden' },
+  planTableRow: { borderBottomColor: theme.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 11 },
+  planTableCell: { color: theme.text, flex: 1, fontSize: 13 },
+  planTableHeading: { color: theme.secondaryText, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   planCard: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 24, borderWidth: 1, flex: 1, paddingHorizontal: 6, paddingVertical: 18 },
   planCardChosen: { backgroundColor: '#1E2026', borderColor: theme.gold, borderWidth: 2 },
   bestPill: { backgroundColor: theme.gold, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, position: 'absolute', top: -10 },
