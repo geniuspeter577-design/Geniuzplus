@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   back: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
   heading: { color: C.text, flex: 1, fontSize: 16, fontWeight: '700' },
   center: { alignItems: 'center', flex: 1, justifyContent: 'center', padding: 24 },
-  page: { paddingBottom: 40 },
+  page: { alignSelf: 'center', maxWidth: 1440, paddingBottom: 40, width: '100%' },
   pad: { paddingHorizontal: 16 },
   fallback: { alignItems: 'center', justifyContent: 'center' },
   caption: { backgroundColor: C.scrim, bottom: 0, left: 0, padding: 16, position: 'absolute', right: 0 },

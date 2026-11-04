@@ -310,7 +310,7 @@ export default function MembershipScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { backgroundColor: theme.background, flex: 1 },
-  topBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
+  topBar: { alignSelf: 'center', alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', maxWidth: 1000, paddingHorizontal: 16, paddingVertical: 10, width: '100%' },
   userSection: { alignItems: 'center', flex: 1, flexDirection: 'row', marginRight: 12 },
   avatarRing: { alignItems: 'center', borderColor: theme.accent, borderRadius: 24, borderWidth: 1.5, height: 48, justifyContent: 'center', width: 48 },
   avatar: { alignItems: 'center', backgroundColor: theme.surfaceAlt, borderRadius: 20, height: 40, justifyContent: 'center', overflow: 'hidden', width: 40 },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   planBadgeTextActive: { color: '#E8CA65' },
   validDate: { color: theme.secondaryText, fontSize: 12, marginTop: 2 },
   closeButton: { alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 22, borderWidth: 1, height: 44, justifyContent: 'center', width: 44 },
-  content: { paddingBottom: 24, paddingHorizontal: 16, paddingTop: 6 },
+  content: { alignSelf: 'center', maxWidth: 1000, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 6, width: '100%' },
   heroCard: { borderColor: 'rgba(212, 175, 55, 0.4)', borderRadius: 24, borderWidth: 1, marginBottom: 24, padding: 20 },
   heroHeaderRow: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between' },
   heroTitle: { color: theme.text, fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   tableRowLast: { borderBottomWidth: 0 },
   tableFeature: { color: theme.text, flex: 2.4, fontSize: 13, fontWeight: '500', paddingRight: 8 },
   tableCell: { alignItems: 'center', flex: 1 },
-  footer: { backgroundColor: theme.background, borderTopColor: theme.border, borderTopWidth: 1, gap: 9, paddingBottom: 10, paddingHorizontal: 20, paddingTop: 12 },
+  footer: { alignSelf: 'center', backgroundColor: theme.background, borderTopColor: theme.border, borderTopWidth: 1, gap: 9, maxWidth: 1000, paddingBottom: 10, paddingHorizontal: 20, paddingTop: 12, width: '100%' },
   upgradeWrap: { borderRadius: 28, overflow: 'hidden' },
   upgradePill: { alignItems: 'center', borderRadius: 28, justifyContent: 'center', minHeight: 54, paddingHorizontal: 16 },
   upgradeText: { color: '#101216', fontSize: 16, fontWeight: '900', letterSpacing: 0.2 },

@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   offlinePoster: { width: 180, height: 270, borderRadius: 14, alignSelf: 'center', marginTop: 20 },
   offlineTitle: { color: theme.text, fontSize: 26, fontWeight: '800', marginHorizontal: 20, marginTop: 18 },
   offlineDescription: { color: theme.muted, fontSize: 15, lineHeight: 23, marginHorizontal: 20, marginTop: 10 },
-  contentWrap: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 24 },
+  contentWrap: { alignSelf: 'center', maxWidth: 1200, paddingHorizontal: 18, paddingTop: 20, paddingBottom: 24, width: '100%' },
   primaryActions: { flexDirection: 'row', marginTop: 16 },
   primaryButton: {
     minHeight: 48,

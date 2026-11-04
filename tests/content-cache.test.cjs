@@ -22,6 +22,10 @@ const downloadsScreen = fs.readFileSync('app/(tabs)/downloads.tsx', 'utf8');
 const watchScreen = fs.readFileSync('app/watch/[id].tsx', 'utf8');
 const downloadSheet = fs.readFileSync('src/components/detail/DownloadSheet.tsx', 'utf8');
 const columnWindow = fs.readFileSync('src/hooks/useColumnWindow.ts', 'utf8');
+const profile = fs.readFileSync('app/(tabs)/profile.tsx', 'utf8');
+const notifications = fs.readFileSync('app/notifications.tsx', 'utf8');
+const membership = fs.readFileSync('app/membership.tsx', 'utf8');
+const settings = fs.readFileSync('app/settings.tsx', 'utf8');
 
 test('catalog cache uses device storage and Cache Storage on web', () => {
   assert.match(cache, /AsyncStorage\.getItem/);
@@ -87,4 +91,9 @@ test('web laptop layouts expand while the phone-width cap remains unchanged', ()
   assert.match(columnWindow, /WEB_DESKTOP_MAX_WIDTH = 1440/);
   assert.match(homeList, /Platform\.OS === 'web' && width >= 1150 \? 4 : Platform\.OS === 'web' && width >= 768 \? 3 : 2/);
   assert.match(search, /screenWidth < 768[\s\S]*Math\.min\(640/);
+  assert.match(profile, /maxWidth: 1080/);
+  assert.match(notifications, /maxWidth: 920/);
+  assert.match(membership, /maxWidth: 1000/);
+  assert.match(settings, /maxWidth: 900/);
+  assert.match(details, /maxWidth: 1200/);
 });

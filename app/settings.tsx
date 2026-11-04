@@ -375,12 +375,15 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.background },
   header: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    maxWidth: 900,
     paddingHorizontal: 18,
     marginTop: 10,
     marginBottom: 8,
+    width: '100%',
   },
   backButton: {
     width: 44,
@@ -391,7 +394,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
   },
   headerTitle: { color: theme.text, fontSize: 27, fontWeight: '800' },
-  content: { paddingHorizontal: 18, paddingBottom: 30 },
+  content: { alignSelf: 'center', maxWidth: 900, paddingHorizontal: 18, paddingBottom: 30, width: '100%' },
   card: {
     backgroundColor: theme.surface,
     borderColor: theme.border,

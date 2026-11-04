@@ -389,7 +389,7 @@ function WatchHistorySection({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.background },
-  content: { paddingHorizontal: 18, paddingBottom: 32 },
+  content: { alignSelf: 'center', maxWidth: 1080, paddingHorizontal: 18, paddingBottom: 32, width: '100%' },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',

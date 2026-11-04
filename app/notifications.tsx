@@ -190,13 +190,16 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: theme.background },
   headerRow: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    maxWidth: 920,
     paddingHorizontal: 18,
     paddingTop: 12,
     marginBottom: 12,
+    width: '100%',
   },
   backButton: {
     width: 40,
@@ -211,7 +214,7 @@ const styles = StyleSheet.create({
   title: { color: theme.text, fontSize: 28, fontWeight: '800' },
   secondaryButton: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: theme.surface },
   secondaryButtonText: { color: theme.text, fontSize: 12, fontWeight: '700' },
-  content: { paddingHorizontal: 18, paddingBottom: 28 },
+  content: { alignSelf: 'center', maxWidth: 920, paddingHorizontal: 18, paddingBottom: 28, width: '100%' },
   emptyCard: {
     backgroundColor: theme.surface,
     borderRadius: 18,
