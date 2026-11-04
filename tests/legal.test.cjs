@@ -8,12 +8,15 @@ const layout = fs.readFileSync('app/_layout.tsx', 'utf8');
 const sheet = fs.readFileSync('src/components/auth/SignInToContinueSheet.tsx', 'utf8');
 const modal = fs.readFileSync('src/components/auth/SignInToContinueModal.tsx', 'utf8');
 
-test('legal documents describe real services and retain only the contact placeholder', () => {
+test('legal documents describe service data and expose unconfirmed legal-policy inputs', () => {
   for (const phrase of ['Flutterwave', 'Supabase', 'Backblaze B2', 'push token', 'creator rewards', 'Downloads']) {
     assert.match(documents, new RegExp(phrase, 'i'));
   }
-  assert.match(documents, /\[CONTACT EMAIL\]/);
-  assert.doesNotMatch(documents, /\[(?:MINIMUM AGE|REFUND RULE)\]/);
+  assert.match(documents, /export const REFUND_POLICY_TEXT/);
+  assert.match(documents, /export const SUPPORT_EMAIL/);
+  assert.match(documents, /TODO: Confirm refund eligibility/);
+  assert.match(documents, /TODO: provide the official support email address/);
+  assert.match(documents, /authorized administrators can view these details/i);
 });
 
 test('legal pages are public at app and backend web routes', () => {

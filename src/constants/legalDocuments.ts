@@ -3,6 +3,10 @@ export type LegalDocumentSection = {
   paragraphs: string[];
 };
 
+export const REFUND_POLICY_TEXT =
+  'TODO: Confirm refund eligibility, timing, and cancellation terms with the configured payment provider and applicable law. Until confirmed, refunds are subject to applicable law and the terms displayed at checkout.';
+export const SUPPORT_EMAIL = 'TODO: provide the official support email address';
+
 export const LEGAL_DOCUMENTS = {
   terms: {
     title: 'Terms of Use',
@@ -17,14 +21,22 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: 'Your account',
         paragraphs: [
-          'Keep your account details accurate and your sign-in credentials private. You are responsible for activity under your account. Contact [CONTACT EMAIL] if you believe someone else has accessed it.',
+          'Keep your account details accurate and your sign-in credentials private. You are responsible for activity under your account. Contact ' + SUPPORT_EMAIL + ' if you believe someone else has accessed it.',
+        ],
+      },
+      {
+        heading: 'Service content and acceptable use',
+        paragraphs: [
+          'Geniuzplus and its licensors retain their rights in the app, brand, and licensed catalog. Your access is personal and limited to the features made available through the service. Do not copy, redistribute, publicly perform, reverse engineer, or bypass access controls for service content except where applicable law permits.',
+          'Do not use the service to violate law or another person’s rights, interfere with service operation, evade safety or access controls, or distribute malware, spam, or deceptive material. Do not use another person’s account or payment method without authorization.',
+          'Report content or conduct that appears to violate these terms through the reporting features where available. We may investigate reports and remove content or restrict accounts when reasonably necessary to protect users, rights holders, or the service.',
         ],
       },
       {
         heading: 'Membership and payments',
         paragraphs: [
           'Available plans, prices, and membership periods are shown before checkout. Flutterwave processes Member payments where it is the configured payment provider; otherwise, the payment provider shown at checkout processes the payment. Membership is activated after payment confirmation.',
-          'Membership does not automatically charge your card again. To continue after a plan ends, choose and pay for another plan. Payment providers handle payment credentials under their own terms. Refunds are subject to applicable law and the terms shown during checkout. Contact [CONTACT EMAIL] with a billing question.',
+          'Membership does not automatically charge your card again. To continue after a plan ends, choose and pay for another plan. Payment providers handle payment credentials under their own terms. ' + REFUND_POLICY_TEXT + ' For billing questions, contact ' + SUPPORT_EMAIL + '.',
         ],
       },
       {
@@ -48,6 +60,12 @@ export const LEGAL_DOCUMENTS = {
         ],
       },
       {
+        heading: 'Third-party services',
+        paragraphs: [
+          'Some features depend on third-party services, including account, storage, hosting, payment, and push-notification providers. Their availability and terms may affect the service. Geniuzplus is not responsible for third-party services it does not operate.',
+        ],
+      },
+      {
         heading: 'Changes and availability',
         paragraphs: [
           'Features and content may change or be temporarily unavailable. Geniuzplus may update these terms and will give notice when required. We may suspend or close access when needed to address violations, safety concerns, or service changes.',
@@ -68,6 +86,7 @@ export const LEGAL_DOCUMENTS = {
           'Account information includes your email address, display name, username and date of birth, plus account identifiers used to sign you in and associate your profile with your activity.',
           'Service activity can include searches, titles you view, playback progress, watchlist and playlist entries, download records, and Reels you post or interact with, such as likes, comments, follows, saves, and reports.',
           'Membership and creator records can include the plan selected, payment reference, amount, currency, payment status and dates, reward eligibility, recorded earnings, and payout requests. Flutterwave or the payment provider shown at checkout handles your payment details. Geniuzplus receives the information needed to confirm and manage the transaction; we do not receive your full card credentials through the hosted checkout.',
+          'If you provide payout details, we store the country, bank name, account name, and account number needed to process a manually reviewed creator payout. Authorized administrators can view these details for that purpose.',
           'If you allow push notifications, we store a device push token and use it to deliver service notifications. You can turn off push permission in your device settings.',
         ],
       },
@@ -87,7 +106,13 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: 'Downloads and device storage',
         paragraphs: [
-          'When you download a title, the media file is saved in local device or browser storage for playback in Geniuzplus, where supported. Download records may also be kept with your app data so the Downloads area can list and manage them. Remove downloads from that area to delete the local copy.',
+          'When you download a title, the media file is saved in local device or browser storage for playback in Geniuzplus, where supported. Download records may also be kept with your app data so the Downloads area can list and manage them. The website may cache app resources and title images so the catalog can load more quickly and previously viewed items may remain available offline. Remove downloads from the Downloads area to delete the local media copy.',
+        ],
+      },
+      {
+        heading: 'Your choices and security',
+        paragraphs: [
+          'You can edit available profile information, manage push permission in device settings, remove local downloads, and submit an account deletion request in the app. We use access controls and service providers to protect information, but no online service can guarantee absolute security.',
         ],
       },
       {
@@ -99,7 +124,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: 'Contact and updates',
         paragraphs: [
-          'For a privacy question or request, contact [CONTACT EMAIL]. We may update this policy and will publish the current version on this page.',
+          'For a privacy question or request, contact ' + SUPPORT_EMAIL + '. We may update this policy and will publish the current version on this page.',
         ],
       },
     ],
