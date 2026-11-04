@@ -69,6 +69,7 @@
     },
     "android": {
       "package": "com.geniuz.entertainment",
+      "blockedPermissions": ["android.permission.SYSTEM_ALERT_WINDOW"],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#020807",
