@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -17,7 +16,7 @@ export function FirstOpenPrompt() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (Constants.executionEnvironment === 'storeClient') {
+    if (Platform.OS === 'web') {
       return undefined;
     }
     let cancelled = false;
