@@ -5,7 +5,7 @@ export function getReelFileSizeError(fileSize: number | null | undefined) {
     return "We couldn't check this video's size. Select it again and try.";
   }
   if (fileSize > MAX_REEL_FILE_SIZE_BYTES) {
-    return 'This video is larger than 30 MB. Choose a smaller video.';
+    return 'This video is larger than 50 MB. Choose a smaller video.';
   }
   return null;
 }

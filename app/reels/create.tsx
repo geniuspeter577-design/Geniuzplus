@@ -9,7 +9,7 @@ import { Alert, Image, KeyboardAvoidingView, Linking, Modal, PanResponder, Press
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { REEL_FILTERS } from '../../src/components/ReelEditsOverlay';
-import { MAX_REEL_DURATION_SECONDS } from '../../src/config/reels';
+import { MAX_REEL_DURATION_SECONDS, MAX_REEL_FILE_SIZE_BYTES } from '../../src/config/reels';
 import { useAuth } from '../../src/state/AuthContext';
 import { theme } from '../../src/theme';
 import { playlistOnUpload, scheduleOnUpload, searchUsers, uploadReel } from '../../src/services/ReelsRepository';
@@ -205,8 +205,8 @@ export default function CreateReelScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['videos'],
         allowsMultipleSelection: false,
+        allowsEditing: false,
         videoMaxDuration: MAX_REEL_DURATION_SECONDS,
-        quality: 1,
       });
       if (!result.canceled && result.assets[0]) {
         setAsset(result.assets[0]);
@@ -464,7 +464,9 @@ export default function CreateReelScreen() {
           <Pressable accessibilityRole="button" onPress={() => void pickVideo()} style={styles.picker}>
             <Ionicons name="videocam-outline" size={34} color={theme.accent} />
             <Text style={styles.pickerTitle}>Choose a video</Text>
-            <Text style={styles.muted}>Maximum {MAX_REEL_DURATION_SECONDS} seconds · 50 MB</Text>
+            <Text style={styles.muted}>
+              Maximum {MAX_REEL_DURATION_SECONDS} seconds · {MAX_REEL_FILE_SIZE_BYTES / (1024 * 1024)} MB
+            </Text>
           </Pressable>
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
         </View>

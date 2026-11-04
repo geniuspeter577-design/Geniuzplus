@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { VideoView, useVideoPlayer, type VideoSource } from 'expo-video';
+import { VideoView, useVideoPlayer, type VideoSize, type VideoSource } from 'expo-video';
 import { VolumeBoostControl } from './detail/VolumeBoostControl';
 import { useWebAudioVolumeBoost } from '../hooks/useWebAudioVolumeBoost';
 import { ReelEditsOverlay } from './ReelEditsOverlay';
@@ -73,6 +73,9 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
   });
   const [error, setError] = useState<string>();
   const [progress, setProgress] = useState(0);
+  const [videoSize, setVideoSize] = useState<VideoSize | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isMuted, setIsMuted] = useState(false);
   const [currentItem, setCurrentItem] = useState(item);
   const [commentText, setCommentText] = useState('');
   const [commentOpen, setCommentOpen] = useState(false);
@@ -128,12 +131,10 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
     return () => safeRemove(trimSub);
   }, [player, trimStart, trimEnd]);
   useEffect(() => {
-    if (!reelAudioUrl) {
-      return undefined;
-    }
-    player.muted = true;
+    player.muted = Boolean(reelAudioUrl);
+    audioPlayer.muted = isMuted;
     return () => { safeUnmute(player); };
-  }, [reelAudioUrl, player]);
+  }, [audioPlayer, isMuted, player, reelAudioUrl]);
   useEffect(() => {
     if (!reelAudioUrl || !isActive) {
       safePause(audioPlayer);
@@ -167,6 +168,43 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
     }
   }, []);
   const isLegacy = item.id.startsWith('catalog:');
+
+  useEffect(() => {
+    if (player.videoTrack?.size) {
+      setVideoSize(player.videoTrack.size);
+    }
+    const sizeSubscription = player.addListener('videoTrackChange', ({ videoTrack }) => {
+      const size = videoTrack?.size;
+      setVideoSize(size && size.width > 0 && size.height > 0 ? size : null);
+    });
+    const statusSubscription = player.addListener('statusChange', ({ status }) => {
+      if (status === 'error') {
+        setError('This Reel could not be played. Retry to try again.');
+      }
+    });
+    return () => {
+      sizeSubscription.remove();
+      statusSubscription.remove();
+    };
+  }, [item.videoUrl, player]);
+
+  const videoFrame = useMemo(() => {
+    if (
+      !videoSize ||
+      videoSize.width <= 0 ||
+      videoSize.height <= 0 ||
+      containerSize.width <= 0 ||
+      containerSize.height <= 0
+    ) {
+      return null;
+    }
+    const scale = Math.min(
+      1,
+      containerSize.width / videoSize.width,
+      containerSize.height / videoSize.height,
+    );
+    return { width: videoSize.width * scale, height: videoSize.height * scale };
+  }, [containerSize, videoSize]);
 
   useEffect(() => {
     if (!isActive && !isNext) {
@@ -368,10 +406,38 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
       }
     }, 300);
   };
+  const toggleSound = () => setIsMuted((muted) => !muted);
 
   return (
-    <View style={[styles.videoPage, { height }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Pause or play Reel" onPress={handleVideoTap} style={StyleSheet.absoluteFill}><VideoView key={videoAudioBoost.viewKey} accessibilityLabel={`Reel by ${currentItem.creatorName}`} player={player} style={StyleSheet.absoluteFill} contentFit="cover" surfaceType="textureView" nativeControls={false} allowsPictureInPicture={false} crossOrigin={videoAudioBoost.crossOrigin} /></Pressable>
+    <View
+      style={[styles.videoPage, { height }]}
+      onLayout={({ nativeEvent }) => {
+        setContainerSize({
+          width: nativeEvent.layout.width,
+          height: nativeEvent.layout.height,
+        });
+      }}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Pause or play Reel"
+        onPress={handleVideoTap}
+        style={[StyleSheet.absoluteFill, styles.videoSurface]}
+      >
+        {videoFrame ? (
+          <VideoView
+            key={videoAudioBoost.viewKey}
+            accessibilityLabel={`Reel by ${currentItem.creatorName}`}
+            player={player}
+            style={videoFrame}
+            contentFit="contain"
+            surfaceType="textureView"
+            nativeControls={false}
+            allowsPictureInPicture={false}
+            crossOrigin={videoAudioBoost.crossOrigin}
+          />
+        ) : null}
+      </Pressable>
       {Platform.OS === 'web' && reelAudioUrl ? <VideoView key={trackAudioBoost.viewKey} player={audioPlayer} style={styles.hiddenAudioVideo} contentFit="cover" nativeControls={false} allowsPictureInPicture={false} playsInline crossOrigin={trackAudioBoost.crossOrigin} /> : null}
       <View pointerEvents="box-none" style={[styles.volumeBoost, { top: insets.top + 10 }]}>
         <VolumeBoostControl
@@ -385,11 +451,25 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center', opacity: heartOpacity, transform: [{ scale: heartScale }] }]}>
         <Ionicons name="heart" size={110} color="#FF3B5C" />
       </Animated.View>
-      {!player.status || player.status === 'loading' ? <ActivityIndicator color={theme.accent} /> : null}
+      {!videoFrame || player.status === 'loading' ? (
+        <View pointerEvents="none" style={styles.loadingPlaceholder}>
+          <ActivityIndicator color={theme.accent} />
+          <Text style={styles.loadingText}>Loading Reel</Text>
+        </View>
+      ) : null}
       {error ? (
         <View style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-          <Pressable accessibilityRole="button" onPress={() => void player.replaceAsync(reelVideoSource(item.videoUrl)).then(() => safePlay(player)).catch(() => undefined)} style={styles.retryButton}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              setError(undefined);
+              void player.replaceAsync(reelVideoSource(item.videoUrl))
+                .then(() => safePlay(player))
+                .catch(() => setError('This Reel could not be played. Retry to try again.'));
+            }}
+            style={styles.retryButton}
+          >
             <Text style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
@@ -408,6 +488,14 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Save Reel" onPress={toggleSave} style={styles.action}>
           <Ionicons name={currentItem.isSaved ? 'bookmark' : 'bookmark-outline'} size={25} color="#FFFFFF" />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isMuted ? 'Turn Reel sound on' : 'Turn Reel sound off'}
+          onPress={toggleSound}
+          style={styles.action}
+        >
+          <Ionicons name={isMuted ? 'volume-mute-outline' : 'volume-high-outline'} size={25} color="#FFFFFF" />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Add to playlist" onPress={addPlaylist} style={styles.action}>
           <Ionicons name="list" size={26} color="#FFFFFF" />
@@ -536,6 +624,9 @@ export function ShortsFeed({ items, height, onBack, initialReelId }: ShortsFeedP
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   videoPage: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#000000' },
+  videoSurface: { alignItems: 'center', justifyContent: 'center' },
+  loadingPlaceholder: { alignItems: 'center', backgroundColor: '#000000', bottom: 0, gap: 8, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
+  loadingText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   backButton: {
     position: 'absolute',
     top: 12,
