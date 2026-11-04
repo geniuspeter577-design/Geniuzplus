@@ -6,6 +6,7 @@ import { ContentService } from './services/ContentService';
 import { MembershipService } from './services/MembershipService';
 import { ExpoPushNotificationService } from './services/ExpoPushNotificationService';
 import { FootballScoreNotificationService } from './services/FootballScoreNotificationService';
+import { BadgeReminderService } from './services/BadgeReminderService';
 
 ensureRequiredBackendEnv(process.env);
 
@@ -22,11 +23,20 @@ const pushService = config.supabaseServiceRoleKey ? new ExpoPushNotificationServ
 const footballScoreNotificationService = config.footballDataApiKey && config.supabaseServiceRoleKey
   ? new FootballScoreNotificationService(config)
   : undefined;
+const badgeReminderService = config.supabaseServiceRoleKey
+  ? new BadgeReminderService(config)
+  : undefined;
 pushService?.start();
 footballScoreNotificationService?.start();
+badgeReminderService?.start();
 if (!footballScoreNotificationService) {
   console.warn(
     '[Football notifications] Poller not started; FOOTBALL_DATA_API_KEY and SUPABASE_SERVICE_ROLE_KEY are required.',
+  );
+}
+if (!badgeReminderService) {
+  console.warn(
+    '[Membership reminders] Scheduler not started; SUPABASE_SERVICE_ROLE_KEY is required.',
   );
 }
 
@@ -51,6 +61,7 @@ server.listen(config.port, '0.0.0.0', () => {
 function shutdown() {
   pushService?.stop();
   footballScoreNotificationService?.stop();
+  badgeReminderService?.stop();
   if (membershipMaintenanceTimer) {
     clearInterval(membershipMaintenanceTimer);
   }

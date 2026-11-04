@@ -14,6 +14,10 @@ const {
   FootballScoreNotificationService,
   FOOTBALL_SCORE_POLL_INTERVAL_MS,
 } = require('../.test-build/backend/backend/src/services/FootballScoreNotificationService.js');
+const {
+  BadgeReminderService,
+  BADGE_REMINDER_INTERVAL_MS,
+} = require('../.test-build/backend/backend/src/services/BadgeReminderService.js');
 const { MembershipService, getMembershipAccessStatus } = require('../.test-build/backend/backend/src/services/MembershipService.js');
 const { PaystackService, isValidPaystackSignature } = require('../.test-build/backend/backend/src/services/PaystackService.js');
 const { ContentService } = require('../.test-build/backend/backend/src/services/ContentService.js');
@@ -1600,4 +1604,33 @@ test('memory cache deduplicates in-flight work and expires values', async () => 
   assert.deepEqual(await cache.getOrLoad('key', load), { count: 1 });
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.deepEqual(await cache.getOrLoad('key', load), { count: 2 });
+});
+
+test('badge reminders run on the server and honor the non-member and weekly caps in SQL', async () => {
+  const rpcCalls = [];
+  const service = new BadgeReminderService({
+    supabaseUrl: 'https://supabase.test',
+    supabaseServiceRoleKey: 'service-role-test-key',
+  }, {
+    adminClient: {
+      rpc: async (name) => {
+        rpcCalls.push(name);
+        return { data: 6, error: null };
+      },
+    },
+  });
+
+  assert.equal(await service.runOnce(), 6);
+  assert.deepEqual(rpcCalls, ['create_membership_badge_reminders']);
+  assert.equal(BADGE_REMINDER_INTERVAL_MS, 24 * 60 * 60 * 1_000);
+
+  const migration = fs.readFileSync('supabase/pending/membership-badge-reminders.sql', 'utf8');
+  const notificationNavigation = fs.readFileSync('src/utils/notificationNavigation.ts', 'utf8');
+  assert.equal((migration.match(/'[^']*(?:Reels|Reel|badge|device)[^']*'/g) ?? []).length >= 6, true);
+  assert.match(migration, /m\.status = 'active' and m\.current_period_end > now\(\)/);
+  assert.match(migration, /m\.status = 'grace' and m\.grace_until > now\(\)/);
+  assert.match(migration, /previous_sent_at < now\(\) - interval '7 days'/);
+  assert.match(migration, /last_sent_at <= now\(\) - interval '3 days'/);
+  assert.match(migration, /limit 500/i);
+  assert.match(notificationNavigation, /contentId === 'membership:badge-reminder'/);
 });

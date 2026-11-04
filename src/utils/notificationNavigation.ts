@@ -1,6 +1,11 @@
 import { router } from 'expo-router';
 
 export function openNotificationContent(contentId: string) {
+  if (contentId === 'membership:badge-reminder') {
+    router.push('/membership');
+    return;
+  }
+
   if (contentId.startsWith('profile:')) {
     const id = contentId.slice('profile:'.length);
     if (id) {
