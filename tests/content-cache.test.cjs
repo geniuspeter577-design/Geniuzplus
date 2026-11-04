@@ -50,6 +50,7 @@ test('web service worker refreshes app shell and static assets while serving cac
 test('Home and Search share the same saved catalog and remain rendered offline', () => {
   assert.match(home, /useContentQuery\('home-supabase-catalog',[\s\S]*?'home-catalog'\)/);
   assert.match(search, /useContentQuery\('search-supabase-catalog',[\s\S]*?'home-catalog'\)/);
+  assert.match(search, /preloadTitleImages\(catalogQuery\.data\)/);
   assert.match(search, /search-placeholder-\$\{index\}/);
   assert.doesNotMatch(home, /if \(!isOnline\)\s*\{\s*return/);
   assert.doesNotMatch(search, /if \(!isOnline\)\s*\{\s*return/);

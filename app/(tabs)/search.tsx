@@ -22,6 +22,7 @@ import { MockContentRepository } from '../../src/repositories/MockContentReposit
 import { supabaseMovieRepository } from '../../src/repositories/SupabaseMovieRepository';
 import { useNetwork } from '../../src/state/NetworkContext';
 import { theme } from '../../src/theme';
+import { preloadTitleImages } from '../../src/utils/preloadImages';
 import {
   isDemoCatalogEnabled,
   loadPublishedCatalog,
@@ -83,6 +84,9 @@ export default function SearchScreen() {
     return { data: { ...catalog, showingDemo: false }, source: 'supabase' as const };
   }, []);
   const catalogQuery = useContentQuery('search-supabase-catalog', loadCatalog, isOnline, 'home-catalog');
+  useEffect(() => {
+    preloadTitleImages(catalogQuery.data);
+  }, [catalogQuery.data]);
   const catalogItems = useMemo(
     () => sortPublishedNewest([
       ...(catalogQuery.data?.movies ?? []),
