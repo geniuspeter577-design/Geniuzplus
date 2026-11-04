@@ -10,6 +10,10 @@ const { TMDBContentRepository } = require('../.test-build/backend/backend/src/re
 const { MemoryCache } = require('../.test-build/backend/backend/src/repositories/MemoryCache.js');
 const { HttpTMDBProvider } = require('../.test-build/backend/backend/src/providers/TMDBProvider.js');
 const { FootballMatchesService } = require('../.test-build/backend/backend/src/services/FootballMatchesService.js');
+const {
+  FootballScoreNotificationService,
+  FOOTBALL_SCORE_POLL_INTERVAL_MS,
+} = require('../.test-build/backend/backend/src/services/FootballScoreNotificationService.js');
 const { MembershipService, getMembershipAccessStatus } = require('../.test-build/backend/backend/src/services/MembershipService.js');
 const { PaystackService, isValidPaystackSignature } = require('../.test-build/backend/backend/src/services/PaystackService.js');
 const { ContentService } = require('../.test-build/backend/backend/src/services/ContentService.js');
@@ -1445,6 +1449,37 @@ test('football provider requests stay within the ten-per-minute free tier limit'
   assert.equal(limited.status, 503);
   assert.equal((await limited.json()).error.code, 'FOOTBALL_RATE_LIMITED');
   assert.equal(calls, 10);
+});
+
+test('football score notifications use one provider range request per five-minute server poll', async (context) => {
+  const requests = [];
+  context.mock.method(global, 'fetch', async (input, init = {}) => {
+    requests.push({ url: new URL(String(input)), init });
+    return makeResponse(null);
+  });
+  let requestedRange;
+  const service = new FootballScoreNotificationService({
+    supabaseUrl: 'https://supabase.test',
+    supabaseServiceRoleKey: 'service-role-test-key',
+    footballDataApiKey: 'football-data-test-key',
+  }, {
+    async getMatches() {
+      return [];
+    },
+    async getMatchesRange(dateFrom, dateTo) {
+      requestedRange = { dateFrom, dateTo };
+      return [footballMatch];
+    },
+  }, () => Date.UTC(2026, 9, 8, 12));
+
+  await service.runOnce();
+
+  assert.deepEqual(requestedRange, { dateFrom: '2026-10-07', dateTo: '2026-10-09' });
+  assert.equal(FOOTBALL_SCORE_POLL_INTERVAL_MS, 5 * 60 * 1_000);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url.pathname, '/rest/v1/rpc/process_football_score_notifications');
+  assert.equal(requests[0].init.method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].init.body).p_matches, [footballMatch]);
 });
 
 test('trending endpoint returns normalized discovery items without streaming rights', async (context) => {

@@ -5,6 +5,7 @@ import { HttpTMDBProvider } from './providers/TMDBProvider';
 import { ContentService } from './services/ContentService';
 import { MembershipService } from './services/MembershipService';
 import { ExpoPushNotificationService } from './services/ExpoPushNotificationService';
+import { FootballScoreNotificationService } from './services/FootballScoreNotificationService';
 
 ensureRequiredBackendEnv(process.env);
 
@@ -18,7 +19,16 @@ const contentService = new ContentService(contentRepository, config.cacheTtlSeco
 const membershipService = new MembershipService(config);
 const server = createApiServer(config, contentService, { membershipService });
 const pushService = config.supabaseServiceRoleKey ? new ExpoPushNotificationService(config) : undefined;
+const footballScoreNotificationService = config.footballDataApiKey && config.supabaseServiceRoleKey
+  ? new FootballScoreNotificationService(config)
+  : undefined;
 pushService?.start();
+footballScoreNotificationService?.start();
+if (!footballScoreNotificationService) {
+  console.warn(
+    '[Football notifications] Poller not started; FOOTBALL_DATA_API_KEY and SUPABASE_SERVICE_ROLE_KEY are required.',
+  );
+}
 
 let membershipMaintenanceTimer: NodeJS.Timeout | undefined;
 if (config.paystackSecretKey?.startsWith('sk_test_') && config.supabaseServiceRoleKey) {
@@ -40,6 +50,7 @@ server.listen(config.port, '0.0.0.0', () => {
 
 function shutdown() {
   pushService?.stop();
+  footballScoreNotificationService?.stop();
   if (membershipMaintenanceTimer) {
     clearInterval(membershipMaintenanceTimer);
   }
