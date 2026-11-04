@@ -1339,6 +1339,10 @@ export class SupabaseMovieRepository {
   }
 
   async getDownloadUrl(item: Pick<ContentItem, 'id'>) {
+    const lessonId = /^geniuz:lesson:(.+)$/.exec(item.id)?.[1];
+    if (lessonId) {
+      return this.getApiPlaybackUrl('lessons', lessonId, 'video', 'download');
+    }
     const episodeId = /^geniuz:episode:(.+)$/.exec(item.id)?.[1];
     if (episodeId) {
       return this.getApiPlaybackUrl('episodes', episodeId, 'video', 'download');
@@ -1388,7 +1392,7 @@ export class SupabaseMovieRepository {
         ? {
             method: 'POST',
             body: JSON.stringify({
-              contentKind: resource === 'episodes' ? 'episode' : 'movie',
+              contentKind: resource === 'episodes' ? 'episode' : resource === 'lessons' ? 'lesson' : 'movie',
               contentId: id,
             }),
           }

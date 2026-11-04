@@ -53,7 +53,11 @@ function showDownloadDetails(record: OfflineDownloadRecord) {
   Alert.alert(
     record.item.title,
     [
-      record.item.type === 'series' || record.item.parentSeriesId ? 'Series' : 'Movie',
+      record.item.type === 'education'
+        ? 'Education lesson'
+        : record.item.type === 'series' || record.item.parentSeriesId
+          ? 'Series'
+          : 'Movie',
       `File size: ${formatBytes(record.size)}`,
       `Exact bytes: ${record.size.toLocaleString()}`,
       `Status: ${record.status}`,
@@ -341,7 +345,11 @@ export default function DownloadsScreen() {
           const isDownloaded = record.status === 'downloaded';
           const isActive = record.status === 'downloading' || record.status === 'paused';
           const typeLabel =
-            record.item.type === 'series' || record.item.parentSeriesId ? 'Series' : 'Movie';
+            record.item.type === 'education'
+              ? 'Education'
+              : record.item.type === 'series' || record.item.parentSeriesId
+                ? 'Series'
+                : 'Movie';
           const statusLabel = isDownloaded
             ? formatBytes(record.size)
             : record.status === 'downloading'
@@ -361,9 +369,19 @@ export default function DownloadsScreen() {
                   isDownloaded ? `Play ${record.item.title} offline` : `${record.item.title} download status`
                 }
                 disabled={!isDownloaded}
-                onPress={() =>
-                  router.push({ pathname: '/watch/[id]', params: { id: record.item.id } })
-                }
+                onPress={() => {
+                  if (record.item.type === 'education') {
+                    router.push({
+                      pathname: '/lesson-player',
+                      params: {
+                        id: record.item.sourceId ?? record.item.id.replace(/^geniuz:lesson:/, ''),
+                        title: record.item.title,
+                      },
+                    });
+                    return;
+                  }
+                  router.push({ pathname: '/watch/[id]', params: { id: record.item.id } });
+                }}
                 style={styles.titleRow}
               >
                 <Image

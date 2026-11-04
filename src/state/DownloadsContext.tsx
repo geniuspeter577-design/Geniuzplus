@@ -160,7 +160,7 @@ const service = new OfflineDownloadService(
     },
   },
   async (item) => {
-    if (!supabaseMovieRepository || !item.mediaPath) {
+    if (!supabaseMovieRepository || (!item.mediaPath && item.type !== 'education')) {
       throw new Error('Connect to the internet to prepare this download.');
     }
     return supabaseMovieRepository.getDownloadUrl(item);

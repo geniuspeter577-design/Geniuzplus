@@ -915,7 +915,7 @@ async function handleRequest(
     const body = await readJson(request);
     const contentKind = requiredString(body, 'contentKind');
     const contentId = requiredString(body, 'contentId');
-    if (contentKind !== 'movie' && contentKind !== 'episode') {
+    if (contentKind !== 'movie' && contentKind !== 'episode' && contentKind !== 'lesson') {
       throw new HttpError(400, 'INVALID_CONTENT_KIND', 'The content kind is invalid.');
     }
     if (!isMovieId(contentId)) {
@@ -931,7 +931,17 @@ async function handleRequest(
       file_size_bytes: unknown;
       content_type: unknown;
     } | null;
-    if (contentKind === 'episode') {
+    if (contentKind === 'lesson') {
+      const lookup = await client
+        .from('education_lessons')
+        .select('storage_provider,storage_key,published,allow_download,file_size_bytes')
+        .eq('id', contentId)
+        .maybeSingle();
+      if (lookup.error) {
+        throw new HttpError(502, 'DOWNLOAD_LOOKUP_FAILED', 'Could not load this lesson.');
+      }
+      data = lookup.data ? { ...lookup.data, video_path: null, content_type: null } : null;
+    } else if (contentKind === 'episode') {
       const lookup = await client
         .from('episodes')
         .select('storage_provider,storage_key,published,allow_download,file_size_bytes')
@@ -967,7 +977,7 @@ async function handleRequest(
     const storagePath =
       data.storage_provider === 'b2'
         ? data.storage_key
-        : contentKind === 'episode'
+        : contentKind !== 'movie'
           ? data.storage_key
           : data.video_path;
     if (typeof storagePath !== 'string' || !storagePath.trim()) {
@@ -979,7 +989,7 @@ async function handleRequest(
     }
     if (!isAdmin) {
       const { data: claim, error: claimError } = await client.rpc('claim_download', {
-        p_kind: contentKind,
+        p_kind: contentKind === 'lesson' ? 'episode' : contentKind,
         p_content_id: contentId,
       });
       if (claimError) {
@@ -995,7 +1005,7 @@ async function handleRequest(
     let url: string;
     if (data.storage_provider === 'b2') {
       url = await getStorage(config).createPlayUrl(storagePath, {
-        routeKind: contentKind,
+        routeKind: contentKind === 'movie' ? 'movie' : 'episode',
         contentId,
       }, true);
     } else if (data.storage_provider === 'supabase') {

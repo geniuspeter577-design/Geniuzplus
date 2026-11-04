@@ -2,14 +2,16 @@ import { useWindowDimensions } from '../src/hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
 import type { ImageStyle, NativeScrollEvent, NativeSyntheticEvent, StyleProp } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { ContentItem } from '../src/models/content';
 import { supabase } from '../src/services/supabase';
+import { useDownloads } from '../src/state/DownloadsContext';
 
 type Course = { id: string; title: string; description: string | null; level: string | null; subject: string | null; poster_url: string | null };
-type Lesson = { id: string; lesson_number: number; title: string; duration_seconds: number | null; poster_url: string | null; file_size_bytes: number | null };
+type Lesson = { id: string; lesson_number: number; title: string; duration_seconds: number | null; poster_url: string | null; file_size_bytes: number | null; file_extension: string | null; allow_download: boolean };
 
 const C = {
   bg: '#111317',
@@ -60,9 +62,31 @@ function Poster({ uri, style }: { uri: string | null; style: StyleProp<ImageStyl
   return <Image source={{ uri }} style={style} resizeMode="cover" onError={() => setFailed(true)} />;
 }
 
+function getLessonDownloadItem(lesson: Lesson, course: Course): ContentItem {
+  return {
+    id: `geniuz:lesson:${lesson.id}`,
+    source: 'geniuz',
+    sourceId: lesson.id,
+    title: lesson.title,
+    type: 'education',
+    genres: ['Education'],
+    posterUrl: lesson.poster_url ?? course.poster_url ?? undefined,
+    fileExtension: lesson.file_extension ?? undefined,
+    fileSizeBytes: lesson.file_size_bytes ?? undefined,
+    durationSeconds: lesson.duration_seconds ?? undefined,
+    availability: {
+      discoverable: true,
+      stream: true,
+      download: lesson.allow_download,
+      premium: false,
+    },
+  };
+}
+
 export default function EducationScreen() {
   const { width } = useWindowDimensions();
   const params = useLocalSearchParams<{ course?: string }>();
+  const downloads = useDownloads();
   const heroHeight = Math.min(Math.round((width * 9) / 16), 520);
   const heroRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(0);
@@ -117,7 +141,7 @@ export default function EducationScreen() {
     setLoading(true);
     supabase
       .from('education_lessons')
-      .select('id,lesson_number,title,duration_seconds,poster_url,file_size_bytes')
+      .select('id,lesson_number,title,duration_seconds,poster_url,file_size_bytes,file_extension,allow_download')
       .eq('course_id', course.id)
       .eq('published', true)
       .order('lesson_number', { ascending: true })
@@ -205,18 +229,68 @@ export default function EducationScreen() {
           <Text style={styles.section}>Lessons ({lessons.length})</Text>
           <View style={styles.list}>
             {lessons.length === 0 ? <Text style={styles.muted}>No lessons yet.</Text> : null}
-            {lessons.map((lesson) => (
-              <Pressable key={lesson.id} accessibilityRole="button" onPress={() => playLesson(lesson)} style={styles.row}>
-                <Poster uri={lesson.poster_url ?? openCourse.poster_url} style={styles.rowThumb} />
-                <View style={styles.rowBody}>
-                  <Text style={styles.rowTitle} numberOfLines={2}>{lesson.title}</Text>
-                  <Text style={styles.muted}>{[formatDuration(lesson.duration_seconds), formatSize(lesson.file_size_bytes)].filter(Boolean).join('  ·  ')}</Text>
+            {lessons.map((lesson) => {
+              const item = getLessonDownloadItem(lesson, openCourse);
+              const record = downloads.records.find((entry) => entry.item.id === item.id);
+              const isDownloaded = record?.status === 'downloaded';
+              const isInProgress = record?.status === 'downloading' || record?.status === 'queued';
+              const sizeLabel = formatSize(lesson.file_size_bytes);
+              const canStartDownload = lesson.allow_download && Boolean(lesson.file_size_bytes && lesson.file_size_bytes > 0);
+              const downloadLabel = isDownloaded
+                ? 'Saved'
+                : record?.status === 'downloading'
+                  ? `${record.progress}%`
+                  : record?.status === 'queued'
+                    ? 'Queued'
+                    : record?.status === 'paused'
+                      ? 'Resume'
+                      : sizeLabel
+                        ? `Download · ${sizeLabel}`
+                        : 'Download';
+              const onDownloadPress = () => {
+                const action = record?.status === 'paused'
+                  ? downloads.resume(item.id)
+                  : isInProgress
+                    ? downloads.cancel(item.id)
+                    : downloads.download(item);
+                void action.catch((downloadError: unknown) => {
+                  Alert.alert(
+                    'Download error',
+                    downloadError instanceof Error ? downloadError.message : 'The download failed. Please retry.',
+                  );
+                });
+              };
+
+              return (
+                <View key={lesson.id} style={styles.row}>
+                  <Pressable accessibilityRole="button" onPress={() => playLesson(lesson)} style={styles.lessonPrimary}>
+                    <Poster uri={lesson.poster_url ?? openCourse.poster_url} style={styles.rowThumb} />
+                    <View style={styles.rowBody}>
+                      <Text style={styles.rowTitle} numberOfLines={2}>{lesson.title}</Text>
+                      <Text style={styles.muted}>{[formatDuration(lesson.duration_seconds), sizeLabel].filter(Boolean).join('  ·  ')}</Text>
+                    </View>
+                    <View style={styles.rowPlay}>
+                      <Ionicons name="play" size={18} color={C.green} />
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${isDownloaded ? 'Downloaded' : 'Download'} ${lesson.title}${sizeLabel ? `, ${sizeLabel}` : ''}`}
+                    accessibilityState={{ disabled: isDownloaded || (!canStartDownload && !isInProgress && record?.status !== 'paused') }}
+                    disabled={isDownloaded || (!canStartDownload && !isInProgress && record?.status !== 'paused')}
+                    onPress={onDownloadPress}
+                    style={[styles.downloadButton, (isDownloaded || (!canStartDownload && !isInProgress && record?.status !== 'paused')) && styles.downloadButtonOff]}
+                  >
+                    <Text style={styles.downloadButtonText} numberOfLines={1}>{downloadLabel}</Text>
+                    {record && (isInProgress || record.status === 'paused') ? (
+                      <View style={styles.downloadProgressTrack}>
+                        <View style={[styles.downloadProgressFill, { width: `${record.progress}%` }]} />
+                      </View>
+                    ) : null}
+                  </Pressable>
                 </View>
-                <View style={styles.rowPlay}>
-                  <Ionicons name="play" size={18} color={C.green} />
-                </View>
-              </Pressable>
-            ))}
+              );
+            })}
           </View>
         </ScrollView>
       ) : (
@@ -301,12 +375,18 @@ const styles = StyleSheet.create({
   ctaText: { color: C.onGreen, fontSize: 14, fontWeight: '700' },
   section: { color: C.text, fontSize: 16, fontWeight: '700', paddingHorizontal: 16, paddingVertical: 10 },
   list: { gap: 8, paddingHorizontal: 16 },
-  row: { alignItems: 'center', backgroundColor: C.card, borderRadius: 12, flexDirection: 'row', gap: 14, padding: 14 },
+  row: { alignItems: 'center', backgroundColor: C.card, borderRadius: 12, flexDirection: 'row', gap: 8, padding: 10 },
+  lessonPrimary: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10 },
   number: { color: C.green, fontSize: 16, fontWeight: '700', minWidth: 26 },
   rowBody: { flex: 1, gap: 2 },
   rowThumb: { backgroundColor: C.highest, borderRadius: 8, height: 72, width: 52 },
   rowTitle: { color: C.text, fontSize: 14, fontWeight: '600' },
   rowPlay: { alignItems: 'center', backgroundColor: C.highest, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  downloadButton: { alignItems: 'center', backgroundColor: C.highest, borderRadius: 8, justifyContent: 'center', minHeight: 40, minWidth: 84, paddingHorizontal: 8 },
+  downloadButtonOff: { opacity: 0.6 },
+  downloadButtonText: { color: C.text, fontSize: 11, fontWeight: '700' },
+  downloadProgressTrack: { backgroundColor: C.card, borderRadius: 2, height: 3, marginTop: 4, overflow: 'hidden', width: '100%' },
+  downloadProgressFill: { backgroundColor: C.green, height: '100%' },
   muted: { color: C.muted, fontSize: 12 },
   lessonRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
   lessonChip: { alignItems: 'center', backgroundColor: C.card, borderColor: C.highest, borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', minHeight: 64, minWidth: 130, paddingHorizontal: 14, paddingVertical: 10 },

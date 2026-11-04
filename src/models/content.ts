@@ -11,7 +11,8 @@ export type ContentType =
   | 'short'
   | 'sports'
   | 'live'
-  | 'music';
+  | 'music'
+  | 'education';
 
 export type ContentSource = 'geniuz' | 'tmdb' | 'mock' | 'anilist' | 'other';
 

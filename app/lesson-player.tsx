@@ -11,6 +11,7 @@ import { PlayerHeader } from '../src/components/detail/PlayerHeader';
 import { TitleImage } from '../src/components/TitleImage';
 import { supabaseMovieRepository } from '../src/repositories/SupabaseMovieRepository';
 import { supabase } from '../src/services/supabase';
+import { useDownloads } from '../src/state/DownloadsContext';
 import { useStudyMode } from '../src/state/StudyModeContext';
 import { recordStudyProgress } from '../src/state/studyHistory';
 import { backOrReplace } from '../src/utils/navigation';
@@ -57,6 +58,14 @@ export default function LessonPlayerScreen() {
   const id = typeof routeId === 'string' ? routeId : '';
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  const downloads = useDownloads();
+  const offlinePlaybackPath = useMemo(
+    () => downloads.records.find((record) =>
+      record.item.id === `geniuz:lesson:${id}` && record.status === 'downloaded',
+    )?.filePath,
+    [downloads.records, id],
+  );
+  const playbackRequestRef = useRef<{ id: string; retryAttempt: number } | null>(null);
 
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | undefined>();
@@ -91,6 +100,17 @@ export default function LessonPlayerScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    if (downloads.isLoading) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (playbackRequestRef.current?.id === id && playbackRequestRef.current.retryAttempt === retryAttempt) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    const request = { id, retryAttempt };
     setUrl(null);
     setError(undefined);
     setCurrentTime(0);
@@ -98,7 +118,22 @@ export default function LessonPlayerScreen() {
     setBufferedPosition(0);
     setShowControls(true);
     setSpeedMenuOpen(false);
-    if (!id || !supabaseMovieRepository) {
+    if (!id) {
+      playbackRequestRef.current = request;
+      setError('This lesson could not be opened.');
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (offlinePlaybackPath) {
+      playbackRequestRef.current = request;
+      setUrl(offlinePlaybackPath);
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (!supabaseMovieRepository) {
+      playbackRequestRef.current = request;
       setError('This lesson could not be opened.');
       return () => {
         cancelled = true;
@@ -108,18 +143,20 @@ export default function LessonPlayerScreen() {
       .getLessonPlaybackUrl(id)
       .then((playUrl) => {
         if (!cancelled) {
+          playbackRequestRef.current = request;
           setUrl(playUrl);
         }
       })
       .catch((e: unknown) => {
         if (!cancelled) {
+          playbackRequestRef.current = request;
           setError(e instanceof Error ? e.message : 'Could not load this lesson. Tap Retry.');
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [id, retryAttempt]);
+  }, [downloads.isLoading, id, offlinePlaybackPath, retryAttempt]);
 
   useEffect(() => {
     try {

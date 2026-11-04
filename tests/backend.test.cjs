@@ -523,7 +523,7 @@ test('published B2 episode play URLs are public while unpublished episodes requi
   assert.equal(adminResponse.status, 200);
 });
 
-test('download URLs require the published title download flag for movies and episodes', async (context) => {
+test('download URLs require the published title download flag for movies, episodes, and lessons', async (context) => {
   const originalFetch = global.fetch;
   const originalCreatePlayUrl = B2StorageService.prototype.createPlayUrl;
   const movie = {
@@ -542,8 +542,16 @@ test('download URLs require the published title download flag for movies and epi
     allow_download: true,
     file_size_bytes: 2048,
   };
+  const lesson = {
+    storage_provider: 'b2',
+    storage_key: 'education/00000000-0000-4000-8000-000000000003.mp4',
+    published: true,
+    allow_download: true,
+    file_size_bytes: 3072,
+  };
   let requestedKeys = [];
-  global.fetch = async (input) => {
+  const claimedKinds = [];
+  global.fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.pathname === '/rest/v1/movies') {
       assert.match(url.searchParams.get('select'), /allow_download/);
@@ -553,7 +561,12 @@ test('download URLs require the published title download flag for movies and epi
       assert.match(url.searchParams.get('select'), /allow_download/);
       return makeResponse(episode);
     }
+    if (url.pathname === '/rest/v1/education_lessons') {
+      assert.match(url.searchParams.get('select'), /allow_download/);
+      return makeResponse(lesson);
+    }
     if (url.pathname === '/rest/v1/rpc/claim_download') {
+      claimedKinds.push(JSON.parse(init.body).p_kind);
       return makeResponse({ allowed: true });
     }
     if (url.pathname.startsWith('/storage/v1/object/sign/movie-assets/')) {
@@ -603,7 +616,14 @@ test('download URLs require the published title download flag for movies and epi
   );
   assert.equal(episodeResponse.status, 200);
   assert.equal((await episodeResponse.json()).fileSizeBytes, 2048);
-  assert.equal(requestedKeys.length, 2);
+  const lessonResponse = await authorizeDownload(
+    'lesson',
+    '00000000-0000-4000-8000-000000000003',
+  );
+  assert.equal(lessonResponse.status, 200);
+  assert.equal((await lessonResponse.json()).fileSizeBytes, 3072);
+  assert.deepEqual(claimedKinds, ['movie', 'episode', 'episode']);
+  assert.equal(requestedKeys.length, 3);
 
   movie.storage_provider = 'supabase';
   const supabaseResponse = await authorizeDownload(
@@ -620,7 +640,7 @@ test('download URLs require the published title download flag for movies and epi
   );
   assert.equal(deniedResponse.status, 403);
   assert.equal((await deniedResponse.json()).error.code, 'DOWNLOAD_NOT_ALLOWED');
-  assert.equal(requestedKeys.length, 2);
+  assert.equal(requestedKeys.length, 3);
 });
 
 test('subtitle endpoints return signed tracks only for published movies and published episode chains', async (context) => {

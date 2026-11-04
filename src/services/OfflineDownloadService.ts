@@ -286,7 +286,7 @@ export class OfflineDownloadService {
     if (!item.availability.download) {
       throw new Error('Downloads are not enabled for this title.');
     }
-    if (!item.mediaPath) {
+    if (!item.mediaPath && item.type !== 'education') {
       throw new Error('This title does not have a downloadable video file.');
     }
     const size = item.fileSizeBytes;
