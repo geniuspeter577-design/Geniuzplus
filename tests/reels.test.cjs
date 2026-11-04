@@ -32,7 +32,7 @@ test('Reel player caches on native, preloads only the next item, and unloads oth
   assert.match(player, /audioPlayer\.replaceAsync\(null\)/);
 });
 
-test('pending bucket adjustment restores the 50 MB Reel limit', () => {
-  assert.match(migration, /file_size_limit = 52428800/);
+test('pending bucket adjustment preserves the existing 200 MB Supabase limit', () => {
+  assert.match(migration, /file_size_limit = 209715200/);
   assert.match(migration, /where id = 'reels'/);
 });

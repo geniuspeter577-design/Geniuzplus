@@ -1,7 +1,7 @@
 do $$
 begin
   update storage.buckets
-  set file_size_limit = 52428800
+  set file_size_limit = 209715200
   where id = 'reels';
 
   if not found then

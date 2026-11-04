@@ -131,7 +131,7 @@ function ShortVideo({ item, height, isActive, isNext, onHide, onFinished }: {
     return () => safeRemove(trimSub);
   }, [player, trimStart, trimEnd]);
   useEffect(() => {
-    player.muted = Boolean(reelAudioUrl);
+    player.muted = reelAudioUrl ? true : isMuted;
     audioPlayer.muted = isMuted;
     return () => { safeUnmute(player); };
   }, [audioPlayer, isMuted, player, reelAudioUrl]);
