@@ -647,7 +647,7 @@ export type ReelActivity = {
 
 export async function loadReelActivity(): Promise<ReelActivity[]> {
   const rows = await request<{ id: string; actor_id: string; kind: string; reel_id: string | null; created_at: string; read_at: string | null }[]>(
-    '/rest/v1/reel_notifications?select=id,actor_id,kind,reel_id,created_at,read_at&order=created_at.desc&limit=50',
+    '/rest/v1/reel_notifications?select=id,actor_id,kind,reel_id,created_at,read_at&kind=neq.like&order=created_at.desc&limit=50',
   );
   if (!rows.length) {
     return [];

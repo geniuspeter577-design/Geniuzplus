@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
   Alert,
@@ -22,6 +22,7 @@ import {
   type AppNotification,
 } from '../src/services/NotificationsStore';
 import { backOrReplace } from '../src/utils/navigation';
+import { openNotificationContent } from '../src/utils/notificationNavigation';
 import { loadReelActivity, markReelActivityRead, type ReelActivity } from '../src/services/ReelsRepository';
 
 const ACTIVITY_TEXT: Record<ReelActivity['kind'], string> = {
@@ -48,7 +49,7 @@ export default function NotificationsScreen() {
     setActivity((current) => current.map((item) => (item.id === row.id ? { ...item, read: true } : item)));
     void markReelActivityRead(row.id).catch(() => undefined);
     if (row.reelId) {
-      router.push({ pathname: '/shorts', params: { reelId: row.reelId } } as never);
+      openNotificationContent(`reel:${row.reelId}`);
     }
   };
 
@@ -84,7 +85,7 @@ export default function NotificationsScreen() {
     ));
     await markNotificationRead(notification.id);
     if (notification.contentId) {
-      router.push({ pathname: '/content/[id]', params: { id: notification.contentId } });
+      openNotificationContent(notification.contentId);
     }
   };
 

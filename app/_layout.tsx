@@ -20,6 +20,7 @@ import { LibraryProvider } from '../src/state/LibraryContext';
 import { NetworkProvider } from '../src/state/NetworkContext';
 import { FootballMatchesProvider } from '../src/state/FootballMatchesContext';
 import { useGlobalAndroidBackNavigation } from '../src/utils/navigation';
+import { openNotificationContent } from '../src/utils/notificationNavigation';
 
 export default function RootLayout() {
   useBackToPrevious();
@@ -41,6 +42,52 @@ export default function RootLayout() {
     return () => {
       clearTimeout(prewarmTimer);
       subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+    let active = true;
+    let lastResponseId: string | undefined;
+    let responseSubscription: { remove: () => void } | undefined;
+    const openResponse = (response: {
+      notification: {
+        request: {
+          identifier: string;
+          content: { data?: Record<string, unknown> };
+        };
+      };
+    }) => {
+      if (response.notification.request.identifier === lastResponseId) {
+        return;
+      }
+      lastResponseId = response.notification.request.identifier;
+      const contentId = response.notification.request.content.data?.contentId;
+      if (typeof contentId === 'string' && contentId) {
+        openNotificationContent(contentId);
+      }
+    };
+
+    void import('expo-notifications')
+      .then((Notifications) => {
+        if (!active) {
+          return;
+        }
+        const lastResponse = Notifications.getLastNotificationResponse();
+        if (lastResponse) {
+          openResponse(lastResponse);
+        }
+        responseSubscription = Notifications.addNotificationResponseReceivedListener(openResponse);
+      })
+      .catch((error: unknown) => {
+        console.error('[Notifications] Could not register the push response listener.', error);
+      });
+
+    return () => {
+      active = false;
+      responseSubscription?.remove();
     };
   }, []);
 
