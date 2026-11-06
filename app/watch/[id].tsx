@@ -76,9 +76,16 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 export default function WatchScreen() {
-  const { id: routeId, trailer: routeTrailer } = useLocalSearchParams<{ id: string; trailer?: string }>();
+  const {
+    id: routeId,
+    trailer: routeTrailer,
+    nativevideo: routeNativeVideo,
+  } = useLocalSearchParams<{ id: string; trailer?: string; nativevideo?: string }>();
   const id = typeof routeId === 'string' ? routeId : '';
   const isTrailer = routeTrailer === '1';
+  const useNativeVideo =
+    Platform.OS === 'web' &&
+    routeNativeVideo === '1';
   const player = useVideoPlayer(null);
   const downloads = useDownloads();
   const auth = useAuth();
@@ -1101,9 +1108,47 @@ export default function WatchScreen() {
       setShowWebUnmuteButton(false);
     }
     console.info('[player] source set', playbackUrl.slice(0, 60));
-    void player
-      .replaceAsync(playbackUrl)
-      .then(() => {
+    if (Platform.OS === 'web') {
+      const videoEvents = [
+        'loadstart',
+        'loadedmetadata',
+        'canplay',
+        'playing',
+        'waiting',
+        'stalled',
+        'suspend',
+        'abort',
+        'emptied',
+        'error',
+      ] as const;
+      const attachVideoDiagnostics = () => {
+        const video = document.querySelector('video');
+        if (!video) {
+          return;
+        }
+        for (const eventName of videoEvents) {
+          video.addEventListener(eventName, () => {
+            console.info(
+              '[video-event]',
+              eventName,
+              video.currentTime,
+              video.readyState,
+              video.networkState,
+              video.error?.code,
+            );
+          });
+        }
+      };
+      setTimeout(attachVideoDiagnostics, 0);
+    }
+    if (useNativeVideo) {
+      return () => {
+        active = false;
+      };
+    }
+    void (async () => {
+      try {
+        await player.replaceAsync(playbackUrl);
         if (active && !playerReleasedRef.current) {
           if (Platform.OS === 'web') {
             try {
@@ -1115,11 +1160,12 @@ export default function WatchScreen() {
             player.play();
           }
         }
-      })
-      .catch((loadError: unknown) => {
+      } catch (loadError: unknown) {
         if (active) {
           loadedPlaybackUrlRef.current = null;
           const { status, code } = getPlaybackErrorDetails(loadError);
+          console.info('[player] replaceAsync failed', loadError);
+          console.trace('[player] replaceAsync failed stack');
           loggerPlaybackWarning(status, code, 'PLAYER_LOAD_FAILED');
           const loadErrorName = (loadError as { name?: string } | null)?.name;
           if (
@@ -1131,12 +1177,13 @@ export default function WatchScreen() {
           }
           handlePlayerFailureRef.current(loadError instanceof Error ? { message: loadError.message } : undefined);
         }
-      });
+      }
+    })();
 
     return () => {
       active = false;
     };
-  }, [player, playbackUrl]);
+  }, [player, playbackUrl, useNativeVideo]);
 
   const retryPlayback = () => {
     expiredLinkRetryRef.current = false;
@@ -1195,6 +1242,7 @@ export default function WatchScreen() {
       <PlayerHeader
         player={player}
         playbackUrl={playbackUrl}
+        nativeVideo={useNativeVideo}
         title={playerTitle}
         isLoading={isLoading}
         isBuffering={isBuffering}

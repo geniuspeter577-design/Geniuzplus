@@ -38,6 +38,7 @@ import {
 type PlayerHeaderProps = {
   player: ReturnType<typeof useVideoPlayer>;
   playbackUrl?: string;
+  nativeVideo?: boolean;
   title: string;
   isLoading: boolean;
   isBuffering: boolean;
@@ -78,6 +79,7 @@ type PlayerHeaderProps = {
 export function PlayerHeader({
   player,
   playbackUrl,
+  nativeVideo = false,
   title,
   isLoading,
   isBuffering,
@@ -382,7 +384,20 @@ export function PlayerHeader({
   return (
     <View style={playerContainerStyle}>
       {playbackUrl ? (
-        <VideoView
+        nativeVideo ? React.createElement('video', {
+          src: playbackUrl,
+          controls: true,
+          autoPlay: true,
+          playsInline: true,
+          style: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: '#000',
+          },
+        }) : <VideoView
           player={player}
           style={styles.video}
           nativeControls={false}
