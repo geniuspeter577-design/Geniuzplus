@@ -1,7 +1,13 @@
 import { useWindowDimensions } from '../../src/hooks/useColumnWindow';
 import { Ionicons } from '@expo/vector-icons';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import {
+  router,
+  Stack,
+  type ErrorBoundaryProps,
+  useFocusEffect,
+  useLocalSearchParams,
+} from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, } from 'react-native';
@@ -47,6 +53,27 @@ import {
 } from '../../src/utils/episodePlayback';
 import { getFileExtension, isVideoFormatLikelySupported } from '../../src/utils/videoFile';
 import { findSubtitleCue, parseSubtitleFile, type SubtitleCue } from '../../src/utils/subtitles';
+
+let watchBoundaryErrorLogged = false;
+
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => {
+    if (!watchBoundaryErrorLogged) {
+      watchBoundaryErrorLogged = true;
+      console.error('[watch] screen error', error, error.stack);
+    }
+  }, [error]);
+
+  return (
+    <SafeAreaView style={styles.watchBoundary}>
+      <Text style={styles.watchBoundaryTitle}>The watch screen could not be displayed.</Text>
+      <Text style={styles.watchBoundaryMessage}>{error.message}</Text>
+      <Pressable accessibilityRole="button" onPress={retry} style={styles.watchBoundaryRetry}>
+        <Text style={styles.watchBoundaryRetryText}>Try again</Text>
+      </Pressable>
+    </SafeAreaView>
+  );
+}
 
 export default function WatchScreen() {
   const { id: routeId, trailer: routeTrailer } = useLocalSearchParams<{ id: string; trailer?: string }>();
@@ -515,6 +542,9 @@ export default function WatchScreen() {
       !canPlayNextEpisode ||
       currentCountdown !== null ||
       autoplayCanceledRef.current === movie.id ||
+      playerStatus !== 'readyToPlay' ||
+      player.playing !== true ||
+      currentTime <= 0 ||
       !isEpisodeWatchedAtPosition(movie.id, currentTime, duration)
     ) {
       return;
@@ -531,6 +561,8 @@ export default function WatchScreen() {
     duration,
     movie,
     nextEpisode,
+    player.playing,
+    playerStatus,
   ]);
 
   useEffect(() => {
@@ -724,6 +756,15 @@ export default function WatchScreen() {
     if (failureHandledRef.current || playerReleasedRef.current) {
       return;
     }
+    const webPlayFailureName = (playerError as { name?: string } | undefined)?.name;
+    if (
+      Platform.OS === 'web' &&
+      (webPlayFailureName === 'AbortError' || webPlayFailureName === 'NotAllowedError')
+    ) {
+      setShowWebPlayButton(true);
+      setIsLoading(false);
+      return;
+    }
     failureHandledRef.current = true;
     setIsLoading(false);
     setShowControls(true);
@@ -755,7 +796,10 @@ export default function WatchScreen() {
   const handleWebPlayFailure = useCallback((playError: unknown) => {
     console.warn('[player] play failed', playError);
     const errorName = (playError as { name?: string } | null)?.name;
-    if (Platform.OS === 'web' && errorName === 'NotAllowedError') {
+    if (
+      Platform.OS === 'web' &&
+      (errorName === 'NotAllowedError' || errorName === 'AbortError')
+    ) {
       setShowWebPlayButton(true);
       if (!webMutedRetryRef.current) {
         webMutedRetryRef.current = true;
@@ -767,7 +811,7 @@ export default function WatchScreen() {
         } catch (mutedPlayError) {
           console.warn('[player] play failed', mutedPlayError);
           const mutedErrorName = (mutedPlayError as { name?: string } | null)?.name;
-          if (mutedErrorName === 'NotAllowedError') {
+          if (mutedErrorName === 'NotAllowedError' || mutedErrorName === 'AbortError') {
             setShowWebPlayButton(true);
           } else {
             handlePlayerFailureRef.current({
@@ -835,14 +879,17 @@ export default function WatchScreen() {
             }
             if (!webMutedRetryRef.current) {
               webMutedRetryRef.current = true;
+              player.muted = true;
+              setShowWebUnmuteButton(true);
               try {
-                player.muted = true;
-                setShowWebUnmuteButton(true);
                 player.play();
               } catch (mutedPlayError) {
                 console.warn('[player] play failed', mutedPlayError);
                 const mutedErrorName = (mutedPlayError as { name?: string } | null)?.name;
-                if (mutedErrorName !== 'NotAllowedError') {
+                if (
+                  mutedErrorName !== 'NotAllowedError' &&
+                  mutedErrorName !== 'AbortError'
+                ) {
                   handlePlayerFailureRef.current({
                     message: mutedPlayError instanceof Error ? mutedPlayError.message : String(mutedPlayError),
                   });
@@ -1074,6 +1121,14 @@ export default function WatchScreen() {
           loadedPlaybackUrlRef.current = null;
           const { status, code } = getPlaybackErrorDetails(loadError);
           loggerPlaybackWarning(status, code, 'PLAYER_LOAD_FAILED');
+          const loadErrorName = (loadError as { name?: string } | null)?.name;
+          if (
+            Platform.OS === 'web' &&
+            (loadErrorName === 'AbortError' || loadErrorName === 'NotAllowedError')
+          ) {
+            setShowWebPlayButton(true);
+            return;
+          }
           handlePlayerFailureRef.current(loadError instanceof Error ? { message: loadError.message } : undefined);
         }
       });
@@ -1374,6 +1429,37 @@ function loggerPlaybackWarning(status: number | undefined, code: string | undefi
 }
 
 const styles = StyleSheet.create({
+  watchBoundary: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.background,
+    paddingHorizontal: 24,
+    gap: 16,
+  },
+  watchBoundaryTitle: {
+    color: theme.text,
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  watchBoundaryMessage: {
+    color: theme.secondaryText,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  watchBoundaryRetry: {
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 10,
+    backgroundColor: theme.accentStrong,
+    paddingHorizontal: 20,
+  },
+  watchBoundaryRetryText: {
+    color: theme.background,
+    fontWeight: '800',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: theme.background,
