@@ -1025,6 +1025,10 @@ export default function WatchScreen() {
     };
   }, [downloads.isLoading, id, isNetworkReady, isTrailer, localDownload, retryAttempt]);
 
+  const handleWebPlayFailureRef = useRef(handleWebPlayFailure);
+  // eslint-disable-next-line react-hooks/refs
+  handleWebPlayFailureRef.current = handleWebPlayFailure;
+
   // eslint-disable-next-line react-hooks/immutability
   useEffect(() => {
     if (isLibraryLoading) {
@@ -1044,6 +1048,7 @@ export default function WatchScreen() {
       setShowWebPlayButton(false);
       setShowWebUnmuteButton(false);
     }
+    console.info('[player] source set', playbackUrl.slice(0, 60));
     void player
       .replaceAsync(playbackUrl)
       .then(() => {
@@ -1052,7 +1057,7 @@ export default function WatchScreen() {
             try {
               player.play();
             } catch (playError) {
-              handleWebPlayFailure(playError);
+              handleWebPlayFailureRef.current(playError);
             }
           } else {
             player.play();
@@ -1073,7 +1078,7 @@ export default function WatchScreen() {
         player.pause();
       }
     };
-  }, [handleWebPlayFailure, isLibraryLoading, player, playbackUrl]);
+  }, [isLibraryLoading, player, playbackUrl]);
 
   const retryPlayback = () => {
     expiredLinkRetryRef.current = false;
