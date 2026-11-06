@@ -379,83 +379,38 @@ export function PlayerHeader({
         aspectRatio: undefined,
       };
 
-  if (isLocked) {
-    return (
-      <View style={playerContainerStyle}>
-        {playbackUrl ? (
-          <VideoView
-            key={webAudioBoost.viewKey}
-            player={player}
-            style={styles.video}
-            nativeControls={false}
-            fullscreenOptions={{ enable: false }}
-            contentFit={fitMode}
-            allowsPictureInPicture={false}
-            crossOrigin={webAudioBoost.crossOrigin}
-            playsInline={Platform.OS === 'web' && webPlaybackEnabled}
-          />
-        ) : null}
-        {subtitleText ? (
-          <View pointerEvents="none" style={[styles.subtitleOverlay, isLandscape && styles.subtitleOverlayLandscape]}>
-            <Text style={styles.subtitleText}>{subtitleText}</Text>
-          </View>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Tap to reveal lock control"
-          onPress={() => setLockTapVisible(true)}
-          style={StyleSheet.absoluteFill}
-        />
-        {lockTapVisible ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Unlock playback controls"
-            onPress={onToggleLock}
-            style={styles.lockRevealButton}
-          >
-            <Ionicons name="lock-open-outline" size={32} color={theme.text} />
-          </Pressable>
-        ) : null}
-        {webPlaybackEnabled && showWebPlayButton && !error ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Play video"
-            onPress={onWebPlay}
-            style={styles.webPlayButton}
-          >
-            <Ionicons name="play" size={28} color={theme.background} />
-            <Text style={styles.webPlayButtonText}>Play</Text>
-          </Pressable>
-        ) : null}
-        {webPlaybackEnabled && showWebUnmuteButton ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Unmute video"
-            onPress={onWebUnmute}
-            style={styles.webUnmuteButton}
-          >
-            <Ionicons name="volume-high-outline" size={18} color={theme.text} />
-            <Text style={styles.webUnmuteButtonText}>Unmute</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    );
-  }
-
   return (
     <View style={playerContainerStyle}>
       {playbackUrl ? (
         <VideoView
-          key={webAudioBoost.viewKey}
           player={player}
           style={styles.video}
           nativeControls={false}
           fullscreenOptions={{ enable: false }}
           contentFit={fitMode}
           allowsPictureInPicture={false}
-          crossOrigin={webAudioBoost.crossOrigin}
           playsInline={Platform.OS === 'web' && webPlaybackEnabled}
         />
+      ) : null}
+      {isLocked ? (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Tap to reveal lock control"
+            onPress={() => setLockTapVisible(true)}
+            style={StyleSheet.absoluteFill}
+          />
+          {lockTapVisible ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Unlock playback controls"
+              onPress={onToggleLock}
+              style={styles.lockRevealButton}
+            >
+              <Ionicons name="lock-open-outline" size={32} color={theme.text} />
+            </Pressable>
+          ) : null}
+        </>
       ) : null}
       {subtitleText ? (
         <View pointerEvents="none" style={[styles.subtitleOverlay, isLandscape && styles.subtitleOverlayLandscape]}>

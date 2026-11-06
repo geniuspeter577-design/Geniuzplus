@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import type { VideoPlayer } from 'expo-video';
 
+const WEB_AUDIO_BOOST_ENABLED = false;
+
 import {
   clampWebVolumeBoost,
   connectWebAudioVolumeBoost,
@@ -42,7 +44,7 @@ export function useWebAudioVolumeBoost(player: VideoPlayer) {
   }, [closeAudioContext]);
 
   const activateFromUserGesture = () => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+    if (!WEB_AUDIO_BOOST_ENABLED || Platform.OS !== 'web' || typeof window === 'undefined') {
       return;
     }
     const video = [...((player as WebVideoPlayer)._mountedVideos ?? [])][0];
@@ -93,7 +95,7 @@ export function useWebAudioVolumeBoost(player: VideoPlayer) {
   };
 
   useEffect(() => {
-    if (Platform.OS !== 'web') {
+    if (!WEB_AUDIO_BOOST_ENABLED || Platform.OS !== 'web') {
       return undefined;
     }
     const subscription = player.addListener('statusChange', ({ status }) => {
@@ -108,9 +110,9 @@ export function useWebAudioVolumeBoost(player: VideoPlayer) {
   useEffect(() => () => closeAudioContext(), [closeAudioContext]);
 
   return {
-    viewKey: Platform.OS === 'web' ? (corsEnabled ? 'cors-audio' : 'plain-audio') : undefined,
-    crossOrigin: Platform.OS === 'web' && corsEnabled ? 'anonymous' as const : undefined,
-    boostAvailable,
+    viewKey: undefined,
+    crossOrigin: undefined,
+    boostAvailable: false,
     volumeBoost,
     activateFromUserGesture,
     setVolumeBoostPercent,

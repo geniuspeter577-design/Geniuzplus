@@ -173,6 +173,7 @@ export default function WatchScreen() {
   const webReadyPlayCheckRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoplayCanceledRef = useRef<string | undefined>(undefined);
   const saveProgressRef = useRef<() => void>(() => {});
+  const loadedPlaybackUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -1037,7 +1038,11 @@ export default function WatchScreen() {
     if (!playbackUrl || playerReleasedRef.current) {
       return;
     }
+    if (loadedPlaybackUrlRef.current === playbackUrl) {
+      return;
+    }
 
+    loadedPlaybackUrlRef.current = playbackUrl;
     let active = true;
     failureHandledRef.current = false;
     if (Platform.OS === 'web') {
@@ -1066,6 +1071,7 @@ export default function WatchScreen() {
       })
       .catch((loadError: unknown) => {
         if (active) {
+          loadedPlaybackUrlRef.current = null;
           const { status, code } = getPlaybackErrorDetails(loadError);
           loggerPlaybackWarning(status, code, 'PLAYER_LOAD_FAILED');
           handlePlayerFailureRef.current(loadError instanceof Error ? { message: loadError.message } : undefined);
@@ -1074,11 +1080,8 @@ export default function WatchScreen() {
 
     return () => {
       active = false;
-      if (!playerReleasedRef.current) {
-        player.pause();
-      }
     };
-  }, [isLibraryLoading, player, playbackUrl]);
+  }, [player, playbackUrl]);
 
   const retryPlayback = () => {
     expiredLinkRetryRef.current = false;
